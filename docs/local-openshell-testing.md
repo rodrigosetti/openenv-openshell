@@ -165,9 +165,12 @@ Important release-specific findings:
 
 The base Python image is pinned by digest in the Dockerfile; Debian packages
 are resolved at build time. This prerequisite image is separate from S3's
-future pinned EchoEnv image and does not establish OpenEnv/WebSocket support.
+EchoEnv image investigation and does not establish OpenEnv/WebSocket support.
 
 [drivers]: https://docs.nvidia.com/openshell/latest/reference/sandbox-compute-drivers
 [install]: https://docs.nvidia.com/openshell/latest/about/installation
 [workspaces]: https://docs.nvidia.com/openshell/latest/how-it-works/workspaces
 [support]: https://docs.nvidia.com/openshell/reference/support-matrix
+
+See [S3 image findings](echo-env-image.md) for the immutable candidate and the
+remaining architecture/VM compatibility blocker.

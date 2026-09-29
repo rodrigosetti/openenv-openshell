@@ -21,7 +21,6 @@ IDs; tasks whose dependencies are done may run in parallel.
 
 Tasks with complete dependencies:
 
-- **S3** EchoEnv test image selection
 - **P5** HTTP readiness
 
 ## Milestone 0 — Runtime spike
@@ -39,9 +38,11 @@ Tasks with complete dependencies:
   0.0.116, default workspace, native macOS VM compute, routed HTTP, and sandbox
   deletion; [setup and evidence](docs/local-openshell-testing.md). `make check`
   passes. Revalidate when S1a selects the target distribution. _Depends: F1._
-- ⬜ **S3 — Select and pin the EchoEnv test image.** Confirm its entrypoint,
-  target port, `/health`, `/ws`, and image compatibility with the chosen
-  OpenShell driver. _Depends: S2._
+- ⛔ **S3 — Select and pin the EchoEnv test image.** Candidate digest, port
+  8000, health/WebSocket probes, and MCP action contract are recorded in
+  [image findings](docs/echo-env-image.md). Blocked: the amd64-only image fails
+  the local arm64 VM; needs a pinned VM-compatible arm64 image or a validated
+  amd64 backend. _Depends: S2._
 - ⬜ **S4 — Build the one-file lifecycle spike.** Create a sandbox from the
   image, declare its service, wait for OpenShell readiness, obtain the routed
   URL, and always delete it. Keep this separate from production code.
