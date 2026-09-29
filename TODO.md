@@ -38,11 +38,12 @@ Tasks with complete dependencies:
   0.0.116, default workspace, native macOS VM compute, routed HTTP, and sandbox
   deletion; [setup and evidence](docs/local-openshell-testing.md). `make check`
   passes. Revalidate when S1a selects the target distribution. _Depends: F1._
-- ⛔ **S3 — Select and pin the EchoEnv test image.** Candidate digest, port
-  8000, health/WebSocket probes, and MCP action contract are recorded in
-  [image findings](docs/echo-env-image.md). Blocked: the amd64-only image fails
-  the local arm64 VM; needs a pinned VM-compatible arm64 image or a validated
-  amd64 backend. _Depends: S2._
+- ✅ **S3 — Select and pin the EchoEnv test image.** Native arm64 recipe,
+  immutable local image ID, upstream CMD, port 8000, and MCP action contract
+  are recorded in [image findings](docs/echo-env-image.md). The opt-in
+  [image probe](tests/integration/test_echo_image.py) passes VM provisioning,
+  routed `/health` and `/ws`, and deletion on 0.0.116; `make check` passes.
+  Revalidate after S1a selects the runtime pair. _Depends: S2._
 - ⬜ **S4 — Build the one-file lifecycle spike.** Create a sandbox from the
   image, declare its service, wait for OpenShell readiness, obtain the routed
   URL, and always delete it. Keep this separate from production code.
@@ -144,7 +145,9 @@ coverage exceeds 90%, all failure paths clean up, and `make check` passes.
   managed credential material is not trivially printable. _Depends: P3, SEC4._
 - ⬜ **SEC8 — Security review.** Check non-root behavior, resource limits,
   command-injection boundaries, labels, ingress, egress, exception redaction,
-  and cleanup blast radius against the spec. _Depends: SEC5, SEC6, SEC7._
+  and cleanup blast radius against the spec. Resolve the observed
+  [VM Landlock/PID-limit gaps](docs/echo-env-image.md) before claiming enforcement.
+  _Depends: SEC5, SEC6, SEC7._
 
 **Gate M2:** Explicit policies are fail-closed and digestible; denied filesystem
 and network operations are demonstrated without breaking the OpenEnv session.

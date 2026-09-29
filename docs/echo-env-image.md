@@ -1,6 +1,6 @@
-# EchoEnv image investigation (S3)
+# EchoEnv test image (S3)
 
-## Candidate pin
+## Rejected registry candidate (history)
 
 Inspected on 2026-09-29:
 
@@ -66,13 +66,9 @@ The failed sandbox was deleted with `openshell sandbox delete`; the subsequent
 workspace sandbox list was `[]`. No service was exposed for this failed VM.
 Docker probe containers used `--rm`.
 
-S3 remains blocked until a pinned native arm64 EchoEnv image with the VM's
-required utilities is available and passes provisioning, or a supported amd64
-compute backend is deliberately selected and validated. A derived image must
-pin its source/base inputs and preserve the environment's server workload;
-adding utilities alone does not fix an architecture mismatch. Revalidate with
-the SDK/gateway pair selected by S1a. Do not change gateway configuration or
-weaken policy to treat this candidate as compatible.
+This failed candidate is retained as investigation history. The selected native
+image below resolves the S3 compatibility blocker. Revalidate with the
+SDK/gateway pair selected by S1a.
 
 ## Reproduce inspection
 
@@ -88,3 +84,91 @@ Its mutable documentation is not the source of truth for this pinned image's
 port, action model, or architecture; inspect the digest before changing it.
 
 [deployment]: https://github.com/huggingface/OpenEnv/blob/main/tutorial/02-deployment.md
+
+## Selected local arm64 image
+
+The [Dockerfile](../tests/integration/images/echo/Dockerfile) builds the native
+VM test image from upstream EchoEnv source. Its immutable local Docker image ID
+is recorded in [local-image-id.txt](../tests/integration/images/echo/local-image-id.txt):
+
+```text
+sha256:21f3855dde019fb73eccc853f0d14308fbca702b30357add0bbb0cbc898a18f6
+```
+
+This is a **local image configuration ID**, not a registry manifest digest.
+It is available on this workstation and accepted directly by the local VM
+adapter. It cannot be pulled from a registry. The tag
+`openenv-openshell-echo:s3` is a build alias only; run validation by ID. Rebuilds
+can produce different IDs because of build timestamps; inspect the new ID,
+rerun validation, and update the recorded pin deliberately. Registry publishing
+is not required for the local spike and has not been performed.
+
+Pinned build inputs:
+
+- Source commit `4f4c85fb9038f43efc2f51858a27638277f16355`, with source archive
+  SHA-256 `3409c6641adb65cb6268d301101ad69226ae1aa147e79377cc1b0b711aa8e538`.
+- Python 3.12 slim multi-platform base and uv 0.11.20 by digest in the recipe.
+- Upstream EchoEnv `uv.lock`, installed with `uv sync --frozen --no-dev`.
+  This lock selects server package `openenv==0.3.1` and `fastmcp==3.1.1`.
+  This is the test server's dependency set, not a change to the provider's
+  supported client dependency range. Client protocol compatibility remains S5/P10.
+- Debian trixie snapshot `20260928T000000Z`, adding `iproute2` and `nftables`.
+  Disabling Release-file expiry is limited to this historical snapshot;
+  signed package verification remains enabled.
+
+The workload CMD remains the upstream `sh -c 'cd /app/env && uvicorn
+server.app:app --host 0.0.0.0 --port 8000'`. The image has no entrypoint,
+exposes target port 8000, and healthchecks `/health`. The EchoEnv source is
+unmodified and retains the MCP `echo_message` action contract.
+
+VM 0.0.116 did not inherit the image's PATH when starting the supplied
+canonical command: the first arm64 attempt exited 127. A symlink from
+`/usr/local/bin/uvicorn` to the locked virtual-environment executable preserves
+the upstream command while making it discoverable on the runtime's default
+PATH. The CLI defaults to a shell rather than the image CMD, so the probe reads
+and explicitly supplies the image's configured command. Production handling of
+image configuration belongs to the adapter/spike decisions.
+
+### Build and validate
+
+Run from the repository root after the S2 prerequisites are ready:
+
+```bash
+docker build --platform linux/arm64 -t openenv-openshell-echo:s3 \
+  -f tests/integration/images/echo/Dockerfile tests/integration/images/echo
+docker image inspect openenv-openshell-echo:s3 --format '{{.Id}}'
+
+# Use the recorded ID if already present, or the inspected ID after rebuilding.
+OPENENV_OPENSHELL_ECHO_IMAGE_ID="$(cat tests/integration/images/echo/local-image-id.txt)" \
+  uv run pytest -m integration --no-cov tests/integration/test_echo_image.py -v
+```
+
+The opt-in [image integration test](../tests/integration/test_echo_image.py)
+checks architecture and CMD, creates a unique sandbox, exposes port 8000 through
+OpenShell, polls routed `/health`, verifies `/ws` upgrade, and deletes the
+sandbox in `finally`, including after a failed create or probe. It checks that
+the sandbox name disappears from the workspace list. Each CLI operation and
+probe has a timeout. The marker excludes it from unit runs; without an image ID
+it skips without touching Docker or OpenShell. Coverage is disabled only for
+this image-only probe because it does not execute provider code; `make check`
+retains the package's 95% coverage floor.
+
+The WebSocket probe connects its TCP socket to loopback while preserving the
+OpenShell route's Host header. This avoids requiring system DNS resolution of
+`*.openshell.localhost`, without bypassing gateway service routing or opening a
+Docker host port. It tests a handshake, not a reset/step/state session.
+
+### Verified outcome and limits (2026-09-29)
+
+CLI/gateway 0.0.116, workspace `default`, native Apple Silicon VM: image
+provisioning, HTTP 200 `/health`, and WebSocket `/ws` upgrade passed through a
+named OpenShell service. The integration test confirmed deletion. The failed
+exploratory arm64 sandboxes were also deleted.
+
+The exploratory VM console reported Landlock unavailable and no runtime
+`pids.max` cgroup limit. These are runtime security limitations, not evidence of
+filesystem/resource enforcement. No gateway or policy settings were weakened.
+The final image includes `nftables` to address the observed missing-utility
+warning. Security acceptance remains in the SEC lane; S3 proves workload/image
+compatibility only. Remote gateways, full OpenEnv sessions, and the 0.1.2
+runtime remain unverified.

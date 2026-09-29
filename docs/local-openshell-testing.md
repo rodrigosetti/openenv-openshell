@@ -138,8 +138,8 @@ make integration
 ```
 
 Keep real-gateway tests marked `integration`; the default `make check` lane
-must remain hermetic and must not create sandboxes. There are no automated
-integration tests yet; the standalone smoke check is the S2 verification lane.
+must remain hermetic and must not create sandboxes. The standalone smoke check is the S2 verification lane. The separate
+[S3 image probe](echo-env-image.md) validates the native arm64 EchoEnv image.
 
 ## Verified setup (2026-09-29)
 
@@ -172,5 +172,5 @@ EchoEnv image investigation and does not establish OpenEnv/WebSocket support.
 [workspaces]: https://docs.nvidia.com/openshell/latest/how-it-works/workspaces
 [support]: https://docs.nvidia.com/openshell/reference/support-matrix
 
-See [S3 image findings](echo-env-image.md) for the immutable candidate and the
-remaining architecture/VM compatibility blocker.
+See [S3 image findings](echo-env-image.md) for the validated native arm64 test
+image, its immutable local ID, and build instructions.
