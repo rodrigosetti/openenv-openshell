@@ -23,7 +23,6 @@ Tasks with complete dependencies:
 
 - **S2a** Revalidate local OpenShell 0.1.2 setup
 - **P2** Private SDK adapter
-- **P5** HTTP readiness
 
 ## Milestone 0 — Runtime spike
 
@@ -82,9 +81,13 @@ service and the sandbox is deleted afterward.
 - ⬜ **P4 — Implement `start_container`.** Enforce one live sandbox, create it,
   wait for OpenShell readiness, extract and validate the service URL, populate
   state, and return the base URL. _Depends: P3._
-- ⬜ **P5 — Implement HTTP readiness.** Poll `<base_url>/health` using monotonic
+- ✅ **P5 — Implement HTTP readiness.** Poll `<base_url>/health` using monotonic
   deadlines, bounded request timeouts, configurable intervals, and a typed
-  timeout error. _Depends: P1._
+  timeout error. [Unit tests](tests/unit/test_readiness.py),
+  [loopback HTTP integration tests](tests/integration/test_http_readiness.py),
+  and [configuration/deadline semantics](README.md#http-readiness) are present;
+  `make check` and both integration cases pass with 100% unit branch coverage.
+  _Depends: P1._
 - ⬜ **P6 — Implement cleanup.** Make `stop_container` idempotent; support
   `keep_sandbox`; delete and wait with the expected sandbox ID; clear ownership
   correctly after absence, partial initialization, failure, and timeout.

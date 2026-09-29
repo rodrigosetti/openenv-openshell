@@ -37,5 +37,3 @@ def test_lifecycle_methods_fail_explicitly() -> None:
         provider.start_container("example.invalid/environment:latest")
     with pytest.raises(NotImplementedError, match="Milestone 1"):
         provider.stop_container()
-    with pytest.raises(NotImplementedError, match="Milestone 1"):
-        provider.wait_for_ready("https://example.invalid")
