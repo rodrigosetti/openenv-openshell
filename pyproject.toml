@@ -1,0 +1,98 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "openenv-openshell"
+version = "0.0.0"
+description = "Run OpenEnv environment servers in NVIDIA OpenShell sandboxes"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+authors = [{ name = "OpenEnv OpenShell contributors" }]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Typing :: Typed",
+]
+dependencies = [
+  "openenv>=0.4,<0.7",
+  "openshell>=0.0.116,<0.1",
+]
+
+[dependency-groups]
+dev = [
+  "hatchling>=1.27,<2",
+  "pyright>=1.1.405,<2",
+  "pytest>=8.4,<9",
+  "pytest-cov>=6,<8",
+  "ruff>=0.13,<0.15",
+]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/openenv_openshell"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/openenv_openshell"]
+
+[tool.pyright]
+include = ["src", "tests"]
+pythonVersion = "3.11"
+typeCheckingMode = "strict"
+venvPath = "."
+venv = ".venv"
+
+[tool.pytest.ini_options]
+addopts = [
+  "--strict-config",
+  "--strict-markers",
+  "-m=not integration",
+  "--cov=openenv_openshell",
+  "--cov-branch",
+  "--cov-report=term-missing:skip-covered",
+  "--cov-fail-under=95",
+]
+testpaths = ["tests"]
+markers = [
+  "integration: requires a running OpenShell gateway and external resources",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["openenv_openshell"]
+
+[tool.coverage.report]
+fail_under = 95
+show_missing = true
+skip_covered = true
+exclude_also = [
+  "if TYPE_CHECKING:",
+  "raise NotImplementedError",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+  "COM812", # Conflicts with the formatter.
+  "D203",   # Prefer no blank line before class docstrings.
+  "D213",   # Prefer summary on the first docstring line.
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["openenv_openshell"]
+
+[tool.ruff.format]
+docstring-code-format = true
