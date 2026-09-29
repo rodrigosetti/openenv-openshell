@@ -9,9 +9,14 @@ the runtime lifecycle described in [SPEC.md](SPEC.md) is not implemented yet.
 Python 3.11 or newer and [uv](https://docs.astral.sh/uv/) are required.
 
 ```bash
-uv sync --all-groups
+uv sync --locked --all-groups
 make check
 ```
+
+The SDK is pinned to the official OpenShell 0.1.2 release wheel by URL and
+SHA-256. Use a matching 0.1.2 gateway for future runtime work; see the
+[distribution and model-boundary decision](docs/openshell-sdk-contract.md).
+The local 0.1.2 runtime still needs revalidation (S2a).
 
 The checks enforce formatting and linting with Ruff, strict static typing with
 Pyright, and unit-test branch coverage of at least 95%. Tests that require a

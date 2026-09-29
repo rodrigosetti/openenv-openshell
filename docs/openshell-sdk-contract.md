@@ -1,23 +1,24 @@
 # OpenShell Python SDK contract
 
 This note records the public OpenShell surface inspected for roadmap task S1.
-It is a compatibility input for the private adapter, not an implementation
-guide for calling generated protobuf classes directly.
+S1a selects the distribution and confines generated models to the private
+adapter; these models are not part of the provider public API.
 
 ## Inspected releases
 
 - Inspection date: 2026-09-29.
 - Current release: [OpenShell `v0.1.2`][v0.1.2 release], including its official
   [Python wheel] GitHub release asset.
-- Repository baseline: `openshell==0.0.116`, resolved from [PyPI 0.0.116] by
-  `uv.lock`.
+- Previous repository baseline: `openshell==0.0.116` from [PyPI 0.0.116].
+- Selected dependency: the official 0.1.2 wheel, pinned by URL and SHA-256 in
+  `pyproject.toml` and `uv.lock`.
 - Python: 3.11 or newer.
 
 The [Python SDK documentation] recommends using the SDK and gateway from the
 same OpenShell release.
 The target pair is therefore SDK and gateway `0.1.2`. The official 0.1.2 wheel
 is attached to the GitHub release but was not published on PyPI at inspection
-time; PyPI still resolves 0.0.116. The repository must not combine the locked
+time; PyPI still resolves 0.0.116. The repository must not combine the old
 0.0.116 SDK with a 0.1.x gateway and call that a supported pair.
 
 [v0.1.2 release]: https://github.com/NVIDIA/OpenShell/releases/tag/v0.1.2
@@ -177,8 +178,8 @@ its annotated type is generated under the explicitly private
 `openshell._proto` package. `SandboxTemplateClient` likewise accepts and
 returns private generated template models.
 
-Inspection of the private wire shape records what a future stable builder must
-represent, but it is not an approved adapter boundary:
+S1a explicitly selects the following generated-model boundary for the pinned
+release, exercised offline in `tests/unit/test_openshell_contract.py`:
 
 | Concern | 0.1.2 wire field | Finding |
 | --- | --- | --- |
@@ -198,14 +199,52 @@ sandbox from an existing template by name, but creating that template still
 requires a private generated model. It therefore does not yet let this provider
 translate an arbitrary OpenEnv image using only stable public Python types.
 
-Production code must not silently import `openshell._proto`. Before P2, the
-project needs either a stable public workload/policy builder, an explicitly
-approved dependency on the generated types with contract tests, or a narrow
-public CLI adapter.
+### S1a decision: official wheel and confined generated models
+
+Use the [official Python wheel][Python wheel], with SHA-256:
+
+```text
+8c409da4f176d42418d92366fe201f47cceef2c0fa432bfbce2bf938649d59cf
+```
+
+The dependency metadata includes this hash, and the lock records the same
+artifact hash. `uv sync --locked --all-groups` installs it reproducibly. Hatch's
+`allow-direct-references` setting is required to build this dependency metadata.
+A future PyPI release must be reviewed before replacing the source; the current
+direct URL is a development distribution choice, not evidence of PyPI release
+readiness for this package.
+
+Select an explicitly tested generated-model dependency rather than waiting for
+a public builder or adding subprocess/CLI translation. P2 must confine
+`openshell._proto.openshell_pb2` (`SandboxSpec`, `SandboxTemplate`, and resource
+models) and `openshell._proto.sandbox_pb2` (`SandboxPolicy` and nested policy
+models) to private adapter modules. Provider-facing types must remain ordinary
+typed project models/protocols; generated types must not escape that boundary.
+Use public `SandboxClient` lifecycle methods and `ServiceExposure`; do not call
+private SDK clients, gRPC stubs, or implement a parallel wire model.
+
+The offline contracts prove construction and serialization of image,
+environment, providers, CPU/memory struct, GPU requirements, and an embedded
+policy, plus service defaults and the required lifecycle keyword signatures.
+Policy mapping must use strict conversion (`ignore_unknown_fields=False`)
+after schema-aware YAML normalization in SEC1. Unsupported or malformed input
+must fail before create; do not substitute an empty/default policy after a
+conversion error. The fixture establishes the model shape, not runtime policy
+enforcement or correct resource semantics for every compute driver.
+
+P2 must reject an unsupported SDK and check gateway release compatibility
+before creating a sandbox. T6 must extend these baseline contracts to the actual
+adapter calls, responses, service URL persistence, and deletion outcomes.
+Upgrades require a new pin and reviewed contracts, not a widened version range.
+Migrate to a public builder when upstream supplies the necessary surface.
+
+The local CLI/gateway remains historically verified at 0.0.116. S2a revalidates
+0.1.2 separately; installing the Python dependency does not upgrade the runtime.
+S3's arm64 image blocker is independent and remains open.
 
 ## 0.0.116 compatibility break
 
-The PyPI/lock baseline differs materially from 0.1.2:
+The previous PyPI/lock baseline differs materially from 0.1.2:
 
 - no public `ServiceExposure`, `service_exposures=`, or `service_urls`;
 - `delete()` returns `bool`, not `DeletionResult`;
@@ -223,9 +262,9 @@ to support both contracts accidentally.
    known-incompatible 0.0.116 SDK before any sandbox is created.
 3. Persist the create-time `service_urls` value immediately.
 4. Use `SandboxRef.id` and identity-aware deletion waiting.
-5. Do not import `openshell._proto` in production without an explicit roadmap
-   decision and exact contract tests.
-6. Do not start the lifecycle spike until the workload-configuration boundary
-   and distribution source for the 0.1.2 SDK are selected.
-7. Add contract tests for method names, keyword arguments, response fields,
-   deletion outcomes, and the selected release when P2 chooses the interface.
+5. Only private adapter modules may import the S1a-selected generated types;
+   retain and extend their offline contracts when implementing P2/T6.
+6. The distribution and model decisions are complete. The lifecycle spike still
+   requires S2a runtime revalidation and S3 image compatibility.
+7. Extend contracts for adapter calls, response fields, and deletion outcomes
+   in T6.

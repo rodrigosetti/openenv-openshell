@@ -11,18 +11,16 @@ OpenShell release family.
 
 ## 1. Install the runtime
 
-Follow the official [OpenShell installation guide][install]. The project
-lockfile currently selects SDK `0.0.116`, so pin the CLI and gateway to the
-matching release rather than accepting the installer's latest release:
-
-This verifies the currently locked `0.0.116` pair. The product specification
-targets `0.1.2`; S1a must resolve its SDK distribution and model boundary before
-that pair can be selected. See the [SDK contract](openshell-sdk-contract.md).
-Repeat this smoke test when the supported SDK/gateway pair changes.
+Follow the official [OpenShell installation guide][install]. The project now
+pins the official SDK `0.1.2` wheel, so use CLI and gateway `0.1.2` as well.
+The previous 0.0.116 verification below is historical; revalidating these
+instructions and the VM configuration on 0.1.2 is roadmap task S2a. A 0.0.116
+gateway is not supported by the selected SDK. See the
+[SDK contract](openshell-sdk-contract.md).
 
 ```bash
 curl -LsSf https://raw.githubusercontent.com/NVIDIA/OpenShell/main/install.sh \
-  | OPENSHELL_VERSION=v0.0.116 sh
+  | OPENSHELL_VERSION=v0.1.2 sh
 openshell status
 ```
 
@@ -39,7 +37,9 @@ uses OpenShell's native `vm` driver, backed by Hypervisor.framework. Apple's
 `container` CLI is not a built-in OpenShell compute driver. Docker and Podman
 are also options; see the [compute-driver reference][drivers].
 
-Install the guest disk formatter and build the small prerequisite image:
+The prerequisite image tag below records its original 0.0.116 validation; it
+is not an SDK version selector. S2a must verify this image and VM configuration
+with the new runtime. Install the guest disk formatter and build the image:
 
 ```bash
 brew install e2fsprogs
@@ -68,7 +68,7 @@ instead of replacing that file. The user configuration at
 `~/.config/openshell/gateway.toml` takes precedence over the Homebrew file.
 
 The PyPI `openshell` dependency in this project is the Python SDK; it does not
-install the CLI or gateway. The preflight requires CLI `0.0.116` by default.
+install the CLI or gateway. The preflight requires CLI `0.1.2` by default.
 Set `OPENENV_OPENSHELL_VERSION` only when intentionally testing another
 SDK/gateway pair.
 
@@ -141,7 +141,7 @@ Keep real-gateway tests marked `integration`; the default `make check` lane
 must remain hermetic and must not create sandboxes. There are no automated
 integration tests yet; the standalone smoke check is the S2 verification lane.
 
-## Verified setup (2026-09-29)
+## Historical verified setup: 0.0.116 (2026-09-29)
 
 On Apple Silicon macOS, CLI and gateway `0.0.116` authenticated over mTLS at
 `https://localhost:17670`; the `default` workspace was accessible. Gateway logs

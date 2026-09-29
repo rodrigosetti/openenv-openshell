@@ -531,9 +531,11 @@ def start_container(
 OpenShell 0.1.2's official Python wheel supports creating, waiting for
 readiness, executing commands, deleting, and identity-aware deletion waiting.
 It also supports atomic service exposures and returned service URLs. The
-repository lock still resolves the incompatible 0.0.116 package from PyPI. See
+repository pins that wheel by release URL and SHA-256. S1a selects a confined,
+contract-tested generated-model dependency for workload and policy inputs;
+public lifecycle calls remain the runtime boundary. See
 [`docs/openshell-sdk-contract.md`](docs/openshell-sdk-contract.md) for the exact
-inspected contracts and remaining workload-model compatibility gap.
+contract and upgrade constraints.
 
 ## 12.2 Port semantics
 
@@ -613,9 +615,9 @@ sandbox = client.create(
 ```
 
 This is the public 0.1.2 service-exposure contract. The workload `spec` type is
-still private, so production code MUST NOT construct it through
-`openshell._proto` without an explicit compatibility decision and contract
-tests.
+still private. S1a explicitly permits its generated types only inside the
+private adapter, backed by the pinned-wheel offline contracts. Generated types
+MUST NOT enter the provider public API.
 
 The unnamed service SHOULD be used by default:
 
@@ -750,7 +752,7 @@ client.wait_deleted(
 )
 ```
 
-The official 0.1.2 wheel implements this contract. The repository's locked
+The pinned official 0.1.2 wheel implements this contract. The previous
 0.0.116 Python SDK instead returns `bool` from `delete()` and does not accept
 `expected_sandbox_id` in `wait_deleted()`. The adapter MUST reject that older
 contract before creating a sandbox.
@@ -1286,15 +1288,12 @@ Because OpenEnv explicitly describes itself as experimental and subject to API c
 
 ## 31.3 OpenShell
 
-The target compatibility range is:
-
-```toml
-openshell = ">=0.1.2,<0.2"
-```
-
-The repository currently resolves `0.0.116` from PyPI because 0.1.2 is only an
-official GitHub release asset. The dependency and lock must move together after
-the distribution source and workload-model boundary are selected.
+The selected compatibility target is exactly SDK/gateway `0.1.2`. The SDK
+dependency is the official GitHub wheel pinned by URL and SHA-256 in
+`pyproject.toml` and `uv.lock`; it replaces the incompatible PyPI `0.0.116`
+baseline. S1a permits generated workload/policy models only inside the private
+adapter with offline contract tests. Do not widen the SDK range until its
+model and lifecycle contracts are reviewed and runtime compatibility is tested.
 
 The OpenShell SDK and gateway SHOULD be from the same release family, consistent with NVIDIA's recommendation.
 

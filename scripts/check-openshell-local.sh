@@ -4,7 +4,7 @@ set -eu
 workspace="${OPENSHELL_WORKSPACE:-default}"
 image="${OPENENV_OPENSHELL_SMOKE_IMAGE:-openenv-openshell-prerequisites:0.0.116}"
 target_port="${OPENENV_OPENSHELL_SMOKE_PORT:-8000}"
-expected_version="${OPENENV_OPENSHELL_VERSION:-0.0.116}"
+expected_version="${OPENENV_OPENSHELL_VERSION:-0.1.2}"
 run_smoke=false
 sandbox_name=""
 
@@ -19,7 +19,7 @@ Environment:
   OPENSHELL_WORKSPACE                Workspace to test (default: default)
   OPENENV_OPENSHELL_SMOKE_IMAGE      OCI image (default: local prerequisite image)
   OPENENV_OPENSHELL_SMOKE_PORT       Target port (default: 8000)
-  OPENENV_OPENSHELL_VERSION          Required CLI version (default: 0.0.116)
+  OPENENV_OPENSHELL_VERSION          Required CLI version (default: 0.1.2)
 EOF
 }
 

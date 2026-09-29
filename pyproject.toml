@@ -23,7 +23,7 @@ classifiers = [
 ]
 dependencies = [
   "openenv>=0.4,<0.7",
-  "openshell>=0.0.116,<0.1",
+  "openshell @ https://github.com/NVIDIA/OpenShell/releases/download/v0.1.2/openshell-0.1.2-py3-none-any.whl#sha256=8c409da4f176d42418d92366fe201f47cceef2c0fa432bfbce2bf938649d59cf",
 ]
 
 [dependency-groups]
@@ -34,6 +34,10 @@ dev = [
   "pytest-cov>=6,<8",
   "ruff>=0.13,<0.15",
 ]
+
+# The selected official SDK wheel is a hash-pinned direct dependency (S1a).
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.hatch.build.targets.sdist]
 include = ["src/openenv_openshell"]

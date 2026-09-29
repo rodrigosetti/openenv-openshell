@@ -21,6 +21,8 @@ IDs; tasks whose dependencies are done may run in parallel.
 
 Tasks with complete dependencies:
 
+- **S2a** Revalidate local OpenShell 0.1.2 setup
+- **P2** Private SDK adapter
 - **P5** HTTP readiness
 
 ## Milestone 0 — Runtime spike
@@ -30,14 +32,20 @@ Tasks with complete dependencies:
   0.1.2 target versus 0.0.116 lock incompatibility are recorded in
   [`docs/openshell-sdk-contract.md`](docs/openshell-sdk-contract.md).
   _Depends: F1._
-- ⛔ **S1a — Select the SDK distribution and workload-model boundary.** Blocked
-  on choosing the official 0.1.2 wheel source and either a stable public
-  workload/policy builder, an explicitly tested generated-model dependency, or
-  a narrow CLI adapter. _Depends: S1._
+- ✅ **S1a — Select the SDK distribution and workload-model boundary.** Official
+  0.1.2 wheel pinned by URL/SHA-256; generated workload/policy models confined
+  to the private adapter by [decision](docs/openshell-sdk-contract.md), with
+  offline contracts in `tests/unit/test_openshell_contract.py`. `make check`
+  passes (64 tests, 100% coverage). _Depends: S1._
 - ✅ **S2 — Document a repeatable local test setup.** Verified CLI/gateway
   0.0.116, default workspace, native macOS VM compute, routed HTTP, and sandbox
   deletion; [setup and evidence](docs/local-openshell-testing.md). `make check`
-  passes. Revalidate when S1a selects the target distribution. _Depends: F1._
+  passes. Historical 0.0.116 evidence; S2a tracks the selected release.
+  _Depends: F1._
+- ⬜ **S2a — Revalidate the local setup on OpenShell 0.1.2.** Align CLI/gateway
+  with the pinned SDK, verify VM configuration and the prerequisite image, run
+  the routed HTTP/deletion smoke check, and update setup evidence. No 0.1.2
+  runtime validation is claimed by S1a. _Depends: S1a, S2._
 - ⛔ **S3 — Select and pin the EchoEnv test image.** Candidate digest, port
   8000, health/WebSocket probes, and MCP action contract are recorded in
   [image findings](docs/echo-env-image.md). Blocked: the amd64-only image fails
@@ -46,7 +54,7 @@ Tasks with complete dependencies:
 - ⬜ **S4 — Build the one-file lifecycle spike.** Create a sandbox from the
   image, declare its service, wait for OpenShell readiness, obtain the routed
   URL, and always delete it. Keep this separate from production code.
-  _Depends: S1a, S2, S3._
+  _Depends: S1a, S2a, S3._
 - ⬜ **S5 — Prove protocol connectivity.** Through the routed URL, verify HTTP
   `/health`, WebSocket `/ws`, `reset`, `step("hello")`, and `state`; record local
   and remote gateway findings. _Depends: S4._

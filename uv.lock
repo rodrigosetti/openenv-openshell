@@ -868,6 +868,18 @@ wheels = [
 ]
 
 [[package]]
+name = "googleapis-common-protos"
+version = "1.75.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "protobuf" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/8d/2b/6ce81972d5c8cab9705fddce3153be63222d9e12fd96f8baba5038a744dd/googleapis_common_protos-1.75.5.tar.gz", hash = "sha256:c7a866fc34ed29a3b10af627a4b9b1dc2433313ca6e959f0ae4feb132047ed72", size = 156513, upload-time = "2026-09-29T19:26:14.863Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/65/b9/6b29500a1c581ff4d77fd83c6568d068bee06f1b139fb6eb0a4f2d4bce8a/googleapis_common_protos-1.75.5-py3-none-any.whl", hash = "sha256:d7285525c23039db98f2463e6d5a4f9b958b94d497f03a844ece3259c4e72d5d", size = 307737, upload-time = "2026-09-29T19:25:48.735Z" },
+]
+
+[[package]]
 name = "gradio"
 version = "6.29.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1823,7 +1835,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "openenv", specifier = ">=0.4,<0.7" },
-    { name = "openshell", specifier = ">=0.0.116,<0.1" },
+    { name = "openshell", url = "https://github.com/NVIDIA/OpenShell/releases/download/v0.1.2/openshell-0.1.2-py3-none-any.whl" },
 ]
 
 [package.metadata.requires-dev]
@@ -1837,16 +1849,26 @@ dev = [
 
 [[package]]
 name = "openshell"
-version = "0.0.116"
-source = { registry = "https://pypi.org/simple" }
+version = "0.1.2"
+source = { url = "https://github.com/NVIDIA/OpenShell/releases/download/v0.1.2/openshell-0.1.2-py3-none-any.whl" }
 dependencies = [
     { name = "cloudpickle" },
+    { name = "googleapis-common-protos" },
     { name = "grpcio" },
     { name = "httpx" },
     { name = "protobuf" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/4d/53/f20551c4ae45e072215832362b73951abd17473ca20d56d8b7c0c7d58fdd/openshell-0.0.116-py3-none-any.whl", hash = "sha256:5a31eb4e38d7b5d746956404145b7335557f9060ac7a987c65ea5af4d708b3fc", size = 110131, upload-time = "2026-08-28T09:10:50.719Z" },
+    { url = "https://github.com/NVIDIA/OpenShell/releases/download/v0.1.2/openshell-0.1.2-py3-none-any.whl", hash = "sha256:8c409da4f176d42418d92366fe201f47cceef2c0fa432bfbce2bf938649d59cf" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "cloudpickle", specifier = ">=3.0" },
+    { name = "googleapis-common-protos", specifier = ">=1.63" },
+    { name = "grpcio", specifier = ">=1.60" },
+    { name = "httpx", specifier = ">=0.27" },
+    { name = "protobuf", specifier = ">=4.25" },
 ]
 
 [[package]]
