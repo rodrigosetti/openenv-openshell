@@ -91,9 +91,9 @@ service and the sandbox is deleted afterward.
 
 ## Unit-test lane
 
-- ⬜ **T1 — Build a typed fake adapter.** Provide deterministic create, ready,
-  service, delete, and wait results plus injectable failures and call capture.
-  _Depends: F3._
+- ✅ **T1 — Build a typed fake adapter.** Deterministic lifecycle results,
+  per-operation failures, and mutation-safe call capture are covered by
+  `tests/unit/test_fakes.py`. _Depends: F3._
 - ⬜ **T2 — Test successful lifecycle and request mapping.** Cover defaults,
   overrides, environment variables, workspace, names, labels, providers,
   resources, ports, returned URL, state, metadata, and call order.
