@@ -34,3 +34,25 @@ from openenv_openshell import OpenShellProvider
 
 Lifecycle operations intentionally raise `NotImplementedError` until Milestone
 1 is implemented. See [SPEC.md](SPEC.md) for the design and milestones.
+
+Provider configuration is accepted directly as keyword arguments and validated
+without contacting an OpenShell gateway:
+
+```python
+from openenv_openshell import OpenShellProvider, OpenShellResources
+
+provider = OpenShellProvider(
+    workspace="default",
+    service_port=8000,
+    startup_timeout_s=120,
+    labels={"openenv.run_id": "example-run"},
+    providers=["github"],
+    resources=OpenShellResources(cpu=2, memory="4Gi"),
+)
+```
+
+Ports, timeouts, and requested resources must be positive. Explicit sandbox and
+service names use lowercase letters, digits, and hyphens; otherwise the provider
+generates a bounded `openenv-<image>-<suffix>` sandbox name. Labels are copied
+defensively and must contain only non-secret operational metadata—never tokens,
+credentials, prompts, or private task/user content.

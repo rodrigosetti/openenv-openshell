@@ -1,0 +1,196 @@
+"""Configuration and sandbox naming tests."""
+
+# pyright: reportPrivateUsage=false
+
+from pathlib import Path
+from typing import Any, cast
+
+import pytest
+
+from openenv_openshell import (
+    OpenShellProvider,
+    OpenShellProviderConfig,
+    OpenShellResources,
+)
+
+
+def test_provider_constructor_collects_keyword_configuration() -> None:
+    """The public constructor exposes all stable provider settings as keywords."""
+    resources = OpenShellResources(cpu=2.5, memory="16Gi", gpu_count=1)
+    provider = OpenShellProvider(
+        workspace="research",
+        sandbox_name="echo-env",
+        policy=Path("strict.yaml"),
+        service_port=9000,
+        service_name="openenv",
+        startup_timeout_s=30,
+        deletion_timeout_s=15,
+        gateway="https://gateway.example",
+        keep_sandbox=True,
+        labels={"openenv.run_id": "run-42"},
+        providers=["github"],
+        resources=resources,
+    )
+
+    assert provider.config == OpenShellProviderConfig(
+        workspace="research",
+        sandbox_name="echo-env",
+        policy=Path("strict.yaml"),
+        service_port=9000,
+        service_name="openenv",
+        startup_timeout_s=30,
+        deletion_timeout_s=15,
+        gateway="https://gateway.example",
+        keep_sandbox=True,
+        labels={"openenv.run_id": "run-42"},
+        providers=("github",),
+        resources=resources,
+    )
+
+
+@pytest.mark.parametrize("port", [0, -1, 65536, True, 1.5])
+def test_service_port_must_be_an_integer_in_range(port: object) -> None:
+    """Invalid target ports fail before any gateway operation."""
+    with pytest.raises(ValueError, match="service_port"):
+        OpenShellProvider(service_port=cast("int", port))
+
+
+@pytest.mark.parametrize("field", ["startup", "deletion"])
+@pytest.mark.parametrize("value", [0.0, -1.0, float("inf"), float("nan")])
+def test_timeouts_must_be_positive_and_finite(field: str, value: float) -> None:
+    """Every lifecycle deadline must make forward progress."""
+    if field == "startup":
+        with pytest.raises(ValueError, match="startup_timeout_s"):
+            OpenShellProvider(startup_timeout_s=value)
+    else:
+        with pytest.raises(ValueError, match="deletion_timeout_s"):
+            OpenShellProvider(deletion_timeout_s=value)
+
+
+@pytest.mark.parametrize("cpu", [0.0, -1.0, float("inf"), float("nan"), True])
+def test_cpu_must_be_positive_and_finite(cpu: object) -> None:
+    """CPU capacity cannot be zero, negative, infinite, or boolean."""
+    with pytest.raises(ValueError, match=r"resources\.cpu"):
+        OpenShellResources(cpu=cast("float", cpu))
+
+
+@pytest.mark.parametrize("memory", ["", "0", "0Gi", "-1Gi", "lots"])
+def test_memory_must_be_a_positive_quantity(memory: str) -> None:
+    """Memory requests retain their SDK unit while rejecting invalid values."""
+    with pytest.raises(ValueError, match=r"resources\.memory"):
+        OpenShellResources(memory=memory)
+
+
+@pytest.mark.parametrize("gpu_count", [0, -1, True, 1.5])
+def test_gpu_count_must_be_a_positive_integer(gpu_count: object) -> None:
+    """A present GPU request must ask for at least one GPU."""
+    with pytest.raises(ValueError, match=r"resources\.gpu_count"):
+        OpenShellResources(gpu_count=cast("int", gpu_count))
+
+
+@pytest.mark.parametrize(
+    ("argument", "value"),
+    [
+        ("workspace", " "),
+        ("sandbox_name", ""),
+        ("sandbox_name", "Upper_case"),
+        ("sandbox_name", "-leading"),
+        ("sandbox_name", "a" * 64),
+        ("service_name", "has spaces"),
+        ("gateway", " "),
+    ],
+)
+def test_names_and_locations_are_validated(argument: str, value: str) -> None:
+    """Unsafe identifiers and empty location selectors are rejected early."""
+    kwargs: Any = {argument: value}
+    with pytest.raises(ValueError, match=argument):
+        OpenShellProvider(**kwargs)
+
+
+def test_mutable_configuration_inputs_are_defensively_copied() -> None:
+    """Caller mutations cannot alter configuration after construction."""
+    labels = {"openenv.run_id": "before"}
+    providers = ["github"]
+    policy: dict[str, object] = {"filesystem": {"read": ["/workspace"]}}
+    provider = OpenShellProvider(labels=labels, providers=providers, policy=policy)
+
+    labels["openenv.run_id"] = "after"
+    providers.append("gitlab")
+    cast("dict[str, object]", policy["filesystem"])["read"] = []
+
+    assert provider.config.labels == {"openenv.run_id": "before"}
+    assert provider.config.providers == ("github",)
+    assert provider.config.policy == {"filesystem": {"read": ["/workspace"]}}
+    with pytest.raises(TypeError):
+        provider.config.labels["other"] = "value"  # pyright: ignore[reportIndexIssue]
+
+
+@pytest.mark.parametrize(
+    "labels",
+    [
+        {"api_token": "redacted"},
+        {"api-key": "redacted"},
+        {"openenv.prompt": "private"},
+        {"openenv.task_content": "private"},
+        {"openenv.user_data": "private"},
+        {"bad key": "value"},
+        {"openenv.run": "line\nbreak"},
+    ],
+)
+def test_sensitive_or_malformed_labels_are_rejected(labels: dict[str, str]) -> None:
+    """Labels cannot advertise secret/private content or unsafe metadata."""
+    with pytest.raises(ValueError, match="label"):
+        OpenShellProvider(labels=labels)
+
+
+def test_label_and_provider_types_are_checked_at_runtime() -> None:
+    """Badly typed dynamic input fails with an actionable boundary error."""
+    with pytest.raises(TypeError, match="labels"):
+        OpenShellProvider(labels=cast("dict[str, str]", {"key": 3}))
+    with pytest.raises(TypeError, match="providers"):
+        OpenShellProvider(providers=cast("list[str]", "github"))
+    with pytest.raises(ValueError, match="providers"):
+        OpenShellProvider(providers=[" "])
+
+
+def test_generated_sandbox_name_is_safe_and_human_readable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Image syntax is removed while its readable basename is preserved."""
+
+    def token_hex(_byte_count: int) -> str:
+        return "a7f213"
+
+    monkeypatch.setattr("openenv_openshell.provider.secrets.token_hex", token_hex)
+    provider = OpenShellProvider()
+
+    generated = provider._sandbox_name_for_image(  # noqa: SLF001
+        "registry.example/team/My.Coding_ENV:latest@sha256:deadbeef"
+    )
+
+    assert generated == "openenv-my-coding-env-a7f213"
+
+
+def test_generated_name_is_bounded_and_has_a_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Long or punctuation-only image basenames still create safe names."""
+
+    def token_hex(_byte_count: int) -> str:
+        return "abcdef"
+
+    monkeypatch.setattr("openenv_openshell.provider.secrets.token_hex", token_hex)
+    provider = OpenShellProvider()
+
+    long_name = provider._sandbox_name_for_image("x" * 100)  # noqa: SLF001
+    fallback = provider._sandbox_name_for_image("registry.example/!!!:latest")  # noqa: SLF001
+
+    assert len(long_name) == len("openenv-") + 48 + len("-abcdef")
+    assert fallback == "openenv-environment-abcdef"
+
+
+def test_explicit_sandbox_name_wins_over_generated_name() -> None:
+    """A valid caller-selected name is returned unchanged."""
+    provider = OpenShellProvider(sandbox_name="chosen-name")
+
+    assert provider._sandbox_name_for_image("ignored:latest") == "chosen-name"  # noqa: SLF001

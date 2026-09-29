@@ -21,27 +21,31 @@ IDs; tasks whose dependencies are done may run in parallel.
 
 Tasks with complete dependencies:
 
-- **S1** current OpenShell Python SDK contract
 - **S3** EchoEnv test image selection
-- **P1** configuration validation and naming
-- **T1** fake client and lifecycle test harness
+- **P5** HTTP readiness
 
 ## Milestone 0 — Runtime spike
 
-- ⬜ **S1 — Map the current OpenShell SDK.** Record the exact create, service
-  exposure, policy, readiness, deletion, resource, provider, and gateway APIs;
-  capture response fields and SDK/gateway version constraints. _Depends: F1._
+- ✅ **S1 — Map the current OpenShell SDK.** Exact lifecycle signatures,
+  response fields, private model boundaries, service-exposure contract, and the
+  0.1.2 target versus 0.0.116 lock incompatibility are recorded in
+  [`docs/openshell-sdk-contract.md`](docs/openshell-sdk-contract.md).
+  _Depends: F1._
+- ⛔ **S1a — Select the SDK distribution and workload-model boundary.** Blocked
+  on choosing the official 0.1.2 wheel source and either a stable public
+  workload/policy builder, an explicitly tested generated-model dependency, or
+  a narrow CLI adapter. _Depends: S1._
 - ✅ **S2 — Document a repeatable local test setup.** Verified CLI/gateway
   0.0.116, default workspace, native macOS VM compute, routed HTTP, and sandbox
   deletion; [setup and evidence](docs/local-openshell-testing.md). `make check`
-  passes. _Depends: F1._
+  passes. Revalidate when S1a selects the target distribution. _Depends: F1._
 - ⬜ **S3 — Select and pin the EchoEnv test image.** Confirm its entrypoint,
   target port, `/health`, `/ws`, and image compatibility with the chosen
   OpenShell driver. _Depends: S2._
 - ⬜ **S4 — Build the one-file lifecycle spike.** Create a sandbox from the
   image, declare its service, wait for OpenShell readiness, obtain the routed
   URL, and always delete it. Keep this separate from production code.
-  _Depends: S1, S2, S3._
+  _Depends: S1a, S2, S3._
 - ⬜ **S5 — Prove protocol connectivity.** Through the routed URL, verify HTTP
   `/health`, WebSocket `/ws`, `reset`, `step("hello")`, and `state`; record local
   and remote gateway findings. _Depends: S4._
@@ -55,13 +59,13 @@ service and the sandbox is deleted afterward.
 
 ## Milestone 1 — Provider lifecycle
 
-- ⬜ **P1 — Validate configuration and naming.** Implement constructor keyword
+- ✅ **P1 — Validate configuration and naming.** Implement constructor keyword
   arguments, positive ports/timeouts/resources, safe names, generated
   `openenv-<image>-<suffix>` names, defensive copies, and non-secret label
   validation. _Depends: F3._
 - ⬜ **P2 — Define the private SDK adapter.** Isolate unstable OpenShell imports
   and models behind a small typed protocol; translate connection failures and
-  make dependency/version errors actionable. _Depends: S1._
+  make dependency/version errors actionable. _Depends: S1a._
 - ⬜ **P3 — Translate create requests.** Map image, environment variables,
   workspace, service exposure, labels, providers, resources, gateway, and
   optional configuration into the adapter without logging secrets.
@@ -92,9 +96,9 @@ service and the sandbox is deleted afterward.
 
 ## Unit-test lane
 
-- ⬜ **T1 — Build a typed fake adapter.** Provide deterministic create, ready,
-  service, delete, and wait results plus injectable failures and call capture.
-  _Depends: F3._
+- ✅ **T1 — Build a typed fake adapter.** Deterministic lifecycle results,
+  per-operation failures, and mutation-safe call capture are covered by
+  `tests/unit/test_fakes.py`. _Depends: F3._
 - ⬜ **T2 — Test successful lifecycle and request mapping.** Cover defaults,
   overrides, environment variables, workspace, names, labels, providers,
   resources, ports, returned URL, state, metadata, and call order.

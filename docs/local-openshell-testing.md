@@ -15,6 +15,11 @@ Follow the official [OpenShell installation guide][install]. The project
 lockfile currently selects SDK `0.0.116`, so pin the CLI and gateway to the
 matching release rather than accepting the installer's latest release:
 
+This verifies the currently locked `0.0.116` pair. The product specification
+targets `0.1.2`; S1a must resolve its SDK distribution and model boundary before
+that pair can be selected. See the [SDK contract](openshell-sdk-contract.md).
+Repeat this smoke test when the supported SDK/gateway pair changes.
+
 ```bash
 curl -LsSf https://raw.githubusercontent.com/NVIDIA/OpenShell/main/install.sh \
   | OPENSHELL_VERSION=v0.0.116 sh

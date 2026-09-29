@@ -528,9 +528,12 @@ def start_container(
 10. store lifecycle metadata;
 11. return the service URL.
 
-OpenShell's current `SandboxClient` supports creating, waiting for readiness, executing commands, deleting, and waiting for deletion.
-
-OpenShell also supports declaring service exposures in the sandbox create operation; the resulting sandbox response contains routed service URLs.
+OpenShell 0.1.2's official Python wheel supports creating, waiting for
+readiness, executing commands, deleting, and identity-aware deletion waiting.
+It also supports atomic service exposures and returned service URLs. The
+repository lock still resolves the incompatible 0.0.116 package from PyPI. See
+[`docs/openshell-sdk-contract.md`](docs/openshell-sdk-contract.md) for the exact
+inspected contracts and remaining workload-model compatibility gap.
 
 ## 12.2 Port semantics
 
@@ -599,8 +602,7 @@ Conceptual request:
 sandbox = client.create(
     workspace=self.workspace,
     name=name,
-    image=image,
-    env=env_vars,
+    spec=workload_spec,
     service_exposures=[
         ServiceExposure(
             service="",
@@ -610,7 +612,10 @@ sandbox = client.create(
 )
 ```
 
-The exact SDK syntax is implementation-dependent and MUST be validated against the current OpenShell package.
+This is the public 0.1.2 service-exposure contract. The workload `spec` type is
+still private, so production code MUST NOT construct it through
+`openshell._proto` without an explicit compatibility decision and contract
+tests.
 
 The unnamed service SHOULD be used by default:
 
@@ -729,7 +734,8 @@ wait for deletion
 clear state
 ```
 
-Deletion SHOULD use the OpenShell SDK:
+Deletion SHOULD use the selected OpenShell SDK. The target identity-safe
+contract is:
 
 ```python
 deletion = client.delete(
@@ -744,7 +750,10 @@ client.wait_deleted(
 )
 ```
 
-This follows the current OpenShell SDK lifecycle pattern.
+The official 0.1.2 wheel implements this contract. The repository's locked
+0.0.116 Python SDK instead returns `bool` from `delete()` and does not accept
+`expected_sandbox_id` in `wait_deleted()`. The adapter MUST reject that older
+contract before creating a sandbox.
 
 ---
 
@@ -1277,13 +1286,15 @@ Because OpenEnv explicitly describes itself as experimental and subject to API c
 
 ## 31.3 OpenShell
 
-Do the same:
+The target compatibility range is:
 
 ```toml
-openshell = ">=0.1,<0.2"
+openshell = ">=0.1.2,<0.2"
 ```
 
-until API stability is better understood.
+The repository currently resolves `0.0.116` from PyPI because 0.1.2 is only an
+official GitHub release asset. The dependency and lock must move together after
+the distribution source and workload-model boundary are selected.
 
 The OpenShell SDK and gateway SHOULD be from the same release family, consistent with NVIDIA's recommendation.
 
