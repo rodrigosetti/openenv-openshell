@@ -59,7 +59,7 @@ service and the sandbox is deleted afterward.
 
 ## Milestone 1 — Provider lifecycle
 
-- ⬜ **P1 — Validate configuration and naming.** Implement constructor keyword
+- ✅ **P1 — Validate configuration and naming.** Implement constructor keyword
   arguments, positive ports/timeouts/resources, safe names, generated
   `openenv-<image>-<suffix>` names, defensive copies, and non-secret label
   validation. _Depends: F3._
