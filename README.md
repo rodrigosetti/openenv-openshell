@@ -21,6 +21,9 @@ real OpenShell gateway belong in `tests/integration` and are opt-in:
 uv run pytest -m integration
 ```
 
+See [Local OpenShell integration setup](docs/local-openshell-testing.md) for
+the CLI, gateway, workspace, compute-driver, and service-routing prerequisites.
+
 ## Status
 
 The public import is reserved and usable for development:
@@ -31,4 +34,3 @@ from openenv_openshell import OpenShellProvider
 
 Lifecycle operations intentionally raise `NotImplementedError` until Milestone
 1 is implemented. See [SPEC.md](SPEC.md) for the design and milestones.
-

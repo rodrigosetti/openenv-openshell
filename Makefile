@@ -1,4 +1,4 @@
-.PHONY: check format integration lint test typecheck
+.PHONY: check format integration lint openshell-prereqs openshell-smoke test typecheck
 
 check: lint typecheck test
 
@@ -18,3 +18,9 @@ test:
 
 integration:
 	uv run pytest -m integration
+
+openshell-prereqs:
+	./scripts/check-openshell-local.sh
+
+openshell-smoke:
+	./scripts/check-openshell-local.sh --smoke

@@ -1,0 +1,9 @@
+[openshell]
+version = 1
+
+[openshell.gateway]
+compute_drivers = ["vm"]
+
+[openshell.drivers.vm]
+default_image = "openenv-openshell-prerequisites:0.0.116"
+bootstrap_image = "openenv-openshell-prerequisites:0.0.116"

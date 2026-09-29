@@ -19,10 +19,10 @@ IDs; tasks whose dependencies are done may run in parallel.
 
 ## Ready to work in parallel
 
-The first four tasks are independent and can start now:
+Tasks with complete dependencies:
 
 - **S1** current OpenShell Python SDK contract
-- **S2** local gateway and test prerequisites
+- **S3** EchoEnv test image selection
 - **P1** configuration validation and naming
 - **T1** fake client and lifecycle test harness
 
@@ -31,9 +31,10 @@ The first four tasks are independent and can start now:
 - ⬜ **S1 — Map the current OpenShell SDK.** Record the exact create, service
   exposure, policy, readiness, deletion, resource, provider, and gateway APIs;
   capture response fields and SDK/gateway version constraints. _Depends: F1._
-- ⬜ **S2 — Document a repeatable local test setup.** Verify the OpenShell CLI,
-  gateway, workspace, compute driver, and service routing prerequisites without
-  adding them to unit tests. _Depends: F1._
+- ✅ **S2 — Document a repeatable local test setup.** Verified CLI/gateway
+  0.0.116, default workspace, native macOS VM compute, routed HTTP, and sandbox
+  deletion; [setup and evidence](docs/local-openshell-testing.md). `make check`
+  passes. _Depends: F1._
 - ⬜ **S3 — Select and pin the EchoEnv test image.** Confirm its entrypoint,
   target port, `/health`, `/ws`, and image compatibility with the chosen
   OpenShell driver. _Depends: S2._
