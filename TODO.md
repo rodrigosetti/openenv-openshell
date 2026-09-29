@@ -19,18 +19,23 @@ IDs; tasks whose dependencies are done may run in parallel.
 
 ## Ready to work in parallel
 
-The first four tasks are independent and can start now:
+These tasks are independent and can start now:
 
-- **S1** current OpenShell Python SDK contract
 - **S2** local gateway and test prerequisites
 - **P1** configuration validation and naming
 - **T1** fake client and lifecycle test harness
 
 ## Milestone 0 — Runtime spike
 
-- ⬜ **S1 — Map the current OpenShell SDK.** Record the exact create, service
-  exposure, policy, readiness, deletion, resource, provider, and gateway APIs;
-  capture response fields and SDK/gateway version constraints. _Depends: F1._
+- ✅ **S1 — Map the current OpenShell SDK.** Exact lifecycle signatures,
+  response fields, private model boundaries, service-exposure contract, and the
+  0.1.2 target versus 0.0.116 lock incompatibility are recorded in
+  [`docs/openshell-sdk-contract.md`](docs/openshell-sdk-contract.md).
+  _Depends: F1._
+- ⛔ **S1a — Select the SDK distribution and workload-model boundary.** Blocked
+  on choosing the official 0.1.2 wheel source and either a stable public
+  workload/policy builder, an explicitly tested generated-model dependency, or
+  a narrow CLI adapter. _Depends: S1._
 - ⬜ **S2 — Document a repeatable local test setup.** Verify the OpenShell CLI,
   gateway, workspace, compute driver, and service routing prerequisites without
   adding them to unit tests. _Depends: F1._
@@ -40,7 +45,7 @@ The first four tasks are independent and can start now:
 - ⬜ **S4 — Build the one-file lifecycle spike.** Create a sandbox from the
   image, declare its service, wait for OpenShell readiness, obtain the routed
   URL, and always delete it. Keep this separate from production code.
-  _Depends: S1, S2, S3._
+  _Depends: S1a, S2, S3._
 - ⬜ **S5 — Prove protocol connectivity.** Through the routed URL, verify HTTP
   `/health`, WebSocket `/ws`, `reset`, `step("hello")`, and `state`; record local
   and remote gateway findings. _Depends: S4._
@@ -60,7 +65,7 @@ service and the sandbox is deleted afterward.
   validation. _Depends: F3._
 - ⬜ **P2 — Define the private SDK adapter.** Isolate unstable OpenShell imports
   and models behind a small typed protocol; translate connection failures and
-  make dependency/version errors actionable. _Depends: S1._
+  make dependency/version errors actionable. _Depends: S1a._
 - ⬜ **P3 — Translate create requests.** Map image, environment variables,
   workspace, service exposure, labels, providers, resources, gateway, and
   optional configuration into the adapter without logging secrets.

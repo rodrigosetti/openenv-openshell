@@ -1,0 +1,231 @@
+# OpenShell Python SDK contract
+
+This note records the public OpenShell surface inspected for roadmap task S1.
+It is a compatibility input for the private adapter, not an implementation
+guide for calling generated protobuf classes directly.
+
+## Inspected releases
+
+- Inspection date: 2026-09-29.
+- Current release: [OpenShell `v0.1.2`][v0.1.2 release], including its official
+  [Python wheel] GitHub release asset.
+- Repository baseline: `openshell==0.0.116`, resolved from [PyPI 0.0.116] by
+  `uv.lock`.
+- Python: 3.11 or newer.
+
+The [Python SDK documentation] recommends using the SDK and gateway from the
+same OpenShell release.
+The target pair is therefore SDK and gateway `0.1.2`. The official 0.1.2 wheel
+is attached to the GitHub release but was not published on PyPI at inspection
+time; PyPI still resolves 0.0.116. The repository must not combine the locked
+0.0.116 SDK with a 0.1.x gateway and call that a supported pair.
+
+[v0.1.2 release]: https://github.com/NVIDIA/OpenShell/releases/tag/v0.1.2
+[Python wheel]: https://github.com/NVIDIA/OpenShell/releases/download/v0.1.2/openshell-0.1.2-py3-none-any.whl
+[PyPI 0.0.116]: https://pypi.org/project/openshell/0.0.116/
+[Python SDK documentation]: https://docs.nvidia.com/openshell/latest/sdk/python
+
+## Public imports and connection
+
+The current lifecycle and service surface is exported from `openshell`:
+
+```python
+from openshell import (
+    DeletionOutcome,
+    DeletionResult,
+    GatewayError,
+    SandboxClient,
+    SandboxError,
+    SandboxRef,
+    ServiceExposure,
+)
+```
+
+Use the active gateway registered by the CLI:
+
+```python
+SandboxClient.from_active_cluster(
+    *,
+    cluster: str | None = None,
+    timeout: float = 30.0,
+    auto_refresh: bool = True,
+    write_back: bool = True,
+    insecure: bool = False,
+    client_credentials: ClientCredentialsAuth | None = None,
+) -> SandboxClient
+```
+
+`cluster` selects a registered gateway. When omitted, the SDK reads
+`OPENSHELL_GATEWAY` and then the CLI's active-gateway file. The constructor
+also supports a direct gRPC endpoint:
+
+```python
+SandboxClient(
+    endpoint: str,
+    *,
+    tls: TlsConfig | None = None,
+    bearer_token: str | Callable[[], str] | None = None,
+    client_credentials: ClientCredentialsAuth | None = None,
+    timeout: float = 30.0,
+    cluster_name: str | None = None,
+) -> None
+```
+
+Non-loopback client-credentials connections require TLS. The client is a
+context manager and `close()` is idempotent. `health()` returns a generated
+response with `status` and `version`; the latter is the gateway version to
+record and validate.
+
+## Sandbox lifecycle and responses
+
+Every resource operation takes an explicit workspace in 0.1.2.
+
+```python
+client.create(
+    *,
+    workspace: str,
+    spec: openshell._proto.openshell_pb2.SandboxSpec | None = None,
+    name: str | None = None,
+    labels: Mapping[str, str] | None = None,
+    service_exposures: Sequence[ServiceExposure] | None = None,
+) -> SandboxRef
+
+client.wait_ready(
+    name: str,
+    *,
+    workspace: str,
+    timeout_seconds: float = 300.0,
+) -> SandboxRef
+
+client.get(name: str, *, workspace: str) -> SandboxRef
+
+client.exec(
+    sandbox: str,
+    command: Sequence[str],
+    *,
+    workspace: str,
+    stream_output: bool = False,
+    workdir: str | None = None,
+    env: Mapping[str, str] | None = None,
+    stdin: bytes | None = None,
+    timeout_seconds: int | None = None,
+    no_login_shell: bool = False,
+) -> ExecResult
+
+client.delete(
+    name: str,
+    *,
+    workspace: str,
+    allow_missing: bool = False,
+) -> DeletionResult
+
+client.wait_deleted(
+    name: str,
+    *,
+    workspace: str,
+    timeout_seconds: float = 60.0,
+    expected_sandbox_id: str | None = None,
+) -> None
+```
+
+`SandboxRef` exposes `id`, `name`, `workspace`, immutable `labels`, `status`,
+workload-template provenance, and immutable `service_urls`. The status exposes
+numeric `phase`, `current_policy_version`, and optional `exit_code`.
+`create()` rejects an empty returned ID. `delete()` returns `DeletionResult`
+with an `outcome` and optional `sandbox_id`; only `COMPLETED` and
+`ALREADY_ABSENT` establish synchronous completion, while `ACCEPTED` requires a
+wait. Pass the returned identity to `expected_sandbox_id` so deletion waiting
+cannot follow a different sandbox that reused the name.
+
+The SDK maps gateway error details to public `GatewayError` values. Local
+client validation and polling failures use `SandboxError`. The adapter must
+translate both, plus transport failures, without exposing credentials or raw
+environment values.
+
+## Service exposure
+
+Service exposure is public and atomic in 0.1.2:
+
+```python
+ServiceExposure(target_port: int, service: str = "")
+
+sandbox = client.create(
+    workspace="default",
+    name="openenv-example",
+    spec=spec,
+    service_exposures=[ServiceExposure(target_port=8000)],
+)
+base_url = sandbox.service_urls[""]
+```
+
+The empty key identifies the unnamed service. Named exposures use their
+service name as the key. The create response is the only sandbox response that
+populates `service_urls`; later `get()` calls do not. This makes extracting and
+persisting the URL part of the successful create operation.
+
+The gateway routes HTTP and WebSocket traffic to the sandbox loopback port.
+Loopback gateways use the `openshell.localhost` routing domain; configured
+remote gateways return their routed HTTPS URL.
+
+[service architecture]: https://github.com/NVIDIA/OpenShell/blob/main/architecture/gateway.md
+
+## Workload, policy, providers, and resources
+
+The current 0.1.2 wheel still does not export a public workload/spec builder or
+policy YAML loader. Although public `SandboxClient.create()` accepts `spec`,
+its annotated type is generated under the explicitly private
+`openshell._proto` package. `SandboxTemplateClient` likewise accepts and
+returns private generated template models.
+
+Inspection of the private wire shape records what a future stable builder must
+represent, but it is not an approved adapter boundary:
+
+| Concern | 0.1.2 wire field | Finding |
+| --- | --- | --- |
+| OCI image | `spec.template.image` | Private generated model only |
+| Environment | `spec.environment` | Map; higher precedence than template environment |
+| Command | `spec.command` | Repeated string |
+| Policy | `spec.policy` | Generated `SandboxPolicy`; no public YAML loader |
+| Providers | `spec.providers` | Repeated provider names |
+| CPU and memory | `spec.template.resources` | Free-form struct; CLI writes limits |
+| GPU | `spec.resource_requirements.gpu.count` | Optional unsigned count |
+| Object labels | create `labels=` | Stable public convenience argument |
+| Services | create `service_exposures=` | Stable public `ServiceExposure` values |
+
+OpenShell 0.1.2 also introduces named workload templates with portable image,
+environment, CPU, memory, and GPU fields. The public client can create a
+sandbox from an existing template by name, but creating that template still
+requires a private generated model. It therefore does not yet let this provider
+translate an arbitrary OpenEnv image using only stable public Python types.
+
+Production code must not silently import `openshell._proto`. Before P2, the
+project needs either a stable public workload/policy builder, an explicitly
+approved dependency on the generated types with contract tests, or a narrow
+public CLI adapter.
+
+## 0.0.116 compatibility break
+
+The PyPI/lock baseline differs materially from 0.1.2:
+
+- no public `ServiceExposure`, `service_exposures=`, or `service_urls`;
+- `delete()` returns `bool`, not `DeletionResult`;
+- `wait_deleted()` has no `expected_sandbox_id`;
+- `exec()` takes a sandbox ID and has no `workspace` keyword; and
+- gateway RPC errors are not mapped to the new public `GatewayError` model.
+
+The adapter must fail with an actionable version error rather than attempting
+to support both contracts accidentally.
+
+## Contract decisions for later tasks
+
+1. Keep all OpenShell imports behind the private project adapter.
+2. Target an exact SDK/gateway release pair, initially 0.1.2, and reject the
+   known-incompatible 0.0.116 SDK before any sandbox is created.
+3. Persist the create-time `service_urls` value immediately.
+4. Use `SandboxRef.id` and identity-aware deletion waiting.
+5. Do not import `openshell._proto` in production without an explicit roadmap
+   decision and exact contract tests.
+6. Do not start the lifecycle spike until the workload-configuration boundary
+   and distribution source for the 0.1.2 SDK are selected.
+7. Add contract tests for method names, keyword arguments, response fields,
+   deletion outcomes, and the selected release when P2 chooses the interface.
