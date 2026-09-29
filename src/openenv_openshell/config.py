@@ -118,6 +118,8 @@ class OpenShellProviderConfig:
     service_name: str = ""
     startup_timeout_s: float = 120.0
     deletion_timeout_s: float = 60.0
+    health_poll_interval_s: float = 0.5
+    health_request_timeout_s: float = 2.0
     gateway: str | None = None
     keep_sandbox: bool = False
     labels: Mapping[str, str] = field(default_factory=dict[str, str])
@@ -145,6 +147,12 @@ class OpenShellProviderConfig:
         )
         _validate_positive_number(
             self.deletion_timeout_s, field_name="deletion_timeout_s"
+        )
+        _validate_positive_number(
+            self.health_poll_interval_s, field_name="health_poll_interval_s"
+        )
+        _validate_positive_number(
+            self.health_request_timeout_s, field_name="health_request_timeout_s"
         )
         if self.gateway is not None and not self.gateway.strip():
             msg = "gateway must not be empty"

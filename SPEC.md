@@ -405,6 +405,8 @@ class OpenShellProvider(ContainerProvider):
         service_name: str = "",
         startup_timeout_s: float = 120.0,
         deletion_timeout_s: float = 60.0,
+        health_poll_interval_s: float = 0.5,
+        health_request_timeout_s: float = 2.0,
         gateway: str | None = None,
         keep_sandbox: bool = False,
         labels: Mapping[str, str] | None = None,
@@ -707,6 +709,18 @@ raise OpenEnvReadinessTimeout(...)
 ```
 
 Future implementation MAY additionally perform a WebSocket handshake before declaring readiness.
+
+Polling controls are constructor settings: `health_poll_interval_s=0.5` and
+`health_request_timeout_s=2.0`. They and the per-call `timeout_s` MUST be positive
+and finite. Requests and sleeps use at most the remaining monotonic budget;
+only HTTP 200 received before the deadline marks `state.ready`. Redirects are
+not followed, and health response bodies need not be consumed. HTTP transport
+timeouts apply per operation rather than imposing a hard total wall-clock
+limit on an in-flight request or DNS lookup. After the deadline no new request
+is started and any late success is rejected. Base URLs MUST be absolute HTTP(S)
+URLs without embedded credentials, query parameters, or fragments; existing
+service path prefixes are preserved. Readiness timeout messages MUST exclude
+the URL and raw transport exception text.
 
 ---
 

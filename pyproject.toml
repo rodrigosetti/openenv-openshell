@@ -22,6 +22,7 @@ classifiers = [
   "Typing :: Typed",
 ]
 dependencies = [
+  "httpx>=0.28,<0.29",
   "openenv>=0.4,<0.7",
   "openshell>=0.0.116,<0.1",
 ]

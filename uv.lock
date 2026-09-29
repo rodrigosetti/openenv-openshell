@@ -1807,6 +1807,7 @@ name = "openenv-openshell"
 version = "0.0.0"
 source = { editable = "." }
 dependencies = [
+    { name = "httpx" },
     { name = "openenv" },
     { name = "openshell" },
 ]
@@ -1822,6 +1823,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "httpx", specifier = ">=0.28,<0.29" },
     { name = "openenv", specifier = ">=0.4,<0.7" },
     { name = "openshell", specifier = ">=0.0.116,<0.1" },
 ]
