@@ -1,0 +1,20 @@
+# Image-probe policy: the 0.1.2 baseline plus read-only EchoEnv code and venv.
+# This fixture is not the provider's default policy or an enforcement proof.
+version: 1
+filesystem_policy:
+  include_workdir: true
+  read_only:
+    - /bin
+    - /usr
+    - /lib
+    - /proc
+    - /dev/urandom
+    - /etc
+    - /var/log
+    - /app
+  read_write:
+    - /tmp
+    - /dev/null
+landlock:
+  compatibility: best_effort
+network_policies: {}

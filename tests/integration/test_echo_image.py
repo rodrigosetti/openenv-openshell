@@ -1,16 +1,21 @@
-"""Opt-in S3 image compatibility probe, separate from provider lifecycle tests."""
+"""Opt-in S3a image probe for 0.1.2, separate from provider lifecycle tests."""
 
+import json
+import logging
 import os
 import re
 import shutil
 import socket
 import subprocess
 import time
+from pathlib import Path
 from urllib.parse import urlsplit
 from uuid import uuid4
 
 import pytest
 from websockets.sync.client import connect
+
+logger = logging.getLogger(__name__)
 
 
 def _run(*args: str, timeout: float = 120) -> str:
@@ -36,7 +41,10 @@ def test_echo_image_on_local_vm() -> None:
         "Use an immutable local image ID"
     )
     workspace = os.environ.get("OPENSHELL_WORKSPACE", "default")
-    assert _run("openshell", "--version") == "openshell 0.0.116"
+    assert _run("openshell", "--version") == "openshell 0.1.2"
+    gateway = json.loads(_run("openshell", "status", "--output", "json"))
+    assert gateway["status"] == "connected"
+    assert gateway["version"] == "0.1.2"
     assert (
         _run("docker", "image", "inspect", image, "--format", "{{.Architecture}}")
         == "arm64"
@@ -55,8 +63,12 @@ def test_echo_image_on_local_vm() -> None:
             workspace,
             "--name",
             name,
+            "--label",
+            f"openenv-image-probe={name}",
             "--from",
             image,
+            "--policy",
+            str(Path(__file__).parent / "images" / "echo" / "policy.yaml"),
             "--detach",
             "--",
             "sh",
@@ -79,6 +91,7 @@ def test_echo_image_on_local_vm() -> None:
         match = re.search(r"https?://[a-zA-Z0-9.:/_-]+", details)
         assert match is not None, "Gateway did not return a service URL"
         url = match.group(0).rstrip("/")
+        logger.info("EchoEnv sandbox %s routed through %s", name, url)
         deadline = time.monotonic() + 60
         while True:
             # curl resolves *.localhost on this setup without changing system DNS.
@@ -98,7 +111,7 @@ def test_echo_image_on_local_vm() -> None:
                 timeout=5,
             )
             if result.returncode == 0:
-                assert '"healthy"' in result.stdout
+                assert json.loads(result.stdout)["status"] == "healthy"
                 break
             assert time.monotonic() < deadline, "Routed EchoEnv health timed out"
             time.sleep(0.5)
@@ -122,11 +135,23 @@ def test_echo_image_on_local_vm() -> None:
             ),
         ):
             pass
+        logger.info(
+            "EchoEnv runtime diagnostics:\n%s",
+            _run("openshell", "logs", "--workspace", workspace, name, "-n", "100"),
+        )
     finally:
         _run("openshell", "sandbox", "delete", "--workspace", workspace, name)
         deadline = time.monotonic() + 30
-        while name in _run(
-            "openshell", "sandbox", "list", "--workspace", workspace, "--output", "json"
+        while _run(
+            "openshell",
+            "sandbox",
+            "list",
+            "--workspace",
+            workspace,
+            "--selector",
+            f"openenv-image-probe={name}",
+            "--names",
         ):
             assert time.monotonic() < deadline, f"Sandbox deletion timed out: {name}"
             time.sleep(0.5)
+        logger.info("EchoEnv sandbox %s deletion verified", name)

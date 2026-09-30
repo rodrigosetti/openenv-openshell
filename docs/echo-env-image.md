@@ -1,4 +1,4 @@
-# EchoEnv test image (S3)
+# EchoEnv test image (S3 / S3a)
 
 ## Rejected registry candidate (history)
 
@@ -67,8 +67,8 @@ workspace sandbox list was `[]`. No service was exposed for this failed VM.
 Docker probe containers used `--rm`.
 
 This failed candidate is retained as investigation history. The selected native
-image below resolves the S3 compatibility blocker. Revalidate with the
-SDK/gateway 0.1.2 pair selected by S1a (S3a).
+image below resolves the S3 compatibility blocker. S3a revalidated it with the
+SDK/gateway 0.1.2 pair selected by S1a; see the release-specific evidence below.
 
 ## Reproduce inspection
 
@@ -131,7 +131,7 @@ image configuration belongs to the adapter/spike decisions.
 
 ### Build and validate
 
-Run from the repository root after the S2 prerequisites are ready:
+Run from the repository root after the S2a prerequisites are ready:
 
 ```bash
 docker build --platform linux/arm64 -t openenv-openshell-echo:s3 \
@@ -140,14 +140,17 @@ docker image inspect openenv-openshell-echo:s3 --format '{{.Id}}'
 
 # Use the recorded ID if already present, or the inspected ID after rebuilding.
 OPENENV_OPENSHELL_ECHO_IMAGE_ID="$(cat tests/integration/images/echo/local-image-id.txt)" \
-  uv run pytest -m integration --no-cov tests/integration/test_echo_image.py -v
+  uv run pytest -m integration --no-cov tests/integration/test_echo_image.py -v --log-cli-level=INFO
 ```
 
 The opt-in [image integration test](../tests/integration/test_echo_image.py)
-checks architecture and CMD, creates a unique sandbox, exposes port 8000 through
-OpenShell, polls routed `/health`, verifies `/ws` upgrade, and deletes the
+requires CLI/gateway 0.1.2, checks architecture and CMD, creates a unique labeled
+sandbox with the [image policy fixture](../tests/integration/images/echo/policy.yaml),
+exposes port 8000 through OpenShell, polls routed `/health`, verifies `/ws` upgrade,
+logs runtime diagnostics, and deletes the
 sandbox in `finally`, including after a failed create or probe. It checks that
-the sandbox name disappears from the workspace list. Each CLI operation and
+the uniquely labeled sandbox disappears using `sandbox list --selector ... --names`,
+which avoids depending on the release-specific JSON pagination shape. Each CLI operation and
 probe has a timeout. The marker excludes it from unit runs; without an image ID
 it skips without touching Docker or OpenShell. Coverage is disabled only for
 this image-only probe because it does not execute provider code; `make check`
@@ -158,7 +161,7 @@ OpenShell route's Host header. This avoids requiring system DNS resolution of
 `*.openshell.localhost`, without bypassing gateway service routing or opening a
 Docker host port. It tests a handshake, not a reset/step/state session.
 
-### Verified outcome and limits (2026-09-29)
+### Historical verified outcome: 0.0.116 (2026-09-29)
 
 CLI/gateway 0.0.116, workspace `default`, native Apple Silicon VM: image
 provisioning, HTTP 200 `/health`, and WebSocket `/ws` upgrade passed through a
@@ -170,7 +173,56 @@ The exploratory VM console reported Landlock unavailable and no runtime
 filesystem/resource enforcement. No gateway or policy settings were weakened.
 The final image includes `nftables` to address the observed missing-utility
 warning. Security acceptance remains in the SEC lane; S3 proves workload/image
-compatibility only. Remote gateways and full OpenEnv sessions remain unverified. Main now selects
-SDK 0.1.2; S2a tracks the local runtime upgrade and S3a tracks revalidation of
-this image. The 0.0.116 image probe is independent of the SDK and must be
-adapted before running against 0.1.2.
+compatibility only. Remote gateways and full OpenEnv sessions remain unverified.
+
+### Verified outcome: 0.1.2 (2026-09-29)
+
+S3a used the same pinned arm64 image ID above, without rebuilding or changing
+its upstream workload command. CLI/gateway were both 0.1.2, workspace `default`,
+with the native VM configuration validated by S2a. The probe checks both versions
+before creating a sandbox and remains separate from the provider implementation.
+
+The first attempt (`oe-echo-ae114892`, ID
+`06fada07-f02d-41a2-94b1-d94a5c169391`) booted but exited with status 126 and
+never became healthy. Its effective baseline filesystem policy did not include
+`/app`, which contains the virtual-environment executable and server source.
+Unlike the historical runtime, its guest console reported Landlock available
+(ABI v6), applying a V3 ruleset with 13 applied rules and none skipped. These
+observations suggested a filesystem-access failure; the runtime did not provide
+a per-path denial identifying the exact failing syscall. The probe's `finally`
+block deleted this failed sandbox and confirmed absence.
+
+The checked-in image policy copies the observed 0.1.2 baseline and adds only
+read-only `/app` access. It keeps `include_workdir: true`, the baseline writable
+`/tmp` and `/dev/null`, `landlock.compatibility: best_effort`, and empty
+`network_policies`. It is explicitly supplied through `--policy` before workload
+activation. No gateway controls or policy validation settings were weakened.
+This is a test-image compatibility policy, not a provider default or the SEC3
+policy example deliverable.
+
+With that policy, `oe-echo-b9822aee` (ID
+`fe46859f-a10e-41f4-9176-985e97587605`) passed HTTP 200 with a healthy status at
+`http://default--oe-echo-b9822aee--echo.openshell.localhost:17670/health`
+and a WebSocket handshake at the same route's `/ws`. Initial service connections
+were refused while uvicorn started; the bounded health polling handled this.
+Runtime logs confirmed the canonical command, initial policy loading, and
+successful service relays. Deletion and the unique-label absence check passed.
+The opt-in test passed in 16.03 seconds. After tightening the healthy-status
+assertion, the final probe passed again in 16.49 seconds. A separate workspace
+listing confirmed no sandboxes remained. `make check` passed 93 unit tests with
+100% branch coverage, formatting/lint checks, and strict typing.
+
+Security limits observed during the 0.1.2 run:
+
+- The guest console still warned that runtime cgroup `pids.max` is unavailable;
+  a PID limit must be supplied by the runtime/compute driver before claiming it.
+- Landlock was reported available and applied in both the failed baseline
+  attempt and the successful final probe (14 rules applied, none skipped),
+  improving on 0.0.116's unavailable warning. This does not prove the SEC filesystem denial
+  acceptance criteria or strict Landlock behavior; the fixture uses best effort.
+- The host supervisor could not open `/var/log` for rotation and used stderr
+  logging. It did not prevent workload startup, routing, or deletion.
+
+S3a establishes pinned-image workload, routed health/WebSocket handshake, and
+cleanup compatibility on 0.1.2. Full reset/step/state sessions, remote gateway
+behavior, and enforcement acceptance remain S5 and the SEC lane.

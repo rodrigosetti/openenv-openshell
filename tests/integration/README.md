@@ -16,7 +16,10 @@ Before running tests that require an OpenShell gateway, complete the
 
 For the native arm64 EchoEnv image, follow the [S3 build and validation
 guide](../../docs/echo-env-image.md). Its opt-in test requires
-`OPENENV_OPENSHELL_ECHO_IMAGE_ID` and CLI/gateway 0.0.116; without the image ID
-it skips before touching a runtime. This image-only probe uses `--no-cov`
+`OPENENV_OPENSHELL_ECHO_IMAGE_ID` and CLI/gateway 0.1.2; without the image ID
+it skips before touching a runtime. It supplies the image-specific
+[policy fixture](images/echo/policy.yaml), which extends the runtime baseline
+with read-only `/app` access and retains deny-by-default egress. This image-only
+probe uses `--no-cov`
 because it does not execute provider code. Unit coverage remains enforced by
 `make check`.

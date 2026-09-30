@@ -21,7 +21,7 @@ IDs; tasks whose dependencies are done may run in parallel.
 
 Tasks with complete dependencies:
 
-- **S2a** Revalidate local OpenShell 0.1.2 setup
+- **S4** One-file lifecycle spike
 - **P2** Private SDK adapter
 
 ## Milestone 0 — Runtime spike
@@ -41,19 +41,23 @@ Tasks with complete dependencies:
   deletion; [setup and evidence](docs/local-openshell-testing.md). `make check`
   passes. Historical 0.0.116 evidence; S2a tracks the selected release.
   _Depends: F1._
-- ⬜ **S2a — Revalidate the local setup on OpenShell 0.1.2.** Align CLI/gateway
-  with the pinned SDK, verify VM configuration and the prerequisite image, run
-  the routed HTTP/deletion smoke check, and update setup evidence. No 0.1.2
-  runtime validation is claimed by S1a. _Depends: S1a, S2._
+- ✅ **S2a — Revalidate the local setup on OpenShell 0.1.2.** CLI/gateway/SDK
+  aligned; VM configuration migrated to version 2 and `compute_driver`.
+  Prerequisite image, routed HTTP, and deletion verified by `make openshell-smoke`;
+  version preflight and `make check` pass (93 tests, 100% coverage).
+  [Setup and evidence](docs/local-openshell-testing.md#verified-setup-012-2026-09-29).
+  _Depends: S1a, S2._
 - ✅ **S3 — Select and pin the EchoEnv test image.** Native arm64 recipe,
   immutable local image ID, upstream CMD, port 8000, and MCP action contract
   are recorded in [image findings](docs/echo-env-image.md). The opt-in
   [image probe](tests/integration/test_echo_image.py) passes VM provisioning,
   routed `/health` and `/ws`, and deletion on 0.0.116; `make check` passes.
   _Depends: S2._
-- ⬜ **S3a — Revalidate EchoEnv on the selected OpenShell 0.1.2 runtime.**
-  Adapt the release-specific image probe, verify the pinned image's workload,
-  routed health/WebSocket and deletion, and record any VM security gaps.
+- ✅ **S3a — Revalidate EchoEnv on the selected OpenShell 0.1.2 runtime.**
+  Pinned image passes routed health/WebSocket and deletion with the explicit
+  read-only `/app` policy fixture; probe checks CLI/gateway versions. Landlock
+  applies, but the VM PID-limit gap remains. [Evidence](docs/echo-env-image.md#verified-outcome-012-2026-09-29).
+  `make check` passes (93 unit tests, 100% coverage); opt-in image probe passes.
   _Depends: S2a, S3._
 - ⬜ **S4 — Build the one-file lifecycle spike.** Create a sandbox from the
   image, declare its service, wait for OpenShell readiness, obtain the routed
@@ -160,8 +164,9 @@ coverage exceeds 90%, all failure paths clean up, and `make check` passes.
   managed credential material is not trivially printable. _Depends: P3, SEC4._
 - ⬜ **SEC8 — Security review.** Check non-root behavior, resource limits,
   command-injection boundaries, labels, ingress, egress, exception redaction,
-  and cleanup blast radius against the spec. Resolve the observed
-  [VM Landlock/PID-limit gaps](docs/echo-env-image.md) before claiming enforcement.
+  and cleanup blast radius against the spec. Verify Landlock denials and resolve
+  the observed [VM PID-limit gap](docs/echo-env-image.md#verified-outcome-012-2026-09-29)
+  before claiming enforcement.
   _Depends: SEC5, SEC6, SEC7._
 
 **Gate M2:** Explicit policies are fail-closed and digestible; denied filesystem

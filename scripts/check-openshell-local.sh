@@ -46,9 +46,25 @@ require_command() {
 cleanup() {
     if [ -n "$sandbox_name" ]; then
         echo "Cleaning up sandbox $sandbox_name"
-        openshell sandbox delete --workspace "$workspace" "$sandbox_name" \
-            >/dev/null 2>&1 || \
-            echo "warning: sandbox cleanup failed: $sandbox_name" >&2
+        if ! openshell sandbox delete --workspace "$workspace" "$sandbox_name"; then
+            echo "error: sandbox cleanup failed: $sandbox_name" >&2
+            return 1
+        fi
+        # A successful delete request alone does not establish disappearance.
+        cleanup_attempt=1
+        while [ "$cleanup_attempt" -le 30 ]; do
+            remaining="$(openshell sandbox list --workspace "$workspace" \
+                --selector "openenv-smoke=$sandbox_name" --names)" || return 1
+            if [ -z "$remaining" ]; then
+                echo "Deletion verified: $sandbox_name is absent."
+                sandbox_name=""
+                return 0
+            fi
+            sleep 1
+            cleanup_attempt=$((cleanup_attempt + 1))
+        done
+        echo "error: sandbox deletion not confirmed: $sandbox_name" >&2
+        return 1
     fi
 }
 
@@ -66,7 +82,14 @@ case "$cli_version" in
         ;;
 esac
 echo "Checking active gateway"
-openshell status
+gateway_status="$(openshell status --output json)"
+printf '%s\n' "$gateway_status"
+gateway_version="$(printf '%s\n' "$gateway_status" \
+    | sed -n 's/^[[:space:]]*"version": "\([^"]*\)".*$/\1/p')"
+if [ "$gateway_version" != "$expected_version" ]; then
+    echo "error: expected gateway version $expected_version, got $gateway_version" >&2
+    exit 1
+fi
 
 echo "Checking workspace access: $workspace"
 openshell sandbox list --workspace "$workspace" --output json >/dev/null
@@ -98,6 +121,7 @@ echo "Creating smoke-test sandbox: $sandbox_name"
 openshell sandbox create \
     --workspace "$workspace" \
     --name "$sandbox_name" \
+    --label "openenv-smoke=$sandbox_name" \
     --from "$image" \
     --detach \
     -- python3 -m http.server "$target_port" --bind 127.0.0.1 \
@@ -128,7 +152,8 @@ echo "Service route: $service_url"
 attempt=1
 while [ "$attempt" -le 30 ]; do
     if curl --fail --silent --show-error --max-time 2 "$service_url" >/dev/null; then
-        echo "Smoke test passed: compute driver and HTTP routing are operational."
+        cleanup
+        echo "Smoke test passed: compute, HTTP routing, and deletion verified."
         exit 0
     fi
     sleep 1

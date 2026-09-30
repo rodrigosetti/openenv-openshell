@@ -238,9 +238,10 @@ adapter calls, responses, service URL persistence, and deletion outcomes.
 Upgrades require a new pin and reviewed contracts, not a widened version range.
 Migrate to a public builder when upstream supplies the necessary surface.
 
-The local CLI/gateway remains historically verified at 0.0.116. S2a revalidates
-0.1.2 separately; installing the Python dependency does not upgrade the runtime.
-S3's arm64 image blocker is independent and remains open.
+S2a verified the local CLI/gateway and VM HTTP/deletion smoke check on 0.1.2;
+see [setup evidence](local-openshell-testing.md#verified-setup-012-2026-09-29).
+Installing the Python dependency alone does not upgrade the runtime.
+S3 selected the arm64 EchoEnv image; S3a tracks its 0.1.2 revalidation.
 
 ## 0.0.116 compatibility break
 
@@ -264,7 +265,7 @@ to support both contracts accidentally.
 4. Use `SandboxRef.id` and identity-aware deletion waiting.
 5. Only private adapter modules may import the S1a-selected generated types;
    retain and extend their offline contracts when implementing P2/T6.
-6. The distribution and model decisions are complete. The lifecycle spike still
-   requires S2a runtime revalidation and S3 image compatibility.
+6. The distribution, model decisions, and S2a runtime setup are complete. The
+   lifecycle spike still requires S3a EchoEnv revalidation on 0.1.2.
 7. Extend contracts for adapter calls, response fields, and deletion outcomes
    in T6.
