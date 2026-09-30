@@ -88,3 +88,8 @@ in 8.24 seconds. `make check` passed formatting, linting, strict typing, and
 169 unit tests with 100% production package branch coverage. This establishes the S4 lifecycle and atomic route contract on
 the selected local runtime. It does not establish health, WebSocket, reset,
 step, state, remote gateways, or the Milestone 0 gate; those remain S5/S6 work.
+
+The subsequent [S5 protocol probe](protocol-spike.md) supplies the pinned image's
+explicit command and runs health/reset/step/state before this helper deletes
+the sandbox. The original standalone S4 invocation still leaves command empty
+and checks lifecycle only. S5 records local protocol evidence and remote unknowns.

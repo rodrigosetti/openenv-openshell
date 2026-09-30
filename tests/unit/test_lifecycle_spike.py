@@ -106,3 +106,18 @@ def test_ready_identity(sdk: MagicMock) -> None:
     with pytest.raises(SpikeError, match="identity"):
         run_spike(sdk, image=IMAGE, workspace="default")
     assert sdk.wait_deleted.call_args.kwargs["expected_sandbox_id"] == "identity"
+
+
+@pytest.mark.parametrize("failure", [RuntimeError("private"), KeyboardInterrupt()])
+def test_protocol_failure_cleanup(sdk: MagicMock, failure: BaseException) -> None:
+    """Run the route probe before deletion and clean up on failure or interruption."""
+    probe = MagicMock(side_effect=failure)
+    with pytest.raises(type(failure)) as caught:
+        run_spike(
+            sdk, image=IMAGE, workspace="default", command=["server"], probe=probe
+        )
+    assert caught.value is failure
+    probe.assert_called_once_with("https://route.test")
+    assert list(sdk.create.call_args.kwargs["spec"].command) == ["server"]
+    sdk.delete.assert_called_once()
+    assert sdk.wait_deleted.call_args.kwargs["expected_sandbox_id"] == "identity"

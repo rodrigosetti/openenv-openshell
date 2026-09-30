@@ -21,6 +21,7 @@ from openshell._proto.openshell_pb2 import SandboxSpec, SandboxTemplate
 from openshell._proto.sandbox_pb2 import SandboxPolicy
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Sequence
     from types import FrameType
 
 logger = logging.getLogger(__name__)
@@ -60,13 +61,21 @@ def workload(image: str) -> SandboxSpec:
     return SandboxSpec(template=SandboxTemplate(image=image), policy=policy)
 
 
-def run_spike(client: SandboxClient, *, image: str, workspace: str) -> str:
+def run_spike(
+    client: SandboxClient,
+    *,
+    image: str,
+    workspace: str,
+    command: Sequence[str] = (),
+    probe: Callable[[str], None] | None = None,
+) -> str:
     """Create an atomic route, wait ready, return its URL after verified deletion.
 
     The caller owns the client. A fresh, short random name bounds cleanup to
     this attempt, including a create RPC whose response was lost.
     """
     spec = workload(image)
+    spec.command.extend(command)
     if client.health().version != SDK_VERSION:
         msg = "Use an OpenShell 0.1.2 gateway with the pinned SDK."
         raise SpikeError(msg)
@@ -87,6 +96,8 @@ def run_spike(client: SandboxClient, *, image: str, workspace: str) -> str:
         ready = client.wait_ready(name, workspace=workspace, timeout_seconds=120)
         _check_identity(ready.id, sandbox_id)
         logger.info("Ready sandbox %s (ID %s); route %s", name, sandbox_id, url)
+        if probe is not None:
+            probe(url)
     except BaseException as failure:
         primary = failure
         raise

@@ -23,3 +23,13 @@ with read-only `/app` access and retains deny-by-default egress. This image-only
 probe uses `--no-cov`
 because it does not execute provider code. Unit coverage remains enforced by
 `make check`.
+
+The [S5 protocol probe](../../docs/protocol-spike.md) uses the same explicit
+image opt-in and SDK lifecycle helper to verify routed health, two reset/step/state
+episodes, echo results, WebSocket ping/pong, and identity-aware deletion:
+
+```bash
+OPENENV_OPENSHELL_ECHO_IMAGE_ID="$(cat tests/integration/images/echo/local-image-id.txt)" \
+  uv run pytest -m integration --no-cov tests/integration/test_protocol_spike.py \
+  -v --log-cli-level=INFO
+```
