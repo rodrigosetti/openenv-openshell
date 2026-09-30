@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from contextlib import suppress
 from types import MappingProxyType
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, TypeVar, cast
 
 import grpc
-from google.protobuf.json_format import ParseDict, ParseError
+from google.protobuf.descriptor import Descriptor, FieldDescriptor
+from google.protobuf.json_format import MessageToDict, ParseDict, ParseError
 from openshell import (
     DeletionOutcome,
     SandboxClient,
@@ -29,7 +30,7 @@ from openenv_openshell.errors import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Mapping
 
 _Result = TypeVar("_Result")
 _CONNECTION_CODES = {
@@ -37,6 +38,84 @@ _CONNECTION_CODES = {
     grpc.StatusCode.UNAUTHENTICATED,
     grpc.StatusCode.PERMISSION_DENIED,
 }
+
+_POLICY_ERROR = "Invalid explicit OpenShell policy; check the supported 0.1.2 schema."
+_ENUM_PREFIXES = {
+    "tls": "NETWORK_TLS_MODE_",
+    "enforcement": "NETWORK_ENFORCEMENT_MODE_",
+    "access": "NETWORK_ACCESS_PRESET_",
+}
+
+
+def _policy_value(value: object, field: FieldDescriptor) -> object:
+    if field.message_type is not None:
+        return _policy_fields(value, field.message_type)
+    if field.type == FieldDescriptor.TYPE_STRING:
+        valid = isinstance(value, str)
+    elif field.type == FieldDescriptor.TYPE_BOOL:
+        valid = isinstance(value, bool)
+    elif field.enum_type is not None:
+        # Authored YAML uses short lowercase enum spellings.
+        if isinstance(value, str):
+            for name in field.enum_type.values_by_name:
+                if (
+                    name.removeprefix(_ENUM_PREFIXES.get(field.name, ""))
+                    == value.upper()
+                ):
+                    return name
+        valid = isinstance(value, str) and value in field.enum_type.values_by_name
+    else:
+        valid = type(value) is int
+    if not valid:
+        raise PolicyConfigurationError(_POLICY_ERROR)
+    return value
+
+
+def _policy_fields(value: object, descriptor: Descriptor) -> dict[str, object]:
+    if not isinstance(value, dict):
+        raise PolicyConfigurationError(_POLICY_ERROR)
+    result: dict[str, object] = {}
+    for key, child in cast("dict[str, object]", value).items():
+        field = descriptor.fields_by_name.get(key)
+        if field is None:
+            raise PolicyConfigurationError(_POLICY_ERROR)
+        if field.is_repeated:
+            if field.message_type and field.message_type.GetOptions().map_entry:
+                if not isinstance(child, dict):
+                    raise PolicyConfigurationError(_POLICY_ERROR)
+                item_field = field.message_type.fields_by_name["value"]
+                result[key] = {
+                    name: _policy_value(item, item_field)
+                    for name, item in cast("dict[str, object]", child).items()
+                }
+            else:
+                if not isinstance(child, list):
+                    raise PolicyConfigurationError(_POLICY_ERROR)
+                result[key] = [
+                    _policy_value(item, field) for item in cast("list[object]", child)
+                ]
+        else:
+            result[key] = _policy_value(child, field)
+    return dict(sorted(result.items()))
+
+
+def normalize_policy(policy: Mapping[str, object]) -> dict[str, object]:
+    """Validate exact field shapes before strict conversion, without a gateway."""
+    fields = _policy_fields(dict(policy), cast("Descriptor", SandboxPolicy.DESCRIPTOR))
+    landlock = fields.get("landlock")
+    if isinstance(landlock, dict) and cast("dict[str, object]", landlock).get(
+        "compatibility"
+    ) not in {
+        "best_effort",
+        "hard_requirement",
+    }:
+        raise PolicyConfigurationError(_POLICY_ERROR)
+    try:
+        model = ParseDict(fields, SandboxPolicy(), ignore_unknown_fields=False)
+    except (ParseError, ValueError, TypeError):
+        raise PolicyConfigurationError(_POLICY_ERROR) from None
+    # JSON output uses exact snake_case fields and canonical enum names.
+    return MessageToDict(model, preserving_proto_field_name=True)
 
 
 def _call(

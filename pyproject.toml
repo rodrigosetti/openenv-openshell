@@ -25,6 +25,7 @@ dependencies = [
   "httpx>=0.28,<0.29",
   "openenv>=0.4,<0.7",
   "openshell @ https://github.com/NVIDIA/OpenShell/releases/download/v0.1.2/openshell-0.1.2-py3-none-any.whl#sha256=8c409da4f176d42418d92366fe201f47cceef2c0fa432bfbce2bf938649d59cf",
+  "pyyaml>=6.0.3,<7",
 ]
 
 [dependency-groups]
@@ -34,6 +35,7 @@ dev = [
   "pytest>=8.4,<9",
   "pytest-cov>=6,<8",
   "ruff>=0.13,<0.15",
+  "types-pyyaml>=6,<7",
 ]
 
 # The selected official SDK wheel is a hash-pinned direct dependency (S1a).

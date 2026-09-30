@@ -109,3 +109,37 @@ budget. HTTP transport timeouts apply per operation, so an in-flight request or
 DNS lookup can finish after the deadline; no further probes are started, and a
 late HTTP 200 is rejected. Timeout errors omit the URL and raw transport details.
 HTTP health alone does not verify WebSocket connectivity or sandbox cleanup.
+
+## Explicit policy loading
+
+`openenv_openshell.policy.load_policy()` accepts a YAML file path (`str` or
+`Path`) or a mapping and returns a detached mapping of normalized OpenShell
+0.1.2 protobuf fields. It runs offline, without a gateway:
+
+```python
+from openenv_openshell.policy import load_policy
+
+policy = load_policy("policy.yaml")
+```
+
+Policies must explicitly specify integer `version: 1`. The authored
+`filesystem_policy` key becomes `filesystem`; supplying both is rejected.
+Nested fields use exact snake_case SDK names. Network endpoint `tls`,
+`enforcement`, and `access` accept the short YAML spellings (such as `terminate`,
+`enforce`, and `read_only`) or canonical protobuf enum names. List order is
+preserved; mapping keys are sorted. No filesystem or network grants are added.
+
+Unknown fields, incorrect types, unsupported versions, nulls, duplicate or merge
+keys, YAML anchors/aliases, unsafe tags, and multiple YAML documents raise
+`PolicyConfigurationError`. File paths and policy contents are omitted from
+errors. Files are limited to 1 MiB and mappings to 64 nesting levels. Authored
+convenience forms requiring additional conversion (for example nested MCP or
+JSON-RPC stanzas, query shorthand, and arbitrary middleware Struct config) are
+currently unsupported and rejected; use the supported SDK field representation.
+The loader validates field shape and strict SDK conversion; gateway semantic
+validation and real enforcement remain separate checks.
+
+`None` is rejected by this explicit loader. Image/default policy selection must
+be a deliberate caller choice and cannot recover from an explicit-policy error.
+The loader is ready for provider startup integration; startup itself remains
+pending, and no runtime enforcement claim follows from these offline tests.
