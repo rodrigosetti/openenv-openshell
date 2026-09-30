@@ -13,6 +13,17 @@ uv sync --locked --all-groups
 make check
 ```
 
+The shared [Codex local environment](.codex/environments/environment.toml)
+runs `uv sync --locked --all-groups` when a new worktree is created, using
+Python 3.11 from `.python-version`. Install uv on the host first. Its actions
+provide quality checks, unit tests, formatting, loopback HTTP integration tests,
+and opt-in OpenShell prerequisite, smoke, and integration checks. Runtime actions
+require the [local OpenShell setup](docs/local-openshell-testing.md); setup only
+installs Python dependencies. Integration actions use `--no-cov` because they
+run separately from the unit coverage gate enforced by `make check`. The EchoEnv
+probe also needs `OPENENV_OPENSHELL_ECHO_IMAGE_ID` as described in the
+[integration guide](tests/integration/README.md).
+
 The SDK is pinned to the official OpenShell 0.1.2 release wheel by URL and
 SHA-256. Use a matching 0.1.2 gateway for future runtime work; see the
 [distribution and model-boundary decision](docs/openshell-sdk-contract.md).
