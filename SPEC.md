@@ -879,8 +879,13 @@ workload and service. Static controls MUST be established before workload
 execution; creating first and applying policy afterward is not an acceptable
 startup sequence. Invalid policy MUST prevent the create call. S3a/S4/S5 use an
 embedded initial policy; the offline adapter contracts verify strict conversion.
-SEC1 implements general policy loading; SEC4 must prove on the real runtime that
-an invalid policy prevents workload execution. These spike results do not close
+SEC1 implements general policy loading. SEC4 verifies on SDK/gateway 0.1.2 that
+invalid explicit inputs send no create RPC and leave no sandbox, while a valid
+initial policy permits the routed EchoEnv control to execute and be deleted.
+The production adapter validates explicit inputs before gateway access and
+embeds policy atomically. This adapter test supplies the validated image command
+at the SDK boundary; provider startup wiring remains P4. See the
+[SEC4 runtime evidence](tests/integration/README.md). These results do not close
 filesystem/network denial acceptance (SEC5/SEC6).
 
 The provider MUST NOT silently broaden permissions when a supplied policy fails.
@@ -1908,7 +1913,8 @@ unqualified compatibility claims. The remaining questions still apply before v0.
 
 5. **Resolved (S6):** embed the validated explicit policy in the initial
    `SandboxClient.create()` request. Policy loading/strict conversion precedes
-   create; runtime prevention of invalid-policy execution remains SEC4.
+   create; SEC4 verifies invalid explicit input prevents create and workload
+   execution on the local runtime through the production adapter.
    See section 18.
 
 6. **Open (S5a):** local services required no extra application credentials,

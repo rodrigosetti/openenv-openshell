@@ -101,6 +101,8 @@ def _policy_fields(value: object, descriptor: Descriptor) -> dict[str, object]:
 
 def normalize_policy(policy: Mapping[str, object]) -> dict[str, object]:
     """Validate exact field shapes before strict conversion, without a gateway."""
+    if type(policy.get("version")) is not int or policy["version"] != 1:
+        raise PolicyConfigurationError(_POLICY_ERROR)
     fields = _policy_fields(dict(policy), cast("Descriptor", SandboxPolicy.DESCRIPTOR))
     landlock = fields.get("landlock")
     if isinstance(landlock, dict) and cast("dict[str, object]", landlock).get(
@@ -181,7 +183,6 @@ class SDKAdapter:
 
     def create(self, request: CreateRequest) -> Sandbox:
         """Build private models and request an atomic service exposure."""
-        self._check_gateway()
         spec = SandboxSpec(template=SandboxTemplate(image=request.image))
         spec.environment.update(request.environment)
         spec.providers.extend(request.providers)
@@ -199,12 +200,17 @@ class SDKAdapter:
         if request.policy is not None:
             try:
                 policy = ParseDict(
-                    dict(request.policy), SandboxPolicy(), ignore_unknown_fields=False
+                    normalize_policy(request.policy),
+                    SandboxPolicy(),
+                    ignore_unknown_fields=False,
                 )
             except (ParseError, ValueError, TypeError):
                 msg = "Invalid normalized OpenShell policy; check the 0.1.2 schema."
                 raise PolicyConfigurationError(msg) from None
             spec.policy.CopyFrom(policy)  # pyright: ignore[reportUnknownMemberType] - Upstream cross-module stub.
+        # Explicit policy errors must precede even gateway access. Never create
+        # with an omitted/default policy after a conversion failure.
+        self._check_gateway()
         return _sandbox(
             _call(
                 lambda: self._client.create(

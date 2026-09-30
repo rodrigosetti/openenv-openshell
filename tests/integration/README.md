@@ -33,3 +33,29 @@ OPENENV_OPENSHELL_ECHO_IMAGE_ID="$(cat tests/integration/images/echo/local-image
   uv run pytest -m integration --no-cov tests/integration/test_protocol_spike.py \
   -v --log-cli-level=INFO
 ```
+
+SEC4 exercises policy loading and the production adapter against the real
+gateway. Invalid YAML and malformed direct adapter policies must send no create
+RPC, and a label-filtered runtime listing must confirm no sandbox exists. The
+valid control asserts the normalized policy is embedded before the create RPC,
+runs EchoEnv through the atomic route, and verifies identity-aware deletion:
+
+```bash
+OPENENV_OPENSHELL_ECHO_IMAGE_ID="$(cat tests/integration/images/echo/local-image-id.txt)" \
+  uv run pytest -m integration --no-cov tests/integration/test_policy_before_execution.py \
+  -v --log-cli-level=INFO
+```
+
+Verified on 2026-09-30 with SDK/gateway 0.1.2 and the pinned native arm64 image:
+invalid inputs sent no create RPC and produced no sandbox; the valid control
+passed HTTP health, two reset/step/state episodes, four echo steps and ping/pong;
+`oe-sec4-7096bbed` was deleted and absence confirmed. `make check` passed 247
+unit tests with 99.38% branch-inclusive coverage, lint and strict typing.
+
+The test supplies the previously validated EchoEnv command only at the SDK
+boundary because S6a/P4 have not implemented provider startup. This verifies
+the loader/adapter gate and initial policy submission; it does not establish
+gateway rejection of every semantically invalid policy, filesystem/network
+denials (SEC5/SEC6), automatic image command handling, or a complete provider
+lifecycle. P4 must load explicit policy before connecting/creating and preserve
+this atomic submission path.

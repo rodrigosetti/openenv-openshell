@@ -201,10 +201,29 @@ def test_failed_connection(sdk: MagicMock) -> None:
     sdk.close.assert_not_called()
 
 
-def test_invalid_policy(sdk: MagicMock, create_request: CreateRequest) -> None:
+@pytest.mark.parametrize(
+    "policy",
+    [
+        {SECRET: True},
+        {},
+        {"version": 2},
+        {"version": "1"},
+        {"version": True},
+        {"version": 1, "filesystem": {"include_workdir": 1}},
+        {"version": 1, "landlock": {"compatibility": SECRET}},
+        {"version": 1, "filesystem": {"read_only": [False]}},
+        {"version": 1, "network_policies": {"api": {"endpoints": [{"port": -1}]}}},
+    ],
+)
+def test_invalid_policy(
+    sdk: MagicMock, create_request: CreateRequest, policy: dict[str, object]
+) -> None:
     """Strict conversion fails before create without including raw policy."""
     with pytest.raises(PolicyConfigurationError) as error:
-        connect().create(replace(create_request, policy={SECRET: True}))
+        SDKAdapter(cast("SandboxClient", sdk)).create(
+            replace(create_request, policy=policy)
+        )
+    sdk.health.assert_not_called()
     sdk.create.assert_not_called()
     assert SECRET not in "".join(format_exception(error.value))
     assert SECRET not in repr(create_request)
