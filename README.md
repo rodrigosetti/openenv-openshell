@@ -33,6 +33,9 @@ atomic routing, readiness, and deletion without using the production provider.
 [S5](docs/protocol-spike.md) verified the local routed protocol;
 [S6 decisions](docs/spike-decisions.md) define port/service/policy behavior and
 record the remaining image-startup and remote-validation prerequisites.
+The [M0 acceptance rerun](docs/protocol-spike.md#m0-acceptance-verification-2026-09-30)
+verified local routed EchoEnv reset/step and sandbox deletion, completing the
+spike milestone. Production provider lifecycle remains Milestone 1 work.
 
 The checks enforce formatting and linting with Ruff, strict static typing with
 Pyright, and unit-test branch coverage of at least 95%. Tests that require a

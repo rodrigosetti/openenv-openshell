@@ -92,5 +92,33 @@ authentication remain unverified. The checked-in image ID is a local Docker
 configuration ID and cannot be pulled remotely. Beads **S5a** tracks obtaining
 authorized remote access and a pullable immutable image, extending the opt-in
 probe, and validating an unmodified OpenEnv client. It blocks the M3 release
-gate. S6 must preserve these unknowns when resolving spike questions; this local
-result does not close M0, prove security enforcement, or establish remote support.
+gate. S6 preserves these unknowns in the spike decisions; the local S5 result
+alone did not close M0, prove security enforcement, or establish remote support.
+
+## M0 acceptance verification (2026-09-30)
+
+With all M0 prerequisites closed, the protocol test above was rerun on the same
+pinned image, SDK/gateway 0.1.2, `default` workspace, and native Apple Silicon VM
+setup. `make openshell-prereqs` passed, including authenticated gateway access
+and workspace access. The test passed in 16.37 seconds with sandbox
+`oe-s4-5e60df02cb`, ID `1f7f16d7-84c7-474d-856b-8f62f0271f3a`, through:
+
+```text
+http://default--oe-s4-5e60df02cb.openshell.localhost:17670/
+```
+
+HTTP health, two WebSocket reset episodes, four exact echo results, state
+transitions, and ping/pong all passed. The lifecycle helper then deleted the
+sandbox and verified absence using the original sandbox ID. This satisfies
+M0's acceptance criterion: EchoEnv reset and step through an OpenShell-managed
+service, followed by sandbox deletion.
+
+`UV_CACHE_DIR=/private/tmp/openenv-openshell-m0-uv-cache UV_NO_SYNC=1 make check`
+passed formatting, lint, strict typing, and 239 unit tests with 99.69% production
+branch coverage against the installed environment. Gateway checks and the
+protocol test required execution outside the network sandbox; the initial
+sandboxed prerequisite check could not connect to localhost.
+
+M0 is a local spike gate. Production provider startup/cleanup, unmodified-client
+integration, automatic image startup (S6a), remote validation (S5a), and security
+enforcement acceptance remain their respective downstream tasks.
