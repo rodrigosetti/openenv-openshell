@@ -15,6 +15,7 @@ from openenv_openshell.errors import (
     SandboxCreationError,
     SandboxReadinessError,
 )
+from openenv_openshell.policy import load_policy, policy_digest
 from tests.integration.test_protocol_spike import COMMAND, probe_protocol
 
 
@@ -42,7 +43,12 @@ def test_provider_startup(cleanup: str) -> None:
         assert not provider.state.ready
         assert provider.state.sandbox_id
         assert provider.metadata is not None
-        assert provider.metadata.service_url == url
+        assert (provider.metadata.service_url, provider.metadata.policy_digest) == (
+            url,
+            policy_digest(
+                load_policy(Path(__file__).parent / "images/echo/policy.yaml")
+            ),
+        )
         assert provider.metadata.sandbox_id == provider.state.sandbox_id
         provider.wait_for_ready(url, timeout_s=30)
         assert provider.metadata is not None

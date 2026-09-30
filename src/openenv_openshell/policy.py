@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
+from hashlib import sha256
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
@@ -19,6 +21,18 @@ if TYPE_CHECKING:
 
     from yaml.events import Event
     from yaml.nodes import MappingNode
+
+
+def policy_digest(policy: Mapping[str, object]) -> str:
+    """Hash normalized SDK fields as sorted, compact UTF-8 JSON.
+
+    Preserve list order; only mapping order and authored schema spellings are
+    normalized. The caller must pass the validated output of load_policy.
+    """
+    canonical = json.dumps(
+        dict(policy), sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    ).encode("utf-8")
+    return sha256(canonical).hexdigest()
 
 
 class _PolicyLoader(yaml.SafeLoader):

@@ -149,7 +149,13 @@ confirmed sandbox absence even if client closure subsequently fails. Command,
 environment, credentials, and policy contents are never copied into metadata;
 caller-supplied image and operational identifiers must be non-secret. The service
 URL is validated to exclude credentials, queries, and fragments. `policy_digest`
-remains `None` until SEC2 adds verified policy provenance.
+is the lowercase SHA-256 of the explicit policy's normalized SDK fields encoded
+as UTF-8 JSON with sorted mapping keys and compact separators. YAML formatting,
+mapping order, accepted field aliases, and enum spellings do not affect it;
+list order is preserved. The digest records the policy submitted at creation,
+not evidence of runtime enforcement. It remains `None` when no explicit policy
+is supplied because the provider cannot attest to the resolved image or gateway
+default policy.
 See [SPEC.md](SPEC.md) for the design and milestones.
 
 Provider configuration is accepted directly as keyword arguments and validated
