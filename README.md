@@ -104,8 +104,25 @@ disappear, and releases client resources. Repeated calls are harmless. With
 `keep_sandbox=True`, it closes the client and clears local ownership while leaving
 the sandbox running. Deletion, wait, or client-close failures raise a sanitized
 `SandboxDeletionError` and retain enough state for another stop call to retry.
-Lifecycle logging, run metadata, and complete failure cleanup reporting remain
-P7/P8 work.
+Lifecycle events use standard Python logging under `openenv_openshell` (INFO for
+successful transitions, WARNING for cleanup failures). Event messages contain
+only fixed names; they omit workload arguments, environment, policy contents,
+route data, and raw SDK exceptions. Configure handlers in the calling application.
+Complete failed-start cleanup guarantees remain P7 work.
+
+`provider.metadata` is `None` before creation yields a validated service route,
+then exposes an immutable `OpenShellRunMetadata` snapshot with sandbox name/ID,
+workspace, image, service URL, UTC creation/health-ready/deletion timestamps, and
+installed provider, OpenShell SDK, and OpenEnv versions (missing distributions
+are `None`). The SDK version is not a claim about the gateway version.
+The snapshot survives cleanup, including `keep_sandbox=True` (which leaves
+`deleted_at` unset), and is replaced when the next sandbox creation is attempted.
+A rejected start leaves the previous snapshot intact. Deletion time records
+confirmed sandbox absence even if client closure subsequently fails. Command,
+environment, credentials, and policy contents are never copied into metadata;
+caller-supplied image and operational identifiers must be non-secret. The service
+URL is validated to exclude credentials, queries, and fragments. `policy_digest`
+remains `None` until SEC2 adds verified policy provenance.
 See [SPEC.md](SPEC.md) for the design and milestones.
 
 Provider configuration is accepted directly as keyword arguments and validated

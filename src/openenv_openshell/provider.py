@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 import re
 import secrets
 from copy import deepcopy
+from dataclasses import replace
+from datetime import UTC, datetime
 from http import HTTPStatus
 from math import isfinite
 from time import monotonic, sleep
@@ -28,13 +31,18 @@ from openenv_openshell.errors import (
     SandboxDeletionError,
     SandboxReadinessError,
 )
-from openenv_openshell.metadata import ProviderState
+from openenv_openshell.metadata import (
+    OpenShellRunMetadata,
+    ProviderState,
+    package_version,
+)
 from openenv_openshell.policy import load_policy
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
 
 _MAX_PORT = 65535
+_LOGGER = logging.getLogger("openenv_openshell")
 
 
 class OpenShellProvider(ContainerProvider):
@@ -79,6 +87,12 @@ class OpenShellProvider(ContainerProvider):
         )
         self.state = ProviderState()
         self._adapter: SandboxAdapter | None = None
+        self._metadata: OpenShellRunMetadata | None = None
+
+    @property
+    def metadata(self) -> OpenShellRunMetadata | None:
+        """Return the latest immutable run snapshot, retained after cleanup."""
+        return self._metadata
 
     def _sandbox_name_for_image(self, image: str) -> str:
         """Return the configured name or generate a safe, readable unique name."""
@@ -175,17 +189,34 @@ class OpenShellProvider(ContainerProvider):
         self._adapter = adapter
         # Record ownership before create: a lost response can still leave a sandbox.
         self.state = ProviderState(sandbox_name=request.name, image=image)
+        self._metadata = None
         error = SandboxCreationError
         try:
+            _LOGGER.info("sandbox.create.started")
             sandbox = adapter.create(request)
             self.state.sandbox_id = sandbox.sandbox_id
             self.state.created = True
+            created_at = datetime.now(UTC)
+            _LOGGER.info("sandbox.create.completed")
             base_url = adapter.service_url(sandbox, request.service_name)
             if base_url is None:
                 msg = "OpenShell did not return the requested service URL"
                 raise SandboxCreationError(msg)  # noqa: TRY301 - Stage-specific failure enters rollback.
             self._validate_service_url(base_url)
             self.state.base_url = base_url
+            self._metadata = OpenShellRunMetadata(
+                sandbox_name=request.name,
+                sandbox_id=sandbox.sandbox_id,
+                workspace=request.workspace,
+                image=image,
+                service_url=base_url,
+                policy_digest=None,
+                created_at=created_at,
+                openenv_provider_version=package_version("openenv-openshell"),
+                openshell_version=package_version("openshell"),
+                openenv_version=package_version("openenv"),
+            )
+            _LOGGER.info("service.exposed")
             error = SandboxReadinessError
             ready = adapter.wait_ready(
                 request.name,
@@ -200,12 +231,14 @@ class OpenShellProvider(ContainerProvider):
             # Do not expose upstream exception text, workload argv, or route data.
             msg = "OpenShell sandbox startup failed"
             raise error(msg) from None
+        _LOGGER.info("sandbox.ready")
         return base_url
 
     def _cleanup_failed_start(self, adapter: SandboxAdapter, name: str) -> None:
         """Best-effort rollback; uncertain deletion retains ownership for retry."""
         try:
             if not self.config.keep_sandbox:
+                _LOGGER.info("sandbox.delete.started")
                 deletion = adapter.delete(name, workspace=self.config.workspace)
                 identity = self.state.sandbox_id or deletion.sandbox_id
                 if identity is not None:
@@ -218,14 +251,26 @@ class OpenShellProvider(ContainerProvider):
                     self.state.deleted = True
                 elif deletion.outcome in {"completed", "already_absent"}:
                     self.state.deleted = True
+                if self.state.deleted:
+                    self._record_deletion()
+                else:
+                    _LOGGER.warning("provider.cleanup.failed")
         except Exception:  # noqa: BLE001 - Rollback must preserve the startup failure.
+            _LOGGER.warning("provider.cleanup.failed")
             return
         if self.config.keep_sandbox or self.state.deleted:
             try:
                 adapter.close()
             except Exception:  # noqa: BLE001 - Preserve the startup failure.
+                _LOGGER.warning("provider.cleanup.failed")
                 return
             self._adapter = None
+
+    def _record_deletion(self) -> None:
+        """Record confirmed absence, independently of releasing the SDK client."""
+        if self._metadata is not None:
+            self._metadata = replace(self._metadata, deleted_at=datetime.now(UTC))
+        _LOGGER.info("sandbox.delete.completed")
 
     @staticmethod
     def _validate_service_url(base_url: str) -> httpx.URL:
@@ -266,6 +311,7 @@ class OpenShellProvider(ContainerProvider):
             ):
                 if self._adapter is None:
                     self._adapter = self._connect_adapter()
+                _LOGGER.info("sandbox.delete.started")
                 deletion = self._adapter.delete(name, workspace=self.config.workspace)
                 identity = self.state.sandbox_id or deletion.sandbox_id
                 if identity is not None:
@@ -282,9 +328,11 @@ class OpenShellProvider(ContainerProvider):
                     raise SandboxDeletionError(msg)  # noqa: TRY301 - Sanitize all cleanup failures below.
                 self.state.deleted = True
                 self.state.ready = False
+                self._record_deletion()
             if self._adapter is not None:
                 self._adapter.close()
         except Exception:  # noqa: BLE001 - SDK errors may contain credentials.
+            _LOGGER.warning("provider.cleanup.failed")
             msg = "OpenShell sandbox cleanup failed; call stop_container again to retry"
             raise SandboxDeletionError(msg) from None
         self._adapter = None
@@ -311,6 +359,12 @@ class OpenShellProvider(ContainerProvider):
                         status = response.status_code
                     if status == HTTPStatus.OK and monotonic() < deadline:
                         self.state.ready = True
+                        metadata = self.metadata
+                        if metadata is not None and base_url == self.state.base_url:
+                            self._metadata = replace(
+                                metadata, ready_at=datetime.now(UTC)
+                            )
+                        _LOGGER.info("openenv.health.ready")
                         return
                 except httpx.RequestError:
                     # Transport messages may contain credentials or URL data.
