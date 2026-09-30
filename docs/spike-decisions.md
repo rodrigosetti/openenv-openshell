@@ -34,7 +34,8 @@ with `command`, supply required image environment via `env_vars`, and choose a
 command that establishes the directory. Automatic OCI metadata resolution is
 outside v0.1. Request preparation and the adapter reject missing/invalid argv
 before gateway access and preserve valid argv verbatim. P4 implements lifecycle
-wiring; it has no remaining startup API decision. Remote validation remains S5a.
+wiring; it has no remaining startup API decision. S5a recorded remote validation in
+[protocol evidence](protocol-spike.md#remote-gateway-validation-s5a-2026-09-30).
 
 ## Evidence boundaries
 

@@ -11,6 +11,10 @@ The tested OpenEnv range is **exactly 0.6.0**, pinned in `pyproject.toml` and
 evidence. Widen it only after testing factory, protocol, and cleanup contracts
 against each added release. This check used Python 3.11.8.
 
+I6 makes the singleton range explicit in the
+[client/SDK/gateway matrix](compatibility-matrix.md), with a focused offline
+command and a dedicated CI dependency-pair job.
+
 ## Local check
 
 Complete the [local setup](local-openshell-testing.md) and build the
@@ -77,8 +81,8 @@ API; it casts the installed class without wrapping its behavior.
 This local check does not validate remote authentication, long idle sessions,
 reconnects, other OpenEnv releases, arbitrary images, or other compute drivers.
 The image ID is local Docker configuration identity, not a pullable registry
-digest. I1/I2 retain the reusable E2E fixture and broader EchoEnv suite.
-S5a ran this test against a remote mTLS gateway. Both modes failed explicitly
-with `ServiceAccessError`, because the route requires a TLS client
+digest. I2 extends this check with the I1 runtime fixture and broader EchoEnv
+assertions. S5a ran this test against a remote mTLS gateway. Both modes failed
+explicitly with `ServiceAccessError`, because the route requires a TLS client
 certificate. See [remote evidence](protocol-spike.md#remote-gateway-validation-s5a-2026-09-30).
 Security denial acceptance remains SEC5/SEC6.

@@ -1,0 +1,67 @@
+name: OpenShell integration
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: openshell-integration
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    outputs:
+      enabled: ${{ steps.gate.outputs.enabled }}
+    steps:
+      - name: Explain runtime gate
+        id: gate
+        env:
+          ENABLED: ${{ vars.OPENENV_OPENSHELL_CI_ENABLED }}
+          TRUSTED_MAIN: ${{ github.ref == 'refs/heads/main' && github.repository == 'rodrigosetti/openenv-openshell' }}
+        run: |
+          if [ "$ENABLED" = true ] && [ "$TRUSTED_MAIN" = true ]; then
+            echo 'enabled=true' >> "$GITHUB_OUTPUT"
+            echo 'Dedicated OpenShell runner enabled.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'enabled=false' >> "$GITHUB_OUTPUT"
+            echo 'Runtime tests skipped: enable OPENENV_OPENSHELL_CI_ENABLED=true after provisioning, and dispatch on repository main.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  runtime:
+    needs: gate
+    if: needs.gate.outputs.enabled == 'true'
+    runs-on: [self-hosted, macOS, ARM64, openshell-0.1.2]
+    environment: openshell-integration
+    timeout-minutes: 45
+    env:
+      UV_PYTHON: "3.11"
+      UV_LOCKED: "true"
+      OPENSHELL_GATEWAY: ${{ vars.OPENSHELL_GATEWAY }}
+      OPENSHELL_WORKSPACE: ${{ vars.OPENSHELL_WORKSPACE || 'default' }}
+      OPENENV_OPENSHELL_ECHO_IMAGE_ID: ${{ vars.OPENENV_OPENSHELL_ECHO_IMAGE_ID }}
+      OPENENV_OPENSHELL_FILESYSTEM_IMAGE_ID: ${{ vars.OPENENV_OPENSHELL_FILESYSTEM_IMAGE_ID }}
+      OPENENV_OPENSHELL_NETWORK_IMAGE_ID: ${{ vars.OPENENV_OPENSHELL_NETWORK_IMAGE_ID }}
+    steps:
+      - name: Check out trusted main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.11.20"
+          python-version: "3.11"
+          enable-cache: false
+      - name: Install locked dependencies
+        timeout-minutes: 10
+        run: uv sync --locked --all-groups
+      - name: Run bounded EchoEnv, filesystem, and network suites
+        run: uv run python -m tests.integration._ci
+      - name: Report diagnostics location
+        if: always()
+        run: |
+          echo 'See the runtime step for pytest results and OpenShell E2E teardown sections (generated names and lifecycle flags). On timeout, SIGTERM allows 180 seconds for cleanup; forced termination requires operator inspection. No gateway credentials or raw SDK dumps are uploaded.' >> "$GITHUB_STEP_SUMMARY"

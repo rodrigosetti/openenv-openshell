@@ -538,7 +538,9 @@ def start_container(
 OpenShell 0.1.2's official Python wheel supports creating, waiting for
 readiness, executing commands, deleting, and identity-aware deletion waiting.
 It also supports atomic service exposures and returned service URLs. The
-repository pins that wheel by release URL and SHA-256. S1a selects a confined,
+repository pins that wheel in the development group by release URL and SHA-256.
+Published distributions require installing the same wheel separately as a runtime
+prerequisite because package indexes reject direct URL dependencies. S1a selects a confined,
 contract-tested generated-model dependency for workload and policy inputs;
 public lifecycle calls remain the runtime boundary. See
 [`docs/openshell-sdk-contract.md`](docs/openshell-sdk-contract.md) for the exact
@@ -1095,6 +1097,30 @@ These values SHOULD map directly to OpenShell resource configuration.
 
 No additional scheduler abstraction should be invented.
 
+## 22.1 Process capacity: SEC8b scope decision
+
+The v0.1 provider contract on the supported local OpenShell 0.1.2 native VM
+lane excludes a guaranteed sandbox-specific process/thread limit and resistance
+to process-exhaustion denial of service. The provider exposes no PID-budget
+setting. Process policy selects user/group identity; Landlock controls filesystem
+access. Neither establishes process capacity. CPU/memory/GPU requests MUST NOT
+be presented as proof of PID enforcement or runtime resource enforcement.
+
+SEC8's read-only diagnostic found no visible `pids.max` in the workload's cgroup
+hierarchy and reported inherited soft/hard RLIMIT_NPROC of 7698. This does not
+establish a sandbox-specific bound or prove the absence of controls outside the
+guest. A workload may exhaust guest capacity, disrupt its server and other
+workloads sharing that capacity, or consume host resources. This lane MUST NOT
+be advertised as providing availability isolation for hostile workloads.
+
+Operators needing that guarantee must select and independently validate a
+runtime/compute driver with an enforced sandbox-specific budget. The provider
+MUST remain a thin adapter: no guest limiter, hidden permissive fallback, or
+private runtime fork is part of this decision. A future PID guarantee requires
+a supported upstream configuration contract and bounded runtime evidence that
+identifies the enforcement owner and covers initial workload and exec processes.
+See [process-capacity decision](docs/process-capacity.md) for evidence and limits.
+
 ---
 
 # 23. Sandbox Naming
@@ -1407,9 +1433,14 @@ Because OpenEnv explicitly describes itself as experimental and subject to API c
 ## 31.3 OpenShell
 
 The selected compatibility target is exactly SDK/gateway `0.1.2`. The SDK
-dependency is the official GitHub wheel pinned by URL and SHA-256 in
-`pyproject.toml` and `uv.lock`; it replaces the incompatible PyPI `0.0.116`
-baseline. S1a permits generated workload/policy models only inside the private
+runtime prerequisite is the official GitHub wheel pinned by URL and SHA-256 in
+the `pyproject.toml` development group and `uv.lock`; it replaces the
+incompatible PyPI `0.0.116`
+baseline. I13 omits OpenShell from published Requires-Dist because package
+indexes reject direct references. Maintainers and users install the same
+hash-pinned wheel separately; the private adapter rejects absent or mismatched
+SDKs before gateway access. No PyPI SDK substitution or compatibility widening
+is permitted. S1a permits generated workload/policy models only inside the private
 adapter with offline contract tests. Do not widen the SDK range until its
 model and lifecycle contracts are reviewed and runtime compatibility is tested.
 
@@ -1753,6 +1784,13 @@ filesystem denial tests
 network denial tests
 policy digest metadata
 ```
+
+Acceptance requires fail-closed explicit policies, demonstrated filesystem and
+network denials with continued OpenEnv operation, and disposition of the security
+review findings. Under section 22.1, bounded process capacity is excluded on the
+local 0.1.2 native VM lane; M2 completion MUST retain that documented residual
+availability risk and MUST NOT imply process-exhaustion protection. Cleanup
+ownership safety remains a separate requirement (SEC8a).
 
 ---
 
