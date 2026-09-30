@@ -294,6 +294,48 @@ image: both healthy and SIGTERM controls passed routed HTTP/WebSocket protocol
 and independent sandbox absence checks. `make check` passed Ruff, strict
 Pyright, and 380 unit tests with 99.50% provider-package coverage.
 
+## SEC6 network security
+
+`test_network_security.py` uses the public provider and the I1 runtime owner.
+For each of `huggingface.co` and `example.com`, it compares an empty egress
+policy with one explicit read-only HTTPS rule for the image's real Python
+interpreter. Guest Python requests must receive HTTP 200 from the selected
+destination when allowed. Both destinations must be denied under the empty
+policy, and the undeclared destination must remain denied under the single-host
+policy. Each destination therefore has a positive control using the same image,
+interpreter, URL, and TLS verification.
+
+Denials require a permission error (`EACCES`) or an explicit HTTP CONNECT 403
+from the runtime proxy. DNS failures, timeouts, TLS errors, other HTTP errors,
+and failed guest commands do not count as enforcement evidence. TLS verification
+remains enabled and requests use a ten-second timeout. Endpoint outages fail
+the positive control; these opt-in tests require public internet access from
+the gateway. They use no attached providers or credentials.
+
+The unmodified OpenEnv client performs reset/step/state before egress and after
+each request on the same persistent connection. Factory health and client-owned
+cleanup use the gateway service route. Every successful case independently
+confirms sandbox absence; the fixture cleans partial startup and failed assertions.
+Guest probes return fixed outcome fields rather than raw transport exceptions.
+
+```bash
+OPENENV_OPENSHELL_ECHO_IMAGE_ID="$(cat tests/integration/images/echo/local-image-id.txt)" \
+  uv run pytest -m integration --no-cov tests/integration/test_network_security.py \
+  -v --log-cli-level=INFO
+```
+
+These checks cover local destination enforcement and routed client continuity.
+They do not establish remote service compatibility, exhaustive egress bypass
+resistance, HTTP method enforcement, or enforcement for arbitrary images/drivers.
+
+Verified on 2026-09-30 with OpenEnv 0.6.0, local SDK/gateway 0.1.2, and the pinned
+native arm64 image: both destination cases passed across four disposable
+sandboxes. Empty and single-host policies returned `EACCES` for undeclared
+destinations; each allowed HTTPS read returned HTTP 200 with TLS verification.
+All twelve reset/step/state controls passed on their existing client connections,
+and independent SDK listings confirmed deletion of all four sandboxes.
+`make check` passed Ruff, strict Pyright, and 416 unit tests with 99.50% coverage.
+
 ## I2 EchoEnv E2E evidence
 
 Verified on 2026-09-30 with OpenEnv 0.6.0, SDK/gateway 0.1.2, and the pinned

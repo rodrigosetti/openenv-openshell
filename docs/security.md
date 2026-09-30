@@ -115,3 +115,13 @@ an SDK double. They do not establish that external SDK versions, application
 log handlers, or sandbox processes redact secrets. Operational identifiers,
 image references, labels, and service URLs must remain non-secret as described
 above; raw environment values are readable inside the sandbox.
+
+## Network enforcement checks
+
+[SEC6's runtime tests](../tests/integration/test_network_security.py) compare
+deny-by-default egress with one explicit HTTPS destination for the tested
+image's Python interpreter. They require successful reads of each destination
+under its allow policy, permission/proxy denials under deny policies, continued
+reset/step/state over the same OpenEnv connection, and sandbox deletion.
+An externally reachable environment does not grant its workload outbound access.
+See the [run instructions and limits](../tests/integration/README.md#sec6-network-security).
