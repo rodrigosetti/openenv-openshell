@@ -1,5 +1,12 @@
 # Credentials and provider selection
 
+Filesystem enforcement is exercised by [SEC5's runtime test](../tests/integration/test_filesystem_security.py).
+It uses synthetic SSH/host-shadow canaries with an explicit readable control,
+requires permission-denied errors under strict rules, checks workspace/temp
+writes, and verifies continued use of the same OpenEnv WebSocket session.
+See the [fixture build and run instructions](../tests/integration/README.md#sec5-filesystem-enforcement).
+The canaries are guest image files; the test never reads real host credentials.
+
 Prefer OpenShell provider-backed credentials for secrets. Use `env_vars` for
 ordinary workload configuration, such as concurrency limits. Raw environment
 values are readable by sandbox processes; request repr redaction and safe error
