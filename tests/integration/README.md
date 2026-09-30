@@ -3,8 +3,12 @@
 P10's [public client compatibility check](../../docs/openenv-compatibility.md)
 uses the installed, unmodified OpenEnv 0.6.0 `GenericEnvClient` with the public
 provider. Run `test_openenv_client.py` with the same image opt-in shown below.
-Both async and synchronous cases verify factory health, repeated reset/step/state,
-client-owned cleanup, and independent sandbox absence. Offline public-client
+I2 extends both async and synchronous cases using `openshell_runtime`: explicit
+routed HTTP health, two WebSocket reset episodes with three echo steps each
+(including Unicode and multiline text), exact echo results, per-step state,
+client-owned cleanup, and independent sandbox absence before fixture teardown.
+The fixture honors `OPENSHELL_GATEWAY` and `OPENSHELL_WORKSPACE` and owns fallback
+cleanup for setup failures and interruptions. Offline public-client
 contracts live in `tests/unit/test_openenv_client.py`.
 
 Tests in this directory exercise real transports or an OpenShell runtime.
@@ -249,3 +253,16 @@ Verified on 2026-09-30 with local SDK/gateway 0.1.2 and the pinned native arm64
 image: both healthy and SIGTERM controls passed routed HTTP/WebSocket protocol
 and independent sandbox absence checks. `make check` passed Ruff, strict
 Pyright, and 380 unit tests with 99.50% provider-package coverage.
+
+## I2 EchoEnv E2E evidence
+
+Verified on 2026-09-30 with OpenEnv 0.6.0, SDK/gateway 0.1.2, and the pinned
+native arm64 EchoEnv image: both async and sync cases in
+`test_openenv_client.py` passed. Each checked routed HTTP health and two episodes
+over the unmodified client's WebSocket connection, with six successful echo
+steps, including Unicode/multiline payloads, distinct episode IDs, reset state,
+and per-step counts. Client context exit cleared ownership and recorded deletion;
+an independent SDK listing confirmed absence before fixture fallback cleanup.
+`make check` passed 416 unit tests, Ruff, strict Pyright, and 99.50% coverage.
+This establishes local E2E behavior for the pinned stack; remote authentication,
+long idle/reconnect behavior, and other versions/drivers remain unverified.
