@@ -241,7 +241,8 @@ Migrate to a public builder when upstream supplies the necessary surface.
 S2a verified the local CLI/gateway and VM HTTP/deletion smoke check on 0.1.2;
 see [setup evidence](local-openshell-testing.md#verified-setup-012-2026-09-29).
 Installing the Python dependency alone does not upgrade the runtime.
-S3 selected the arm64 EchoEnv image; S3a tracks its 0.1.2 revalidation.
+S3 selected the arm64 EchoEnv image; S3a verified its routed health/WebSocket
+handshake and deletion on 0.1.2 with the explicit image policy fixture.
 
 ## 0.0.116 compatibility break
 
@@ -265,7 +266,45 @@ to support both contracts accidentally.
 4. Use `SandboxRef.id` and identity-aware deletion waiting.
 5. Only private adapter modules may import the S1a-selected generated types;
    retain and extend their offline contracts when implementing P2/T6.
-6. The distribution, model decisions, and S2a runtime setup are complete. The
-   lifecycle spike still requires S3a EchoEnv revalidation on 0.1.2.
+6. The distribution, model decisions, S2a runtime setup, and S3a EchoEnv
+   revalidation are complete. S4 can now build the lifecycle spike.
 7. Extend contracts for adapter calls, response fields, and deletion outcomes
    in T6.
+
+## P2 private adapter
+
+`src/openenv_openshell/_adapter.py` defines the provider-facing
+`SandboxAdapter` protocol and plain `CreateRequest`, `Sandbox`, and `Deletion`
+models. The existing typed fake implements this protocol. `_sdk.py` is the
+only production module importing OpenShell and its generated models.
+
+`connect(gateway=...)` loads the SDK lazily, verifies its exact distribution
+version, and calls public `SandboxClient.from_active_cluster(cluster=...)`.
+`gateway` is a registered gateway name, matching the SDK's `cluster` argument;
+no insecure TLS override is supplied. A public `health()` call must report
+exactly `0.1.2` before sandbox creation. Missing/broken dependencies identify
+`uv sync --locked` as the repair; gateway mismatch identifies the required
+release. A failed connection check closes the acquired client even when that
+cleanup itself fails. No sandbox mutation is retried automatically.
+
+The adapter constructs generated workload inputs privately, retains the
+create-time routes as a detached immutable mapping, and uses `timeout_seconds`
+and `expected_sandbox_id` for public lifecycle waits. Delete requests use
+`allow_missing=True`. Deletion results preserve `completed`, `accepted`,
+`already_absent`, or `unknown`, plus the optional sandbox ID. Unknown outcomes
+never imply successful cleanup. `close()` releases the client idempotently;
+it does not delete a sandbox. Provider ownership and deletion decisions remain
+P4/P6/P9 work.
+
+Transport unavailability and authentication/authorization failures become
+`OpenShellConnectionError`; other SDK and transport failures become the error
+for the operation. Messages and displayed tracebacks omit raw SDK details,
+credentials, environment values, and policy contents. The adapter emits no
+logs. Policy conversion is strict and accepts only already-normalized wire
+field mappings; file loading and schema-aware normalization remain SEC1.
+The provider's configuration-to-request translation remains P3.
+
+`tests/unit/test_adapter.py` exercises real SDK response/spec models with
+signature-aware client doubles, without a CLI or gateway. These P2 tests
+cover the adapter boundary but do not establish runtime enforcement or close
+T6's later upgrade-contract review.
