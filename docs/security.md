@@ -1,5 +1,17 @@
 # Credentials and provider selection
 
+## Process capacity and availability
+
+The v0.1 security contract excludes a guaranteed sandbox-specific process/thread
+budget on the local OpenShell 0.1.2 native VM lane. A hostile or accidental
+process burst can exhaust guest capacity, interrupt the OpenEnv server or other
+workloads sharing capacity, and consume host resources. Filesystem and network
+enforcement do not establish availability isolation. CPU/memory/GPU serialization
+also does not establish runtime enforcement. Operators requiring process capacity
+isolation must independently validate an enforcing runtime/compute driver.
+See [SPEC section 22.1](../SPEC.md#221-process-capacity-sec8b-scope-decision) and
+the [evidence and scope decision](process-capacity.md).
+
 Filesystem enforcement is exercised by [SEC5's runtime test](../tests/integration/test_filesystem_security.py).
 It uses synthetic SSH/host-shadow canaries with an explicit readable control,
 requires permission-denied errors under strict rules, checks workspace/temp

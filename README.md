@@ -214,6 +214,12 @@ generates a bounded `openenv-<image>-<suffix>` sandbox name. Labels are copied
 defensively and must contain only non-secret operational metadata—never tokens,
 credentials, prompts, or private task/user content.
 
+Resource values are requests to OpenShell, not proof of runtime enforcement.
+The local 0.1.2 native VM lane has no validated sandbox-specific process budget;
+v0.1 excludes protection against process-exhaustion denial of service on that
+lane. Non-root identity and Landlock do not supply that guarantee. See the
+[process-capacity scope and operator requirements](docs/process-capacity.md).
+
 ## HTTP readiness
 
 `wait_for_ready(base_url, timeout_s=30.0)` polls `<base_url>/health` and sets
