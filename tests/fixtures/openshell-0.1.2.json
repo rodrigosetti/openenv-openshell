@@ -1,0 +1,140 @@
+{
+  "sdk_version": "0.1.2",
+  "signatures": {
+    "from_active_cluster": "(*, cluster: 'str | None' = None, timeout: 'float' = 30.0, auto_refresh: 'bool' = True, write_back: 'bool' = True, insecure: 'bool' = False, client_credentials: 'ClientCredentialsAuth | None' = None) -> 'SandboxClient'",
+    "health": "(self) -> 'openshell_pb2.HealthResponse'",
+    "create": "(self, *, workspace: 'str', spec: 'openshell_pb2.SandboxSpec | None' = None, name: 'str | None' = None, labels: 'Mapping[str, str] | None' = None, service_exposures: 'Sequence[ServiceExposure] | None' = None) -> 'SandboxRef'",
+    "wait_ready": "(self, name: 'str', *, workspace: 'str', timeout_seconds: 'float' = 300.0) -> 'SandboxRef'",
+    "delete": "(self, name: 'str', *, workspace: 'str', allow_missing: 'bool' = False) -> 'DeletionResult'",
+    "wait_deleted": "(self, name: 'str', *, workspace: 'str', timeout_seconds: 'float' = 60.0, expected_sandbox_id: 'str | None' = None) -> 'None'",
+    "close": "(self) -> 'None'"
+  },
+  "response_fields": {
+    "SandboxRef": [
+      "id",
+      "name",
+      "workspace",
+      "status",
+      "labels",
+      "created_from_workload_template",
+      "service_urls"
+    ],
+    "DeletionResult": [
+      "outcome",
+      "sandbox_id"
+    ],
+    "ServiceExposure": [
+      "target_port",
+      "service"
+    ]
+  },
+  "deletion_outcomes": {
+    "UNSPECIFIED": 0,
+    "COMPLETED": 1,
+    "ACCEPTED": 2,
+    "ALREADY_ABSENT": 3
+  },
+  "health_fields": {
+    "status": [
+      1,
+      14
+    ],
+    "version": [
+      2,
+      9
+    ]
+  },
+  "connection": {
+    "cluster": "registered"
+  },
+  "calls": [
+    {
+      "method": "health",
+      "args": [],
+      "kwargs": {}
+    },
+    {
+      "method": "create",
+      "args": [],
+      "kwargs": {
+        "workspace": "default",
+        "name": "sandbox",
+        "labels": {
+          "purpose": "test"
+        },
+        "spec": {
+          "template": {
+            "image": "image@sha256:fixture",
+            "resources": {
+              "limits": {
+                "cpu": "2",
+                "memory": "4Gi"
+              }
+            }
+          },
+          "environment": {
+            "SECRET": "credential-value-must-stay-private"
+          },
+          "providers": [
+            "credentials"
+          ],
+          "resource_requirements": {
+            "gpu": {
+              "count": 1
+            }
+          },
+          "policy": {
+            "version": 1,
+            "filesystem": {
+              "read_write": [
+                "/workspace"
+              ]
+            }
+          }
+        },
+        "service_exposures": [
+          {
+            "target_port": 8000,
+            "service": ""
+          }
+        ]
+      }
+    },
+    {
+      "method": "wait_ready",
+      "args": [
+        "sandbox"
+      ],
+      "kwargs": {
+        "workspace": "default",
+        "timeout_seconds": 12
+      }
+    },
+    {
+      "method": "delete",
+      "args": [
+        "sandbox"
+      ],
+      "kwargs": {
+        "workspace": "default",
+        "allow_missing": true
+      }
+    },
+    {
+      "method": "wait_deleted",
+      "args": [
+        "sandbox"
+      ],
+      "kwargs": {
+        "workspace": "default",
+        "expected_sandbox_id": "identity",
+        "timeout_seconds": 5
+      }
+    },
+    {
+      "method": "close",
+      "args": [],
+      "kwargs": {}
+    }
+  ]
+}

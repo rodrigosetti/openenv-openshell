@@ -22,7 +22,6 @@ IDs; tasks whose dependencies are done may run in parallel.
 Tasks with complete dependencies:
 
 - **S4** One-file lifecycle spike
-- **T6** Adapter contract fixtures
 
 ## Milestone 0 — Runtime spike
 
@@ -137,9 +136,13 @@ service and the sandbox is deleted afterward.
 - ⬜ **T5 — Test secret-safe errors and logs.** Assert credentials, tokens, and
   raw secret environment values never appear in messages or captured logs.
   _Depends: P7, P8, T1._
-- ⬜ **T6 — Add contract fixtures.** Assert the private adapter uses the exact
-  supported SDK method names, keyword arguments, and response fields so SDK
-  churn fails clearly. _Depends: P2, S1._
+- ✅ **T6 — Add contract fixtures.** Reviewed 0.1.2
+  [snapshot](tests/fixtures/openshell-0.1.2.json) and offline
+  [contracts](tests/unit/test_adapter_contract.py) pin exact SDK signatures,
+  response fields, deletion values, and actual adapter calls; route persistence
+  and identity translation are checked. Upgrade review is
+  [documented](docs/openshell-sdk-contract.md#t6-adapter-contract-fixtures).
+  `make check` passes (156 tests, 100% branch coverage). _Depends: P2, S1._
 
 **Gate M1:** The provider works with an existing OpenEnv client, lifecycle unit
 coverage exceeds 90%, all failure paths clean up, and `make check` passes.

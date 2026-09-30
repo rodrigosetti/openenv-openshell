@@ -1,7 +1,7 @@
 """Offline release contracts approving S1a's generated workload-model boundary.
 
-Private SDK imports belong only here and in the future private adapter. These
-checks use the installed, hash-pinned wheel without contacting a gateway.
+Private SDK imports are confined to the private adapter and its offline tests.
+These checks use the installed, hash-pinned wheel without contacting a gateway.
 """
 
 from importlib.metadata import version
