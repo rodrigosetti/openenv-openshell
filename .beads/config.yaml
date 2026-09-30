@@ -71,4 +71,8 @@
 # - linear.api_key  → use LINEAR_API_KEY env var instead
 # - github.token    → use GITHUB_TOKEN env var instead
 
-export.auto: true
+# Worktrees share Dolt; generated snapshots must not enter source-branch merges.
+# Disable the legacy checkout/merge import fallback even without a Dolt remote.
+export.auto: false
+export.git-add: false
+import.auto: false

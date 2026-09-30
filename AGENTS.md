@@ -36,8 +36,13 @@ must update the corresponding Beads issues.
   `openenv-openshell-m5`; the release checklist lives in M3's description.
 
 For changes unrelated to the roadmap, update issues only if they alter task
-status, dependencies, scope, or readiness. `.beads/issues.jsonl` is a passive
-export for review and interchange; use `bd` to change the live database.
+status, dependencies, scope, or readiness. `.beads/issues.jsonl` is an ignored,
+optional export for review and interchange; use `bd` to change the live database.
+Never stage, force-add, merge, or import it as part of source-branch integration.
+Automatic JSONL export, staging, and hook import are disabled. Linked worktrees
+share the primary checkout's Dolt ledger; verify with `bd where` before claiming
+work. See [the Beads worktree guide](docs/beads-worktrees.md) for older-branch
+migration and separate database synchronization.
 
 ## Development expectations
 
