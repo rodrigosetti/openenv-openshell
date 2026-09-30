@@ -35,19 +35,11 @@ def test_provider_startup() -> None:
         provider.wait_for_ready(url, timeout_s=30)
         probe_protocol(url)
     finally:
-        # P6 owns public stop_container; use the real SDK for verified test teardown.
+        provider.stop_container()
+        provider.stop_container()
+        assert provider.state.sandbox_name is None
+        assert provider.state.deleted
         with SandboxClient.from_active_cluster(timeout=30) as client:
-            deletion = client.delete(name, workspace=workspace, allow_missing=True)
-            identity = provider.state.sandbox_id or deletion.sandbox_id
-            if identity is not None:
-                client.wait_deleted(
-                    name,
-                    workspace=workspace,
-                    expected_sandbox_id=identity,
-                    timeout_seconds=60,
-                )
             assert not client.list(
                 workspace=workspace, label_selector=f"openenv-p4={name}"
             ).all()
-        if provider._adapter is not None:  # noqa: SLF001 - Temporary teardown until P6.  # pyright: ignore[reportPrivateUsage]
-            provider._adapter.close()  # noqa: SLF001 - Temporary teardown until P6.  # pyright: ignore[reportPrivateUsage]

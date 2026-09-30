@@ -25,6 +25,7 @@ from openenv_openshell.errors import (
     OpenEnvReadinessTimeout,
     OpenShellProviderError,
     SandboxCreationError,
+    SandboxDeletionError,
     SandboxReadinessError,
 )
 from openenv_openshell.metadata import ProviderState
@@ -34,7 +35,6 @@ if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
 
 _MAX_PORT = 65535
-_NOT_IMPLEMENTED = "OpenShell lifecycle is planned for Milestone 1"
 
 
 class OpenShellProvider(ContainerProvider):
@@ -250,8 +250,45 @@ class OpenShellProvider(ContainerProvider):
         return url
 
     def stop_container(self) -> None:
-        """Delete the owned sandbox; this will be idempotent in Milestone 1."""
-        raise NotImplementedError(_NOT_IMPLEMENTED)
+        """Release ownership after deletion; retain uncertain cleanup for retry.
+
+        With keep_sandbox, release the client and local ownership without deleting
+        the runtime. Failures are sanitized and can be retried by calling again.
+        """
+        name = self.state.sandbox_name
+        if name is None and self._adapter is None:
+            return
+        try:
+            if (
+                name is not None
+                and not self.state.deleted
+                and not self.config.keep_sandbox
+            ):
+                if self._adapter is None:
+                    self._adapter = self._connect_adapter()
+                deletion = self._adapter.delete(name, workspace=self.config.workspace)
+                identity = self.state.sandbox_id or deletion.sandbox_id
+                if identity is not None:
+                    # Preserve identity even if this wait fails or times out.
+                    self.state.sandbox_id = identity
+                    self._adapter.wait_deleted(
+                        name,
+                        workspace=self.config.workspace,
+                        expected_sandbox_id=identity,
+                        timeout_s=self.config.deletion_timeout_s,
+                    )
+                elif deletion.outcome not in {"completed", "already_absent"}:
+                    msg = "OpenShell deletion did not confirm sandbox absence"
+                    raise SandboxDeletionError(msg)  # noqa: TRY301 - Sanitize all cleanup failures below.
+                self.state.deleted = True
+                self.state.ready = False
+            if self._adapter is not None:
+                self._adapter.close()
+        except Exception:  # noqa: BLE001 - SDK errors may contain credentials.
+            msg = "OpenShell sandbox cleanup failed; call stop_container again to retry"
+            raise SandboxDeletionError(msg) from None
+        self._adapter = None
+        self.state = ProviderState(deleted=self.state.deleted)
 
     def wait_for_ready(self, base_url: str, timeout_s: float = 30.0) -> None:
         """Wait until the OpenEnv server's health endpoint is ready."""

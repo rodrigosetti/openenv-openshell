@@ -115,8 +115,11 @@ endpoint rewriting and remote credential behavior remain unverified.
 The production provider now loads explicit policy before connecting, submits exact
 argv/environment through the adapter, captures the selected create-time route,
 and waits for sandbox readiness. This opt-in runtime test exercises provider
-startup, HTTP health, and the routed EchoEnv protocol. Public `stop_container`
-remains P6; this test uses SDK teardown and verifies sandbox absence.
+startup, HTTP health, and the routed EchoEnv protocol. P6 extends teardown to
+call public `stop_container()` twice and independently verify sandbox absence
+through the SDK. Unit tests cover identity-safe waits, partial initialization,
+keep_sandbox, uncertain acknowledgements, and retry after deletion/wait/close
+failures.
 
 ```bash
 OPENENV_OPENSHELL_ECHO_IMAGE_ID="$(cat tests/integration/images/echo/local-image-id.txt)" \
@@ -129,3 +132,11 @@ provider startup and HTTP health passed; routed WebSocket passed two reset/step/
 episodes, four echo steps and ping/pong. Sandbox `oe-p4-0eeac947` deletion and
 absence were verified. This does not establish unmodified-client lifecycle or
 remote service support (P10/I2/S5a).
+
+P6 verified on 2026-09-30 with the local SDK/gateway 0.1.2 and pinned arm64
+image: provider startup, HTTP health, two WebSocket reset/step/state episodes,
+and four echo steps passed. Public cleanup deleted `oe-p4-9665df1a`; a second
+stop was harmless, local ownership was cleared, and the independent SDK listing
+confirmed absence. `make check` passed Ruff, strict Pyright, and 310 unit tests
+with 99.48% branch-inclusive coverage (provider 100%). This local result does not
+establish remote service support or unmodified-client lifecycle behavior.

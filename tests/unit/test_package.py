@@ -29,9 +29,8 @@ def test_configuration_is_immutable() -> None:
         config.workspace = "other"  # pyright: ignore[reportAttributeAccessIssue]
 
 
-def test_public_cleanup_remains_pending() -> None:
-    """The incomplete public cleanup path must fail explicitly until P6."""
+def test_public_cleanup_before_start() -> None:
+    """Cleanup before startup is a harmless no-op."""
     provider = OpenShellProvider()
 
-    with pytest.raises(NotImplementedError, match="Milestone 1"):
-        provider.stop_container()
+    provider.stop_container()

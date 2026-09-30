@@ -7,9 +7,8 @@ can keep their environment protocol and training loop while changing runtimes.
 
 **Pre-alpha: the production provider is unfinished.** Configuration validation,
 sandbox startup, HTTP readiness, strict policy loading, and private SDK request
-translation are implemented. Public `stop_container()` still raises
-`NotImplementedError`. This source baseline is for development; it is not a
-usable production provider, a PyPI release, or a claim to the PyPI package name.
+translation and public cleanup are implemented. This source baseline is for
+development; it is not a usable production provider, a PyPI release, or a claim to the PyPI package name.
 
 The completed local lifecycle spike demonstrated routed HTTP health,
 WebSocket reset/step/state, and verified sandbox deletion with SDK/gateway
@@ -23,8 +22,9 @@ Publication status and baseline review are recorded in the
 
 ## Known limitations
 
-- Public cleanup and unmodified OpenEnv client integration remain
-  Milestone 1 work. Runtime probes do not establish complete provider behavior.
+- Complete failed-start cleanup reporting and unmodified OpenEnv client
+  integration remain Milestone 1 work. Runtime probes do not establish complete
+  provider behavior.
 - The validated image is a locally built arm64 EchoEnv image on the native VM
   lane. Its checked-in Docker image ID is not a pullable registry digest;
   arbitrary images and compute drivers are unverified.
@@ -99,8 +99,13 @@ the configured create-time service URL, waits for OpenShell readiness, and
 populates `provider.state`. It rejects a second start while it owns a sandbox.
 Startup failures attempt deletion and retain ownership when cleanup is uncertain;
 `keep_sandbox=True` retains failed sandboxes for inspection.
-`stop_container` still raises `NotImplementedError` pending P6. Lifecycle logging,
-run metadata, and complete failure cleanup reporting remain P7/P8 work.
+`stop_container()` deletes the owned sandbox, waits for its original identity to
+disappear, and releases client resources. Repeated calls are harmless. With
+`keep_sandbox=True`, it closes the client and clears local ownership while leaving
+the sandbox running. Deletion, wait, or client-close failures raise a sanitized
+`SandboxDeletionError` and retain enough state for another stop call to retry.
+Lifecycle logging, run metadata, and complete failure cleanup reporting remain
+P7/P8 work.
 See [SPEC.md](SPEC.md) for the design and milestones.
 
 Provider configuration is accepted directly as keyword arguments and validated
@@ -214,7 +219,7 @@ processes even when request representations and errors redact them. The
 workspace and maps them to the sandbox spec; it does not provision credentials
 or infer providers. See the [credential and provider guide](docs/security.md)
 for setup, permission scope, and the SEC7 runtime visibility check. Public
-sandbox startup is implemented; public cleanup remains pending P6.
+sandbox startup and public cleanup are implemented.
 
 ## License
 
