@@ -91,3 +91,20 @@ prove resistance to every exfiltration technique, credential rewriting at an
 endpoint, remote compatibility, or filesystem/network denial acceptance.
 Run instructions and recorded evidence are in the
 [integration guide](../tests/integration/README.md#sec7-managed-credential-visibility).
+
+## Error and log redaction checks
+
+[T5's offline tests](../tests/unit/test_secret_safety.py) exercise the public
+provider through the production SDK adapter with synthetic credential, bearer
+token, environment-value, and command-argument sentinels. They inspect public
+exception messages, formatted tracebacks, rollback notes, and captured DEBUG
+log records, including exception attachments. Coverage includes gateway health,
+create/readiness failures, delete/deletion-wait/client-close failures, failed
+rollback followed by retry, HTTP transport errors, and successful lifecycle
+logging. Sensitive argv and environment still reach the intended workload.
+
+These tests require no gateway and check package error/reporting behavior with
+an SDK double. They do not establish that external SDK versions, application
+log handlers, or sandbox processes redact secrets. Operational identifiers,
+image references, labels, and service URLs must remain non-secret as described
+above; raw environment values are readable inside the sandbox.
