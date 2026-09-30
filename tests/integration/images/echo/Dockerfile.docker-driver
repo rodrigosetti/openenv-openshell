@@ -1,0 +1,7 @@
+# S5a Docker-driver variant of the pinned amd64 EchoEnv image.
+# The OpenShell 0.1.2 Docker driver rejects UID 0 and requires a workdir the
+# workload identity can write. Code under /app/env stays root-owned.
+FROM ghcr.io/rodrigosetti/openenv-openshell-echo@sha256:f7bac7ca74ba3950b98508e838a3fe2ee5a90fd46334cea13875dfb83030f1c8
+RUN useradd --uid 1000 --user-group --home-dir /sandbox --create-home --shell /usr/sbin/nologin sandbox
+WORKDIR /sandbox
+USER sandbox

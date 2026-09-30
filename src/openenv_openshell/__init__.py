@@ -9,6 +9,7 @@ from openenv_openshell.errors import (
     SandboxCreationError,
     SandboxDeletionError,
     SandboxReadinessError,
+    ServiceAccessError,
 )
 from openenv_openshell.metadata import OpenShellRunMetadata
 from openenv_openshell.provider import OpenShellProvider
@@ -25,4 +26,5 @@ __all__ = [
     "SandboxCreationError",
     "SandboxDeletionError",
     "SandboxReadinessError",
+    "ServiceAccessError",
 ]

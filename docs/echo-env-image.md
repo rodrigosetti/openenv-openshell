@@ -224,5 +224,47 @@ Security limits observed during the 0.1.2 run:
   logging. It did not prevent workload startup, routing, or deletion.
 
 S3a establishes pinned-image workload, routed health/WebSocket handshake, and
-cleanup compatibility on 0.1.2. Full reset/step/state sessions, remote gateway
-behavior, and enforcement acceptance remain S5 and the SEC lane.
+cleanup compatibility on 0.1.2. Full reset/step/state sessions were validated
+by S5 and remote gateway behavior by S5a (below). Enforcement acceptance remains
+the SEC lane.
+
+## Docker-driver variant (S5a)
+
+The remote S5a gateway used the OpenShell 0.1.2 **Docker** driver on linux/amd64.
+That driver has two image requirements the VM lane does not enforce. It resolves
+the policy identity, or the image `Config.User` if none is set, to one non-root
+UID and rejects UID 0. The resolved identity must also be able to enter and
+write the workdir. The pinned image runs as root in root-owned `/app/env`. The
+sandbox therefore entered the error phase with `ControlSupervisorStartFailed`:
+`image workspace validation failed ... identity in the image: Permission denied`.
+
+S5a first built the unchanged [Dockerfile](../tests/integration/images/echo/Dockerfile)
+for linux/amd64 and pushed it to a public GHCR package:
+
+```text
+ghcr.io/rodrigosetti/openenv-openshell-echo@sha256:f7bac7ca74ba3950b98508e838a3fe2ee5a90fd46334cea13875dfb83030f1c8
+```
+
+[`Dockerfile.docker-driver`](../tests/integration/images/echo/Dockerfile.docker-driver)
+adds a UID 1000 `sandbox` account on top of that digest, with `WORKDIR /sandbox`
+and `USER sandbox`. The EchoEnv code and venv stay root-owned and readable. The
+canonical command still changes into `/app/env`. The result, recorded in
+[`remote-image-ref.txt`](../tests/integration/images/echo/remote-image-ref.txt),
+passed remote readiness and the full protocol probe:
+
+```text
+ghcr.io/rodrigosetti/openenv-openshell-echo@sha256:02ea3505fc0b0a451778442ca2994c6be94a45ae4572358899b41b98c1df60a0
+```
+
+Rebuilding the layer produces a different digest, because account creation
+records a date. Pin the recorded digest instead of rebuilding.
+
+```bash
+docker buildx build --platform linux/amd64 --provenance=false --sbom=false \
+  -f tests/integration/images/echo/Dockerfile.docker-driver \
+  -t ghcr.io/OWNER/openenv-openshell-echo:docker-driver --push \
+  tests/integration/images/echo
+```
+
+The local arm64 VM-lane image and its pinned ID are unchanged. This variant has
+not been validated on the VM lane.

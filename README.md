@@ -32,8 +32,13 @@ Publication status and baseline review are recorded in the
 - The validated image is a locally built arm64 EchoEnv image on the native VM
   lane. Its checked-in Docker image ID is not a pullable registry digest;
   arbitrary images and compute drivers are unverified.
-- Remote gateways, service authentication, long idle sessions, and reconnects
-  are unverified. No remote compatibility claim follows from local tests.
+- Remote gateways using the standard mTLS configuration are **not supported**
+  for unmodified OpenEnv clients. Their service routes require a TLS client
+  certificate, and OpenEnv's client cannot present one. The provider fails
+  with `ServiceAccessError` instead of timing out. Remote routing and WebSocket
+  traffic work when the client can meet that requirement. OIDC or
+  edge-authenticated gateways, long idle sessions, and reconnects are
+  unverified. See [S5a remote evidence](docs/protocol-spike.md#remote-gateway-validation-s5a-2026-09-30).
 - Startup requires caller-supplied command argv, environment, and directory
   handling. Automatic OCI ENTRYPOINT/CMD, ENV, and WORKDIR resolution is outside
   the MVP contract.
@@ -198,6 +203,10 @@ credentials, prompts, or private task/user content.
 `wait_for_ready(base_url, timeout_s=30.0)` polls `<base_url>/health` and sets
 `provider.state.ready` when HTTP 200 arrives before the monotonic deadline.
 Non-200 responses and transport errors are retried; redirects are not followed.
+TLS rejections that retrying cannot fix raise `ServiceAccessError` immediately.
+These are an untrusted route certificate and a route that requires a TLS client
+certificate, as on remote mTLS gateways. Trust a private gateway CA by pointing
+`SSL_CERT_FILE` at a bundle containing it; verification is never disabled.
 The response body is not downloaded. The URL must use HTTP or HTTPS and must
 exclude embedded credentials, query parameters, and fragments. Service path
 prefixes are preserved.

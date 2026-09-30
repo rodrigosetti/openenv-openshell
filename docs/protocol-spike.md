@@ -20,7 +20,9 @@ OPENENV_OPENSHELL_ECHO_IMAGE_ID="$(cat tests/integration/images/echo/local-image
 
 Without the image variable the test skips before acquiring a client. The SDK
 selects the active gateway or `OPENSHELL_GATEWAY`; `OPENSHELL_WORKSPACE` defaults
-to `default`. The current image input accepts only validated local image IDs.
+to `default`. The image input accepts a local `sha256:` image ID or a
+registry repository pinned by manifest digest (`registry/repo@sha256:...`);
+tags are rejected.
 Coverage is disabled for this runtime-only experiment; `make check` retains the
 production coverage gate.
 
@@ -49,8 +51,10 @@ wire compatibility; unmodified client/provider API validation remains P10.
 For local `*.openshell.localhost` routes, HTTP and WebSocket TCP connections go
 to gateway loopback while retaining the returned route's Host header. No system
 DNS changes or Docker port publishing are needed. All requests still pass
-through OpenShell's service route. Other hostnames use normal DNS, and HTTPS/WSS
-retain certificate verification; that branch has not been validated remotely.
+through OpenShell's service route. Other hostnames use normal DNS and must use
+HTTPS/WSS with certificate verification. S5a validated that branch remotely
+(see below). Untrusted certificates and client-certificate demands fail
+immediately rather than as a health timeout.
 WebSocket open/close timeouts are five seconds and each receive is bounded to
 ten seconds. Ping/pong checks establish short-session liveness, not a long idle
 or reconnect guarantee.
@@ -79,21 +83,92 @@ lint, strict typing, and 171 unit tests with 100% production branch coverage.
 The check used the already installed environment (`UV_NO_SYNC=1`) because the
 sandbox's fresh uv cache could not fetch the pinned wheel over the network.
 
-## Remote gateway findings and remaining scope
+## Remote gateway validation (S5a, 2026-09-30)
 
-`openshell gateway list --output json` reports exactly one registered gateway:
-`openshell`, local, active, mTLS, `https://localhost:17670`. No remote gateway or
-remote workspace credentials are available. The local service itself required
-no additional application credentials. This says nothing about a remote
-service's authentication requirements.
+S5a repeated the probe against a remote OpenShell 0.1.2 gateway on a disposable
+GCE VM (`us-east1-b`, e2-standard-2, Ubuntu 24.04 amd64). The gateway ran the
+pinned `ghcr.io/nvidia/openshell/gateway:0.1.2` container with the Docker
+compute driver and the standard mTLS configuration: a private CA from
+`generate-certs`, `client_ca_path` set, mTLS user authentication, and no OIDC.
+The server certificate carried the wildcard SAN `*.104-196-50-8.sslip.io`,
+which is what enables sandbox service URLs under that domain. The firewall
+admitted only the tester's address. [Remote gateway setup](remote-gateway-testing.md)
+lists the exact configuration. The VM, firewall rule, and gateway were deleted
+afterwards.
 
-Remote health/WebSocket sessions, certificate behavior, and service
-authentication remain unverified. The checked-in image ID is a local Docker
-configuration ID and cannot be pulled remotely. Beads **S5a** tracks obtaining
-authorized remote access and a pullable immutable image, extending the opt-in
-probe, and validating an unmodified OpenEnv client. It blocks the M3 release
-gate. S6 preserves these unknowns in the spike decisions; the local S5 result
-alone did not close M0, prove security enforcement, or establish remote support.
+The image was pulled anonymously from GHCR by manifest digest:
+
+```text
+ghcr.io/rodrigosetti/openenv-openshell-echo@sha256:02ea3505fc0b0a451778442ca2994c6be94a45ae4572358899b41b98c1df60a0
+```
+
+It is the pinned [Dockerfile](../tests/integration/images/echo/Dockerfile)
+built for linux/amd64
+(`sha256:f7bac7ca74ba3950b98508e838a3fe2ee5a90fd46334cea13875dfb83030f1c8`),
+plus the [Docker-driver layer](../tests/integration/images/echo/Dockerfile.docker-driver).
+See [image evidence](echo-env-image.md#docker-driver-variant-s5a).
+
+The client trusted the gateway's private CA through `SSL_CERT_FILE`, set to a
+bundle of the public roots plus that CA. Setting only the private CA also
+replaces the public roots for uv and other tools. Certificate verification
+stayed enabled throughout.
+
+### Results
+
+| Client | TLS client certificate | Result |
+|---|---|---|
+| Raw probe, this test | none | Fails in 2.7 s: `Service route requires a TLS client certificate` |
+| Raw probe, this test | gateway client certificate | Passes: health, two episodes, four echo steps, state, ping/pong |
+| Unmodified OpenEnv client, async and sync ([P10 test](../tests/integration/test_openenv_client.py)) | none (cannot present one) | Fails: `ServiceAccessError: OpenShell service route requires a TLS client certificate` |
+
+Every run deleted its sandbox and verified absence by the original ID, and the
+gateway listed no sandboxes afterwards.
+
+With the gateway's client certificate, the remote route
+`https://default--oe-s4-196d7cbf3f.104-196-50-8.sslip.io:8080/` (sandbox ID
+`85cc9027-8e34-4144-b25a-60a1596cc3f5`) passed HTTP health and the full
+WebSocket session over verified HTTPS/WSS in 21.8 s. Gateway routing,
+WebSocket upgrades, and short-session ping/pong therefore work remotely.
+
+The service route shares the gateway's multiplexed listener. With
+`client_ca_path` and no OIDC, that listener demands a client certificate at the
+TLS layer. A connection without one receives the TLS 1.3
+`certificate_required` alert, before any HTTP exchange. The same request with
+the gateway client certificate reached the router and returned HTTP 404 for a
+nonexistent sandbox. OpenEnv's client has no option for presenting a client
+certificate. The provider must not copy gateway credentials into the URL or
+workload (see SPEC section 13.1).
+
+### Conclusions
+
+- **Remote mTLS gateways are not supported for unmodified OpenEnv clients.**
+  The provider now fails explicitly with `ServiceAccessError` at readiness
+  instead of timing out, for both a required client certificate and an
+  untrusted route certificate.
+- Remote routing, HTTPS/WSS, and ping/pong are validated when the client can
+  satisfy the gateway's TLS requirements.
+- Not validated: OIDC or edge-authenticated gateways, where bearer-only
+  clients may connect without a certificate; HTTP 401/403 service
+  challenges; long idle sessions and reconnects. HTTP 401/403 keep the existing
+  retry-until-timeout behavior because none was observed.
+- The OpenShell 0.1.2 Docker driver rejects images that resolve to UID 0 and
+  needs a workdir the workload identity can write. The VM-lane image did not
+  meet either requirement.
+
+### Commands
+
+```bash
+OPENSHELL_GATEWAY=openenv-s5a \
+SSL_CERT_FILE=/path/to/public-roots-plus-gateway-ca.pem \
+OPENENV_OPENSHELL_ECHO_IMAGE_ID="$(cat tests/integration/images/echo/remote-image-ref.txt)" \
+  uv run pytest -m integration --no-cov tests/integration/test_protocol_spike.py \
+  -v --log-cli-level=INFO
+```
+
+Add `OPENENV_OPENSHELL_PROBE_CLIENT_CERT_DIR=~/.config/openshell/gateways/openenv-s5a/mtls`
+to present the gateway client certificate (`tls.crt` and `tls.key`). This
+validates transport only. It is not an unmodified-client result. The same
+environment, without that variable, runs `tests/integration/test_openenv_client.py`.
 
 ## M0 acceptance verification (2026-09-30)
 
