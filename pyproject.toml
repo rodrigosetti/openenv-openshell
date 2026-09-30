@@ -23,7 +23,7 @@ classifiers = [
 ]
 dependencies = [
   "httpx>=0.28,<0.29",
-  "openenv>=0.4,<0.7",
+  "openenv==0.6.0",
   "openshell @ https://github.com/NVIDIA/OpenShell/releases/download/v0.1.2/openshell-0.1.2-py3-none-any.whl#sha256=8c409da4f176d42418d92366fe201f47cceef2c0fa432bfbce2bf938649d59cf",
   "pyyaml>=6.0.3,<7",
 ]
