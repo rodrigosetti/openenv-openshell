@@ -29,11 +29,9 @@ def test_configuration_is_immutable() -> None:
         config.workspace = "other"  # pyright: ignore[reportAttributeAccessIssue]
 
 
-def test_lifecycle_methods_fail_explicitly() -> None:
-    """The scaffold must never appear to start or clean up a real sandbox."""
+def test_public_cleanup_remains_pending() -> None:
+    """The incomplete public cleanup path must fail explicitly until P6."""
     provider = OpenShellProvider()
 
-    with pytest.raises(NotImplementedError, match="Milestone 1"):
-        provider.start_container("example.invalid/environment:latest")
     with pytest.raises(NotImplementedError, match="Milestone 1"):
         provider.stop_container()

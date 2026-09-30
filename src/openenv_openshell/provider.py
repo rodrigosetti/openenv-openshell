@@ -21,8 +21,14 @@ from openenv_openshell.config import (
     Policy,
     validate_command,
 )
-from openenv_openshell.errors import OpenEnvReadinessTimeout
+from openenv_openshell.errors import (
+    OpenEnvReadinessTimeout,
+    OpenShellProviderError,
+    SandboxCreationError,
+    SandboxReadinessError,
+)
 from openenv_openshell.metadata import ProviderState
+from openenv_openshell.policy import load_policy
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -72,6 +78,7 @@ class OpenShellProvider(ContainerProvider):
             resources=resources,
         )
         self.state = ProviderState()
+        self._adapter: SandboxAdapter | None = None
 
     def _sandbox_name_for_image(self, image: str) -> str:
         """Return the configured name or generate a safe, readable unique name."""
@@ -92,15 +99,15 @@ class OpenShellProvider(ContainerProvider):
         self,
         image: str,
         *,
-        policy: Mapping[str, object],
+        policy: Mapping[str, object] | None,
         port: int | None = None,
         env_vars: Mapping[str, str] | None = None,
         **kwargs: object,
     ) -> CreateRequest:
         """Prepare adapter inputs with an already resolved, explicit policy.
 
-        Policy loading belongs to the policy boundary. Requiring its result here
-        prevents request preparation from silently falling back to SDK defaults.
+        Policy loading belongs to the policy boundary. None requests OpenShell's
+        image/default policy only when no explicit policy was configured.
         """
         if kwargs:
             msg = "Unsupported start_container options"
@@ -144,7 +151,7 @@ class OpenShellProvider(ContainerProvider):
             labels=MappingProxyType(labels),
             providers=tuple(self.config.providers),
             resources=self.config.resources,
-            policy=MappingProxyType(deepcopy(dict(policy))),
+            policy=None if policy is None else MappingProxyType(deepcopy(dict(policy))),
         )
 
     def start_container(
@@ -155,18 +162,74 @@ class OpenShellProvider(ContainerProvider):
         **kwargs: Any,  # noqa: ANN401 - Required by the upstream provider contract.
     ) -> str:
         """Create the sandbox and return its OpenShell-managed service URL."""
-        raise NotImplementedError(_NOT_IMPLEMENTED)
+        if self._adapter is not None or (
+            self.state.sandbox_name is not None and not self.state.deleted
+        ):
+            msg = "Provider already owns a sandbox; clean it up before starting again"
+            raise OpenShellProviderError(msg)
+        policy = None if self.config.policy is None else load_policy(self.config.policy)
+        request = self._create_request(
+            image, policy=policy, port=port, env_vars=env_vars, **kwargs
+        )
+        adapter = self._connect_adapter()
+        self._adapter = adapter
+        # Record ownership before create: a lost response can still leave a sandbox.
+        self.state = ProviderState(sandbox_name=request.name, image=image)
+        error = SandboxCreationError
+        try:
+            sandbox = adapter.create(request)
+            self.state.sandbox_id = sandbox.sandbox_id
+            self.state.created = True
+            base_url = adapter.service_url(sandbox, request.service_name)
+            if base_url is None:
+                msg = "OpenShell did not return the requested service URL"
+                raise SandboxCreationError(msg)  # noqa: TRY301 - Stage-specific failure enters rollback.
+            self._validate_service_url(base_url)
+            self.state.base_url = base_url
+            error = SandboxReadinessError
+            ready = adapter.wait_ready(
+                request.name,
+                workspace=request.workspace,
+                timeout_s=self.config.startup_timeout_s,
+            )
+            if ready.sandbox_id != sandbox.sandbox_id:
+                msg = "OpenShell readiness returned a different sandbox identity"
+                raise SandboxReadinessError(msg)  # noqa: TRY301 - Stage-specific failure enters rollback.
+        except Exception:  # noqa: BLE001 - Sanitize runtime failures and always roll back.
+            self._cleanup_failed_start(adapter, request.name)
+            # Do not expose upstream exception text, workload argv, or route data.
+            msg = "OpenShell sandbox startup failed"
+            raise error(msg) from None
+        return base_url
 
-    def stop_container(self) -> None:
-        """Delete the owned sandbox; this will be idempotent in Milestone 1."""
-        raise NotImplementedError(_NOT_IMPLEMENTED)
+    def _cleanup_failed_start(self, adapter: SandboxAdapter, name: str) -> None:
+        """Best-effort rollback; uncertain deletion retains ownership for retry."""
+        try:
+            if not self.config.keep_sandbox:
+                deletion = adapter.delete(name, workspace=self.config.workspace)
+                identity = self.state.sandbox_id or deletion.sandbox_id
+                if identity is not None:
+                    adapter.wait_deleted(
+                        name,
+                        workspace=self.config.workspace,
+                        expected_sandbox_id=identity,
+                        timeout_s=self.config.deletion_timeout_s,
+                    )
+                    self.state.deleted = True
+                elif deletion.outcome in {"completed", "already_absent"}:
+                    self.state.deleted = True
+        except Exception:  # noqa: BLE001 - Rollback must preserve the startup failure.
+            return
+        if self.config.keep_sandbox or self.state.deleted:
+            try:
+                adapter.close()
+            except Exception:  # noqa: BLE001 - Preserve the startup failure.
+                return
+            self._adapter = None
 
-    def wait_for_ready(self, base_url: str, timeout_s: float = 30.0) -> None:
-        """Wait until the OpenEnv server's health endpoint is ready."""
-        if isinstance(timeout_s, bool) or not isfinite(timeout_s) or timeout_s <= 0:
-            msg = "timeout_s must be a positive finite number"
-            raise ValueError(msg)
-        # Reject ambiguous URLs without including potentially secret input in errors.
+    @staticmethod
+    def _validate_service_url(base_url: str) -> httpx.URL:
+        """Reject unusable routes without echoing secret URL data."""
         try:
             url = httpx.URL(base_url)
         except httpx.InvalidURL:
@@ -184,6 +247,18 @@ class OpenShellProvider(ContainerProvider):
                 "without credentials, query, or fragment"
             )
             raise ValueError(msg)
+        return url
+
+    def stop_container(self) -> None:
+        """Delete the owned sandbox; this will be idempotent in Milestone 1."""
+        raise NotImplementedError(_NOT_IMPLEMENTED)
+
+    def wait_for_ready(self, base_url: str, timeout_s: float = 30.0) -> None:
+        """Wait until the OpenEnv server's health endpoint is ready."""
+        if isinstance(timeout_s, bool) or not isfinite(timeout_s) or timeout_s <= 0:
+            msg = "timeout_s must be a positive finite number"
+            raise ValueError(msg)
+        url = self._validate_service_url(base_url)
 
         health_url = url.copy_with(raw_path=url.raw_path.rstrip(b"/") + b"/health")
         self.state.ready = False
