@@ -334,3 +334,30 @@ the adapter together, update the dependency URL/hash and lock, and run
 Annotation-only changes also require explicit fixture review. Passing offline
 contracts does not establish routing or policy enforcement on a live runtime;
 the selected SDK/gateway pair still needs the roadmap's runtime validation.
+
+## P3 provider request preparation
+
+The provider's private `_create_request()` resolves ordinary configuration into
+`CreateRequest` without opening a gateway connection. It takes an explicit,
+normalized policy from the policy boundary; YAML loading and validation remain
+SEC1 work. P4 will call this preparation step before connecting or creating.
+
+An explicit non-`None` `port` overrides `service_port` and selects only the
+sandbox service target. Both named and unnamed services use create-time
+exposures. Empty images, invalid ports, malformed environment names/values,
+and unsupported `start_container` options are rejected without echoing inputs.
+Environment and policy inputs are copied, and their request representations are
+redacted. No request preparation logs are emitted.
+
+User labels are retained, with `managed-by=openenv-openshell` and
+`openenv.provider=openshell` reserved for provider provenance. Image identity is
+retained in the request's image field rather than copied into a length-limited
+label. Providers and CPU/memory/GPU requests map directly through the adapter.
+Gateway selection uses the configured registered name via the lazy connection
+factory. Deadlines and `keep_sandbox` stay in provider configuration for lifecycle
+operations; they are not workload fields. Workload startup and image entrypoint
+handling remain S6a/P4 work.
+
+`tests/unit/test_create_request.py` exercises these prepared inputs against the
+pinned SDK models and a mocked public client. These are offline mapping checks,
+not evidence of runtime resource enforcement or automatic image startup.

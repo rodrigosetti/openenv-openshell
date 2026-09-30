@@ -4,13 +4,16 @@ from __future__ import annotations
 
 import re
 import secrets
+from copy import deepcopy
 from http import HTTPStatus
 from math import isfinite
 from time import monotonic, sleep
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
 
 import httpx
 
+from openenv_openshell._adapter import CreateRequest, SandboxAdapter, connect
 from openenv_openshell._compat import ContainerProvider
 from openenv_openshell.config import (
     OpenShellProviderConfig,
@@ -23,6 +26,7 @@ from openenv_openshell.metadata import ProviderState
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
 
+_MAX_PORT = 65535
 _NOT_IMPLEMENTED = "OpenShell lifecycle is planned for Milestone 1"
 
 
@@ -76,6 +80,67 @@ class OpenShellProvider(ContainerProvider):
         prefix = re.sub(r"[^a-z0-9]+", "-", image_basename.casefold()).strip("-")
         prefix = prefix[:48].rstrip("-") or "environment"
         return f"openenv-{prefix}-{secrets.token_hex(3)}"
+
+    def _connect_adapter(self) -> SandboxAdapter:
+        """Select the registered gateway only when lifecycle work needs a client."""
+        return connect(gateway=self.config.gateway)
+
+    def _create_request(
+        self,
+        image: str,
+        *,
+        policy: Mapping[str, object],
+        port: int | None = None,
+        env_vars: Mapping[str, str] | None = None,
+        **kwargs: object,
+    ) -> CreateRequest:
+        """Prepare adapter inputs with an already resolved, explicit policy.
+
+        Policy loading belongs to the policy boundary. Requiring its result here
+        prevents request preparation from silently falling back to SDK defaults.
+        """
+        if kwargs:
+            msg = "Unsupported start_container options"
+            raise ValueError(msg)
+        if not isinstance(image, str) or not image.strip() or "\x00" in image:  # pyright: ignore[reportUnnecessaryIsInstance]
+            msg = "image must be a non-empty OCI image reference"
+            raise ValueError(msg)
+        target_port = self.config.service_port if port is None else port
+        if (
+            isinstance(target_port, bool)
+            or not isinstance(target_port, int)  # pyright: ignore[reportUnnecessaryIsInstance]
+            or not 1 <= target_port <= _MAX_PORT
+        ):
+            msg = "port must be an integer from 1 through 65535"
+            raise ValueError(msg)
+        environment = {} if env_vars is None else dict(env_vars)
+        for key, value in environment.items():
+            if (
+                not isinstance(key, str)  # pyright: ignore[reportUnnecessaryIsInstance]
+                or not isinstance(value, str)  # pyright: ignore[reportUnnecessaryIsInstance]
+                or not key
+                or "=" in key
+                or "\x00" in key
+                or "\x00" in value
+            ):
+                msg = "env_vars must contain valid environment names and string values"
+                raise ValueError(msg)
+        labels = dict(self.config.labels)
+        labels.update(
+            {"managed-by": "openenv-openshell", "openenv.provider": "openshell"}
+        )
+        return CreateRequest(
+            workspace=self.config.workspace,
+            name=self._sandbox_name_for_image(image),
+            image=image,
+            environment=MappingProxyType(environment),
+            service_name=self.config.service_name,
+            target_port=target_port,
+            labels=MappingProxyType(labels),
+            providers=tuple(self.config.providers),
+            resources=self.config.resources,
+            policy=MappingProxyType(deepcopy(dict(policy))),
+        )
 
     def start_container(
         self,
