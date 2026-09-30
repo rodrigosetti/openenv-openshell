@@ -1,8 +1,11 @@
-.PHONY: check format integration lint openshell-prereqs openshell-smoke security-e2e security-filesystem security-network test typecheck
+.PHONY: check compatibility format integration lint openshell-prereqs openshell-smoke security-e2e security-filesystem security-network test typecheck
 
 export OPENENV_OPENSHELL_FILESYSTEM_IMAGE_ID OPENENV_OPENSHELL_NETWORK_IMAGE_ID
 
 check: lint typecheck test
+
+compatibility:
+	uv run --locked pytest --no-cov tests/unit/test_compatibility.py tests/unit/test_openenv_client.py tests/unit/test_openshell_contract.py tests/unit/test_adapter_contract.py tests/unit/test_adapter.py
 
 format:
 	uv run ruff format .
