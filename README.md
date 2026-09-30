@@ -49,6 +49,20 @@ make check
 
 Unit tests use typed fakes and do not need an OpenShell installation or gateway.
 The default check excludes the opt-in runtime integration tests.
+`tests/unit/test_successful_lifecycle.py` follows startup and mocked HTTP health
+through identity-aware deletion, client closure, cleared ownership, and retained
+non-secret metadata. It also checks cleanup through the production SDK adapter
+using an offline SDK double; runtime evidence is recorded separately in the
+[integration guide](tests/integration/README.md).
+
+Offline failure acceptance tests cover create/readiness timeouts, missing or
+malformed service URLs, persistent HTTP errors and redirects, transport failures,
+and the OpenEnv health deadline. They verify startup rollback and caller-driven
+cleanup after a health timeout, including original sandbox identity and retained
+metadata with no successful readiness timestamp. See
+[startup failures](tests/unit/test_startup_failures.py),
+[startup rollback](tests/unit/test_start_container.py), and
+[HTTP deadlines](tests/unit/test_readiness.py).
 
 The shared [Codex local environment](.codex/environments/environment.toml)
 runs `uv sync --locked --all-groups` when a new worktree is created, using

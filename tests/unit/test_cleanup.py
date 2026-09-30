@@ -16,6 +16,17 @@ from tests.fakes import (
 )
 
 
+def test_stop_before_start_never_connects() -> None:
+    """Repeated cleanup of a fresh provider must remain entirely local."""
+    provider = OpenShellProvider()
+    with patch.object(provider, "_connect_adapter") as connect:
+        provider.stop_container()
+        provider.stop_container()
+    connect.assert_not_called()
+    assert provider.state == ProviderState()
+    assert provider.metadata is None
+
+
 def owned_provider(adapter: FakeSandboxAdapter) -> OpenShellProvider:
     """Start a real provider over the offline boundary."""
     provider = OpenShellProvider(
@@ -62,6 +73,81 @@ def test_keep_sandbox_releases_ownership_without_deletion() -> None:
     assert adapter.calls == []
     assert adapter.closed
     assert provider.state == ProviderState()
+
+
+@pytest.mark.parametrize("outcome", ["completed", "already_absent"])
+def test_known_identity_is_verified_even_after_terminal_acknowledgement(
+    outcome: str,
+) -> None:
+    """An already-absent reply cannot bypass the original identity-safe wait."""
+    adapter = FakeSandboxAdapter(
+        delete_result=FakeDeletion(
+            None, "completed" if outcome == "completed" else "already_absent"
+        ),
+    )
+    provider = owned_provider(adapter)
+    provider.stop_container()
+    calls = list(adapter.calls)
+    provider.stop_container()
+    assert (
+        adapter.calls
+        == calls
+        == [
+            DeleteCall("owned", "training"),
+            WaitDeletedCall("owned", "training", "sandbox-123", 19),
+        ]
+    )
+    assert adapter.closed
+    assert provider.state == ProviderState(deleted=True)
+    assert provider.metadata is not None
+    assert provider.metadata.deleted_at is not None
+
+
+@pytest.mark.parametrize("failed_start", [False, True])
+def test_keep_mode_close_failure_is_retryable_without_deleting(
+    *,
+    failed_start: bool,
+) -> None:
+    """Retention survives failed client closure during stop or startup rollback."""
+    adapter = FakeSandboxAdapter(
+        service_url=None if failed_start else "https://route.test",
+    )
+    provider = OpenShellProvider(
+        command=["server"], sandbox_name="kept", keep_sandbox=True
+    )
+    with patch.object(provider, "_connect_adapter", return_value=adapter):
+        if failed_start:
+            adapter.failures["close"] = RuntimeError("private-close-detail")
+            with pytest.raises(SandboxCreationError) as caught:
+                provider.start_container("image")
+            assert caught.value.__notes__ == [
+                "OpenShell sandbox cleanup failed; call stop_container again to retry",
+            ]
+        else:
+            provider.start_container("image")
+            adapter.failures["close"] = RuntimeError("private-close-detail")
+            with pytest.raises(SandboxDeletionError):
+                provider.stop_container()
+        assert provider.state.sandbox_name == "kept"
+        assert provider.state.sandbox_id == "sandbox-123"
+        assert not provider.state.deleted
+        assert not adapter.closed
+        with pytest.raises(RuntimeError, match="already owns"):
+            provider.start_container("another-image")
+    calls = list(adapter.calls)
+    adapter.failures.clear()
+    provider.stop_container()
+    provider.stop_container()
+    assert adapter.calls == calls
+    assert not any(isinstance(call, DeleteCall) for call in calls)
+    assert not any(isinstance(call, WaitDeletedCall) for call in calls)
+    assert adapter.closed
+    assert provider.state == ProviderState()
+    if failed_start:
+        assert provider.metadata is None
+    else:
+        assert provider.metadata is not None
+        assert provider.metadata.deleted_at is None
 
 
 @pytest.mark.parametrize("operation", ["delete", "wait_deleted", "close"])

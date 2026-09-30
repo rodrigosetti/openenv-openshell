@@ -1,18 +1,26 @@
-"""Successful provider startup contracts without a gateway or network sockets."""
+"""Successful provider lifecycle contracts without a gateway or network sockets."""
 
 import re
+from dataclasses import asdict, replace
 from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
 
-from openenv_openshell import OpenShellProvider, OpenShellResources
+from openenv_openshell import (
+    OpenShellProvider,
+    OpenShellResources,
+    OpenShellRunMetadata,
+)
 from openenv_openshell.metadata import ProviderState
 from tests.fakes import (
     CreateCall,
+    DeleteCall,
+    FakeDeletion,
     FakeSandbox,
     FakeSandboxAdapter,
     ServiceUrlCall,
+    WaitDeletedCall,
     WaitReadyCall,
 )
 
@@ -28,6 +36,7 @@ def test_configured_startup_mapping(service_name: str, port: int | None) -> None
         create_result=created,
         ready_result=FakeSandbox("chosen", "original-id"),
         service_url=url,
+        delete_result=FakeDeletion("replacement-id"),
     )
     command = ["launcher", "", "two words", "--port=8000"]
     labels = {"openenv.run_id": "run-42", "managed-by": "caller"}
@@ -41,6 +50,7 @@ def test_configured_startup_mapping(service_name: str, port: int | None) -> None
         service_name=service_name,
         service_port=8080,
         startup_timeout_s=17,
+        deletion_timeout_s=19,
         labels=labels,
         providers=providers,
         resources=resources,
@@ -90,13 +100,36 @@ def test_configured_startup_mapping(service_name: str, port: int | None) -> None
         created=True,
     )
     assert not adapter.closed
+    metadata = provider.metadata
+    assert metadata is not None
+    assert (
+        metadata.sandbox_name,
+        metadata.sandbox_id,
+        metadata.workspace,
+        metadata.image,
+        metadata.service_url,
+    ) == (request.name, created.sandbox_id, request.workspace, request.image, url)
+    provider.stop_container()
+    assert adapter.calls[-2:] == [
+        DeleteCall("chosen", "research"),
+        WaitDeletedCall("chosen", "research", "original-id", 19),
+    ]
+    assert adapter.closed
+    assert provider.state == ProviderState(deleted=True)
+    assert provider.metadata is not None
+    assert provider.metadata.deleted_at is not None
+    assert provider.metadata == replace(
+        metadata, deleted_at=provider.metadata.deleted_at
+    )
 
 
 def test_default_startup_and_health(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Sandbox readiness precedes HTTP readiness with all default request fields."""
+    """Default startup, health, and deletion retain only non-secret provenance."""
     adapter = FakeSandboxAdapter()
-    provider = OpenShellProvider(command=["server"])
+    secret = "lifecycle-private-sentinel"  # noqa: S105 - Redaction sentinel.
+    provider = OpenShellProvider(command=["server", secret])
     assert provider.state == ProviderState()
+    assert provider.metadata is None
     assert adapter.calls == []
 
     def health(request: httpx.Request) -> httpx.Response:
@@ -116,7 +149,9 @@ def test_default_startup_and_health(monkeypatch: pytest.MonkeyPatch) -> None:
         patch("openenv_openshell.provider.httpx.Client", return_value=client),
     ):
         monkeypatch.setattr("openenv_openshell.provider.monotonic", lambda: 100.0)
-        url = provider.start_container("registry.test/Echo_Env:latest")
+        url = provider.start_container(
+            "registry.test/Echo_Env:latest", env_vars={"TOKEN": secret}
+        )
         create = adapter.calls[0]
         assert isinstance(create, CreateCall)
         request = create.request
@@ -124,8 +159,8 @@ def test_default_startup_and_health(monkeypatch: pytest.MonkeyPatch) -> None:
         assert request.workspace == "default"
         assert request.target_port == 8000  # noqa: PLR2004 - Specified default port.
         assert request.service_name == ""
-        assert request.command == ("server",)
-        assert request.environment == {}
+        assert request.command == ("server", secret)
+        assert request.environment == {"TOKEN": secret}
         assert request.providers == ()
         assert request.resources is None
         assert request.policy is None
@@ -135,12 +170,58 @@ def test_default_startup_and_health(monkeypatch: pytest.MonkeyPatch) -> None:
         }
         assert adapter.calls[2] == WaitReadyCall(request.name, "default", 120)
         assert provider.state.sandbox_name == request.name
+        created = provider.metadata
+        assert created is not None
+        assert created.ready_at is None
+        assert created.deleted_at is None
         provider.wait_for_ready(url)
     assert provider.state.ready
     assert provider.state.created
     assert not provider.state.deleted
     assert client.is_closed
     assert not adapter.closed
+    assert_healthy_cleanup(provider, adapter, created, secret)
+
+
+def assert_healthy_cleanup(
+    provider: OpenShellProvider,
+    adapter: FakeSandboxAdapter,
+    created: OpenShellRunMetadata,
+    secret: str,
+) -> None:
+    """Verify deletion follows health and preserves immutable, non-secret evidence."""
+    healthy = provider.metadata
+    assert healthy is not None
+    assert healthy.ready_at is not None
+    assert healthy.created_at <= healthy.ready_at
+
+    def close_after_deletion() -> None:
+        assert adapter.calls[-2:] == [
+            DeleteCall(created.sandbox_name, "default"),
+            WaitDeletedCall(created.sandbox_name, "default", "sandbox-123", 60),
+        ]
+        assert provider.state.deleted
+        close()
+
+    close = adapter.close
+    with patch.object(adapter, "close", side_effect=close_after_deletion) as closed:
+        provider.stop_container()
+        closed.assert_called_once_with()
+    assert adapter.closed
+    assert provider.state == ProviderState(deleted=True)
+    stopped = provider.metadata
+    assert stopped is not None
+    assert stopped.deleted_at is not None
+    assert healthy.ready_at <= stopped.deleted_at
+    assert stopped == replace(healthy, deleted_at=stopped.deleted_at)
+    assert created.ready_at is None
+    assert created.deleted_at is None
+    assert secret not in repr(asdict(stopped))
+    assert {"command", "environment", "providers", "policy"}.isdisjoint(asdict(stopped))
+    calls = list(adapter.calls)
+    provider.stop_container()
+    assert adapter.calls == calls
+    assert provider.metadata is stopped
 
 
 @pytest.mark.parametrize("service_name", ["", "named"])
@@ -171,3 +252,22 @@ def test_public_startup_selects_exact_sdk_route(
     sdk.wait_ready.assert_called_once_with(
         "sandbox", workspace="default", timeout_seconds=120
     )
+    provider.stop_container()
+    assert [call[0] for call in sdk.mock_calls] == [
+        "health",
+        "create",
+        "wait_ready",
+        "delete",
+        "wait_deleted",
+        "close",
+    ]
+    sdk.delete.assert_called_once_with(
+        "sandbox", workspace="default", allow_missing=True
+    )
+    sdk.wait_deleted.assert_called_once_with(
+        "sandbox",
+        workspace="default",
+        expected_sandbox_id="identity",
+        timeout_seconds=60,
+    )
+    assert provider.state == ProviderState(deleted=True)
