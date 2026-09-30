@@ -167,6 +167,25 @@ def test_request_detaches_caller_input(caplog: pytest.LogCaptureFixture) -> None
     assert captured.request.environment == request.environment
 
 
+@pytest.mark.parametrize("names", [[], ["github-readonly"], ["second", "first"]])
+def test_provider_selection_is_explicit_and_detached(
+    names: list[str], sdk: MagicMock
+) -> None:
+    """Only selected instance names reach the wire, without environment discovery."""
+    selected = tuple(names)
+    provider = OpenShellProvider(providers=names, command=["server"])
+    names.append("later-mutation")
+    request = provider._create_request(  # noqa: SLF001
+        "echo", policy=POLICY, env_vars={"MAX_CONCURRENT_ENVS": "8"}
+    )
+    provider._connect_adapter().create(request)  # noqa: SLF001
+    spec = sdk.create.call_args.kwargs["spec"]
+    assert request.providers == selected
+    assert tuple(spec.providers) == selected
+    assert dict(spec.environment) == {"MAX_CONCURRENT_ENVS": "8"}
+    assert not spec.template.environment
+
+
 @pytest.mark.parametrize(
     "command",
     [

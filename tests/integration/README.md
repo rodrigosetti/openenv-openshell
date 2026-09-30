@@ -77,3 +77,35 @@ gateway rejection of every semantically invalid policy, filesystem/network
 denials (SEC5/SEC6), automatic image command handling, or a complete provider
 lifecycle. P4 must load explicit policy before connecting/creating and preserve
 this atomic submission path.
+
+## SEC7 managed credential visibility
+
+The SEC7 test requires CLI/SDK/gateway 0.1.2 and the same pinned image. It imports
+its own uniquely named profile, creates a provider with a random synthetic
+credential, and selects the instance through production request preparation and
+the adapter. It sends no requests to credential endpoints and uses no real
+service secrets. Both initial workload and exec environment prints must show a
+present opaque placeholder, exclude the synthetic secret, and retain a readable
+ordinary environment control. Routed EchoEnv health and protocol provide the
+positive workload control. Sandbox deletion is verified by identity and absence;
+the temporary provider and profile are then deleted. Runtime setup failures
+fail the opted-in test rather than silently skipping credential verification.
+
+```bash
+OPENENV_OPENSHELL_ECHO_IMAGE_ID="$(cat tests/integration/images/echo/local-image-id.txt)" \
+  uv run pytest -m integration --no-cov tests/integration/test_managed_credentials.py \
+  -v --log-cli-level=INFO
+```
+
+The explicit image command uses production `command` configuration and adapter
+mapping while P4 startup wiring remains pending. See [security guidance](../../docs/security.md)
+for the credential boundary and limits of this test.
+
+Verified on 2026-09-30 with CLI/SDK/gateway 0.1.2 and the pinned native arm64
+EchoEnv image: initial workload and exec environment prints contained opaque
+credential placeholders and no synthetic secret; the ordinary environment
+control remained readable. Routed health, two reset/step/state episodes, four
+echo steps, and ping/pong passed. Sandbox absence and disposable provider/profile
+cleanup succeeded. `make check` passed 271 unit tests, Ruff, strict Pyright, and
+99.40% branch-inclusive coverage. This is a local credential visibility result;
+endpoint rewriting and remote credential behavior remain unverified.
