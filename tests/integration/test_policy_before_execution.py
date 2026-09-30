@@ -33,8 +33,8 @@ logger = logging.getLogger(__name__)
 def test_policy_prevents_execution(tmp_path: Path) -> None:
     """Invalid input sends no create; a valid control runs routed EchoEnv.
 
-    Only the test supplies the S3a command at the SDK boundary, since automatic
-    image command resolution is pending S6a/P4. All policy translation and
+    The request supplies the S3a command through the S6b adapter contract.
+    All workload/policy translation and
     atomic service creation use the production adapter with a real client.
     """
     image = os.environ.get("OPENENV_OPENSHELL_ECHO_IMAGE_ID")
@@ -49,6 +49,7 @@ def test_policy_prevents_execution(tmp_path: Path) -> None:
         workspace=workspace,
         name=name,
         image=image,
+        command=COMMAND,
         environment={},
         service_name="",
         target_port=8000,
@@ -75,7 +76,7 @@ def test_policy_prevents_execution(tmp_path: Path) -> None:
             assert spec.HasField("policy")
             actual = MessageToDict(spec.policy, preserving_proto_field_name=True)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType] - Upstream cross-module stub.
             assert actual == policy
-            spec.command.extend(COMMAND)
+            assert list(spec.command) == list(COMMAND)
             return real_create(
                 workspace=workspace,
                 name=name,

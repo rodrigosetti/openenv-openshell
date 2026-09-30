@@ -10,23 +10,15 @@ import shutil
 import subprocess
 from pathlib import Path
 from shlex import quote
-from typing import TYPE_CHECKING
-from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
-from openshell import SandboxClient, SandboxRef
+from openshell import SandboxClient
 
 from openenv_openshell import OpenShellProvider
 from openenv_openshell._sdk import SDKAdapter
 from openenv_openshell.policy import load_policy
 from tests.integration.test_protocol_spike import COMMAND, probe_protocol
-
-if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping, Sequence
-
-    from openshell import ServiceExposure
-    from openshell._proto.openshell_pb2 import SandboxSpec
 
 logger = logging.getLogger(__name__)
 _KEY = "SEC7_API_KEY"
@@ -103,34 +95,6 @@ def _delete_sandbox(
     ).all()
 
 
-def _workload_create(
-    client: SandboxClient, provider_name: str, command: str
-) -> Callable[..., SandboxRef]:
-    """Supply the validated image command only at the test SDK boundary."""
-    real_create = client.create
-
-    def create_workload(
-        *,
-        workspace: str,
-        name: str,
-        spec: SandboxSpec,
-        labels: Mapping[str, str],
-        service_exposures: Sequence[ServiceExposure],
-    ) -> SandboxRef:
-        assert list(spec.providers) == [provider_name]
-        assert _KEY not in spec.environment
-        spec.command.extend(("sh", "-c", command))
-        return real_create(
-            workspace=workspace,
-            name=name,
-            spec=spec,
-            labels=labels,
-            service_exposures=service_exposures,
-        )
-
-    return create_workload
-
-
 @pytest.mark.integration
 def test_managed_credentials_are_not_printable(tmp_path: Path) -> None:
     """Use a synthetic provider, no external requests, and verify full cleanup."""
@@ -165,7 +129,13 @@ binaries: [/usr/local/bin/python3.12]
 """,
         encoding="utf-8",
     )
+    # Snapshot the initial workload environment before starting the EchoEnv control.
+    snapshot = (
+        f"import json,os; open({_SNAPSHOT!r}, 'w').write(json.dumps(dict(os.environ)))"
+    )
+    command = f"/usr/local/bin/python3.12 -c {quote(snapshot)} && {COMMAND[2]}"
     settings = OpenShellProvider(
+        command=("sh", "-c", command),
         workspace=workspace,
         sandbox_name=name,
         providers=[provider_name],
@@ -178,11 +148,6 @@ binaries: [/usr/local/bin/python3.12]
         policy=policy,
         env_vars={"SEC7_ORDINARY": _PLAIN},
     )
-    # Snapshot the initial workload environment before starting the EchoEnv control.
-    snapshot = (
-        f"import json,os; open({_SNAPSHOT!r}, 'w').write(json.dumps(dict(os.environ)))"
-    )
-    command = f"/usr/local/bin/python3.12 -c {quote(snapshot)} && {COMMAND[2]}"
     imported = False
     provisioned = False
     try:
@@ -207,12 +172,10 @@ binaries: [/usr/local/bin/python3.12]
         provisioned = True
         with SandboxClient.from_active_cluster(timeout=30) as client:
             adapter = SDKAdapter(client)
-            create_workload = _workload_create(client, provider_name, command)
 
             sandbox_id: str | None = None
             try:
-                with patch.object(client, "create", side_effect=create_workload):
-                    created = adapter.create(request)
+                created = adapter.create(request)
                 sandbox_id = created.sandbox_id
                 adapter.wait_ready(name, workspace=workspace, timeout_s=120)
                 url = adapter.service_url(created, "")

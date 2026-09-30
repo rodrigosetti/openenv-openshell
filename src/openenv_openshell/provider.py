@@ -19,6 +19,7 @@ from openenv_openshell.config import (
     OpenShellProviderConfig,
     OpenShellResources,
     Policy,
+    validate_command,
 )
 from openenv_openshell.errors import OpenEnvReadinessTimeout
 from openenv_openshell.metadata import ProviderState
@@ -39,6 +40,7 @@ class OpenShellProvider(ContainerProvider):
         workspace: str = "default",
         sandbox_name: str | None = None,
         policy: Policy = None,
+        command: Sequence[str] | None = None,
         service_port: int = 8000,
         service_name: str = "",
         startup_timeout_s: float = 120.0,
@@ -56,6 +58,7 @@ class OpenShellProvider(ContainerProvider):
             workspace=workspace,
             sandbox_name=sandbox_name,
             policy=policy,
+            command=command,
             service_port=service_port,
             service_name=service_name,
             startup_timeout_s=startup_timeout_s,
@@ -113,6 +116,7 @@ class OpenShellProvider(ContainerProvider):
         ):
             msg = "port must be an integer from 1 through 65535"
             raise ValueError(msg)
+        command = validate_command(self.config.command)
         environment = {} if env_vars is None else dict(env_vars)
         for key, value in environment.items():
             if (
@@ -133,6 +137,7 @@ class OpenShellProvider(ContainerProvider):
             workspace=self.config.workspace,
             name=self._sandbox_name_for_image(image),
             image=image,
+            command=command,
             environment=MappingProxyType(environment),
             service_name=self.config.service_name,
             target_port=target_port,

@@ -69,9 +69,9 @@ passed HTTP health, two reset/step/state episodes, four echo steps and ping/pong
 `oe-sec4-7096bbed` was deleted and absence confirmed. `make check` passed 247
 unit tests with 99.38% branch-inclusive coverage, lint and strict typing.
 
-The test supplies the previously validated EchoEnv command only at the SDK
-boundary because provider startup remains P4. S6a documents why omitted
-commands cannot start this image on the selected runtime. This verifies
+The test supplies the previously validated EchoEnv command in `CreateRequest`
+through the S6b production adapter translation. Provider lifecycle remains P4.
+S6a documents why omitted commands cannot start this image on the selected runtime. This verifies
 the loader/adapter gate and initial policy submission; it does not establish
 gateway rejection of every semantically invalid policy, filesystem/network
 denials (SEC5/SEC6), automatic image command handling, or a complete provider
@@ -97,8 +97,8 @@ OPENENV_OPENSHELL_ECHO_IMAGE_ID="$(cat tests/integration/images/echo/local-image
   -v --log-cli-level=INFO
 ```
 
-The explicit image command is supplied only at the test SDK boundary while P4
-startup wiring remains pending. See [security guidance](../../docs/security.md)
+The explicit image command uses production `command` configuration and adapter
+mapping while P4 startup wiring remains pending. See [security guidance](../../docs/security.md)
 for the credential boundary and limits of this test.
 
 Verified on 2026-09-30 with CLI/SDK/gateway 0.1.2 and the pinned native arm64
@@ -106,6 +106,6 @@ EchoEnv image: initial workload and exec environment prints contained opaque
 credential placeholders and no synthetic secret; the ordinary environment
 control remained readable. Routed health, two reset/step/state episodes, four
 echo steps, and ping/pong passed. Sandbox absence and disposable provider/profile
-cleanup succeeded. `make check` passed 258 unit tests, Ruff, strict Pyright, and
-99.38% branch-inclusive coverage. This is a local credential visibility result;
+cleanup succeeded. `make check` passed 271 unit tests, Ruff, strict Pyright, and
+99.40% branch-inclusive coverage. This is a local credential visibility result;
 endpoint rewriting and remote credential behavior remain unverified.

@@ -74,8 +74,8 @@ cleanup; this package does not own or delete an operator's provider.
 The opt-in [runtime test](../tests/integration/test_managed_credentials.py)
 creates a uniquely named provider profile and provider with a random synthetic
 credential, then selects it through production request preparation and the
-production adapter. The test supplies the validated image command at the SDK
-boundary, as in SEC4, while public startup wiring remains P4.
+production adapter. The test supplies the validated image command through the production
+`command` configuration and adapter mapping, while public startup wiring remains P4.
 
 It captures a full environment print from the initial workload and from a new
 exec process. Both must contain a present credential placeholder, contain no

@@ -81,6 +81,25 @@ def _validate_labels(labels: Mapping[str, str]) -> None:
             raise ValueError(msg)
 
 
+def validate_command(command: Sequence[str] | None) -> tuple[str, ...]:
+    """Require exact argv without exposing command contents in errors."""
+    if command is None:
+        msg = "OpenShell 0.1.2 requires explicit command argv; configure command"
+        raise ValueError(msg)
+    if isinstance(command, (str, bytes)) or not isinstance(command, Sequence):  # pyright: ignore[reportUnnecessaryIsInstance] - Validate untyped callers.
+        msg = "command must be a non-empty sequence of string arguments"
+        raise TypeError(msg)
+    argv = tuple(command)
+    if (
+        not argv
+        or any(not isinstance(arg, str) or "\x00" in arg for arg in argv)  # pyright: ignore[reportUnnecessaryIsInstance]
+        or not argv[0].strip()
+    ):
+        msg = "command requires a non-empty executable and NUL-free string arguments"
+        raise ValueError(msg)
+    return argv
+
+
 @dataclass(frozen=True, slots=True)
 class OpenShellResources:
     """Resource requests passed through to OpenShell."""
@@ -114,6 +133,7 @@ class OpenShellProviderConfig:
     workspace: str = "default"
     sandbox_name: str | None = None
     policy: Policy = None
+    command: Sequence[str] | None = field(default=None, repr=False)
     service_port: int = 8000
     service_name: str = ""
     startup_timeout_s: float = 120.0
@@ -128,6 +148,8 @@ class OpenShellProviderConfig:
 
     def __post_init__(self) -> None:
         """Validate settings and detach mutable values supplied by callers."""
+        if self.command is not None:
+            object.__setattr__(self, "command", validate_command(self.command))
         if not self.workspace.strip():
             msg = "workspace must not be empty"
             raise ValueError(msg)

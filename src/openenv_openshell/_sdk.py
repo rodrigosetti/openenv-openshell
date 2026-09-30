@@ -20,6 +20,7 @@ from openshell._proto.openshell_pb2 import SandboxSpec, SandboxTemplate
 from openshell._proto.sandbox_pb2 import SandboxPolicy
 
 from openenv_openshell._adapter import SDK_VERSION, CreateRequest, Deletion, Sandbox
+from openenv_openshell.config import validate_command
 from openenv_openshell.errors import (
     OpenShellConnectionError,
     OpenShellProviderError,
@@ -184,6 +185,7 @@ class SDKAdapter:
     def create(self, request: CreateRequest) -> Sandbox:
         """Build private models and request an atomic service exposure."""
         spec = SandboxSpec(template=SandboxTemplate(image=request.image))
+        spec.command.extend(validate_command(request.command))
         spec.environment.update(request.environment)
         spec.providers.extend(request.providers)
         resources = request.resources

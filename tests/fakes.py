@@ -114,6 +114,7 @@ class FakeSandboxAdapter:
                     workspace=request.workspace,
                     name=request.name,
                     image=request.image,
+                    command=tuple(request.command),
                     environment=dict(request.environment),
                     service_name=request.service_name,
                     target_port=request.target_port,

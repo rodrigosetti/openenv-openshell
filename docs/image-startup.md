@@ -80,36 +80,45 @@ resolver. `exec(workdir=...)` configures a separate exec operation, not the
 canonical create-time workload. It is not a substitute for startup semantics.
 Driver-specific envelopes do not establish a portable supported workdir API.
 
-## Outcome and proposed API decision
+## Adopted API decision (S6b, 2026-09-30)
 
-The selected API cannot satisfy automatic image startup in SPEC section 12.3.
-Passing an empty command through the current adapter would silently start a
-shell. A thin adapter cannot recover OCI CMD, ENTRYPOINT, WORKDIR and ENV from
-an arbitrary image reference using this SDK alone. Local `docker inspect`
-would violate the remote-caller requirement; copying the EchoEnv command would
-only work for the test fixture.
+S6b adopts explicit startup for SDK/gateway 0.1.2 and amends SPEC sections 9,
+12.3, 36, 39, and the usage examples. Automatic OCI metadata resolution is
+outside the v0.1 contract. No upstream capability is needed before P4.
 
-**Proposed explicit startup mode for 0.1.2:** make the already suggested
-`command: Sequence[str] | None` constructor option supported and require a
-nonempty exact argv until a public upstream image resolver exists. Callers
-would supply the image's intended command (including ENTRYPOINT composition
-when applicable), required environment through `env_vars`, and an explicitly
-chosen command that establishes the required directory. This is an opt-in
-workload override, not automatic OCI metadata preservation. Missing command
-would fail before create with an actionable compatibility error. Command
-inputs and their errors would remain secret-safe. The private adapter would
-then gain a command field and pinned argv/environment contracts.
+`OpenShellProvider(command=server_argv)` accepts the caller's exact intended
+workload argv, including ENTRYPOINT composition. Callers supply required image
+environment through `env_vars` and select a command that establishes the
+working directory. There is no portable `workdir` option and no automatic
+image ENV merge, registry resolver, or local Docker inspection.
 
-Accepting this proposal requires amending sections 9, 12.3, 36 and the applicable
-acceptance claims: image-only quickstarts cannot work on the tested VM lane.
-If automatic image startup remains mandatory, P4 instead needs an upstream
-public image-startup API (or an explicitly approved registry-resolution
-boundary with architecture, authentication, digest and metadata contracts).
-A registry resolver alone still needs a supported workdir strategy. Do not
-implement that broader integration implicitly inside provider startup.
+Configuration-only construction may omit command, but request preparation must
+reject it before gateway access/create. Supplied commands must be a nonempty
+sequence of NUL-free strings with a nonblank executable; bare strings/bytes are
+rejected. Empty subsequent arguments, whitespace, shell syntax, and argument
+order are preserved verbatim. Shell interpretation occurs only if the caller
+explicitly invokes a shell. Unknown startup kwargs are rejected; constructor
+command has no per-start override. Errors and representations omit argv.
 
-S6a completes the comparison and records the exact limitation and proposal.
-**S6b** tracks the required product/API decision and blocks **P4**. No production
-startup behavior or public API changes are authorized by this finding alone;
-the current SPEC requirement remains in force. The existing adapter therefore
-remains unchanged rather than presenting empty argv as supported image startup.
+The private `CreateRequest.command` maps directly to `SandboxSpec.command` in
+the atomic workload/policy/service request. The adapter also rejects empty or
+malformed argv before gateway access. Offline tests verify exact command and
+environment transmission, defensive copying, secret-safe diagnostics, and
+no-RPC rejection. The typed fake retains the command. The SEC4 integration
+control now supplies its command through the production adapter instead of
+injecting it at the mocked SDK call.
+
+P4 owns lifecycle wiring, including local validation before connection and
+cleanup after partial startup. This decision does not implement `start_container`
+or close release acceptance gates. The S6a runtime evidence above covers the
+explicit fixture command on the local VM; remote images/drivers remain S5a.
+
+### S6b validation
+
+On 2026-09-30, `make check` passed lint, strict typing, and 268 unit tests with
+99.40% branch-inclusive coverage. The revised
+`tests/integration/test_policy_before_execution.py` passed in 27.39 seconds on
+the same pinned image and SDK/gateway 0.1.2: invalid policies sent no create RPC,
+exact request argv reached the SDK, routed health and repeated WebSocket
+reset/step/state plus ping/pong passed, and `oe-sec4-4937f442` deletion/absence
+was verified. This exercises the production adapter, not provider lifecycle.

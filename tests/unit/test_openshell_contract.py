@@ -76,7 +76,7 @@ def test_workload_and_policy_round_trip() -> None:
     # Upstream SandboxSpec.pyi resolves its cross-module policy type as unknown.
     assert restored.policy == policy  # pyright: ignore[reportUnknownMemberType]
     assert not policy.network_policies
-    # Leaving command empty preserves the image's workload for the runtime spike.
+    # Empty command serializes but selects a scratch shell; S6b rejects it.
     assert not restored.command
     assert ServiceExposure(target_port=8000).service == ""
 

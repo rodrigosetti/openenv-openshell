@@ -339,8 +339,8 @@ the selected SDK/gateway pair still needs the roadmap's runtime validation.
 
 The provider's private `_create_request()` resolves ordinary configuration into
 `CreateRequest` without opening a gateway connection. It takes an explicit,
-normalized policy from the policy boundary; YAML loading and validation remain
-SEC1 work. P4 will call this preparation step before connecting or creating.
+normalized policy from the policy boundary; YAML loading and validation are
+provided by SEC1. P4 will call this preparation step before connecting or creating.
 
 An explicit non-`None` `port` overrides `service_port` and selects only the
 sandbox service target. Both named and unnamed services use create-time
@@ -355,8 +355,8 @@ retained in the request's image field rather than copied into a length-limited
 label. Providers and CPU/memory/GPU requests map directly through the adapter.
 Gateway selection uses the configured registered name via the lazy connection
 factory. Deadlines and `keep_sandbox` stay in provider configuration for lifecycle
-operations; they are not workload fields. Workload startup and image entrypoint
-handling remain S6a/P4 work.
+operations; they are not workload fields. P4 still owns provider lifecycle
+startup; S6b selects explicit workload argv.
 
 `tests/unit/test_create_request.py` exercises these prepared inputs against the
 pinned SDK models and a mocked public client. These are offline mapping checks,
@@ -369,5 +369,12 @@ starts the runtime's scratch login shell on the pinned VM lane; supplying the
 exact EchoEnv CMD passes routed health and protocol. VM source uses `/sandbox`
 as startup workdir and merges template/spec environment without image ENV.
 The SDK has no public image-config resolver or portable create-time workdir.
-S6b must resolve the proposed explicit-command API before P4. The current
-adapter's empty command must not be presented as automatic image startup.
+S6b adopts explicit startup: `CreateRequest.command` is required and maps
+verbatim to `spec.command`. Both provider preparation and direct adapter create
+reject missing/invalid argv before gateway access. Configuration copies argv
+to a tuple; config/request/fake representations redact it. Caller environment
+maps only to `spec.environment`; no image metadata is inferred or merged.
+Required directory handling belongs in the caller's command. Offline tests
+cover exact argv (including empty arguments and shell syntax), environment,
+mutation isolation, and secret-safe no-RPC rejection. The release snapshot
+includes the explicit command. P4 owns lifecycle wiring.

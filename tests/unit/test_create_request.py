@@ -19,6 +19,7 @@ def test_configured_request_reaches_sdk(sdk: MagicMock) -> None:
     """Configuration and explicit port reach the actual reviewed SDK fields."""
     resources = OpenShellResources(cpu=2.5, memory="8Gi", gpu_count=2)
     provider = OpenShellProvider(
+        command=["server", SECRET, "", "argument with spaces"],
         workspace="research",
         sandbox_name="chosen",
         service_name="openenv",
@@ -60,13 +61,13 @@ def test_configured_request_reaches_sdk(sdk: MagicMock) -> None:
     assert spec.template.resources["limits"] == {"cpu": "2.5", "memory": "8Gi"}
     assert spec.resource_requirements.gpu.count == resources.gpu_count
     assert spec.policy.version == 1
-    assert not spec.command
+    assert list(spec.command) == ["server", SECRET, "", "argument with spaces"]
     assert SECRET not in repr(request)
 
 
 def test_default_request_and_gateway(sdk: MagicMock) -> None:
     """Defaults select the active gateway and an unnamed target-only route."""
-    provider = OpenShellProvider(service_port=8080)
+    provider = OpenShellProvider(service_port=8080, command=["server"])
     request = provider._create_request("echo:latest", policy=POLICY)  # noqa: SLF001
     assert request.name.startswith("openenv-echo-")
     assert request.target_port == provider.config.service_port
@@ -88,7 +89,7 @@ def test_default_request_and_gateway(sdk: MagicMock) -> None:
 @pytest.mark.parametrize("port", [1, 65535])
 def test_port_boundaries(port: int) -> None:
     """An explicit target port overrides the configured default at both bounds."""
-    request = OpenShellProvider()._create_request(  # noqa: SLF001
+    request = OpenShellProvider(command=["server"])._create_request(  # noqa: SLF001
         "echo", policy=POLICY, port=port
     )
     assert request.target_port == port
@@ -98,7 +99,7 @@ def test_port_boundaries(port: int) -> None:
 def test_invalid_port(port: object, sdk: MagicMock) -> None:
     """Invalid explicit ports fail before any gateway call without echoing input."""
     with pytest.raises(ValueError, match="port") as error:
-        OpenShellProvider()._create_request(  # noqa: SLF001
+        OpenShellProvider(command=["server"])._create_request(  # noqa: SLF001
             "echo", policy=POLICY, port=cast("int", port)
         )
     assert SECRET not in "".join(format_exception(error.value))
@@ -110,7 +111,7 @@ def test_invalid_port(port: object, sdk: MagicMock) -> None:
 def test_invalid_image(image: object) -> None:
     """Empty or malformed image input fails during local preparation."""
     with pytest.raises(ValueError, match="image"):
-        OpenShellProvider()._create_request(  # noqa: SLF001
+        OpenShellProvider(command=["server"])._create_request(  # noqa: SLF001
             cast("str", image), policy=POLICY
         )
 
@@ -129,7 +130,7 @@ def test_invalid_image(image: object) -> None:
 def test_invalid_environment(environment: dict[object, object]) -> None:
     """Malformed environment input never appears in errors or logs."""
     with pytest.raises(ValueError, match="env_vars") as error:
-        OpenShellProvider()._create_request(  # noqa: SLF001
+        OpenShellProvider(command=["server"])._create_request(  # noqa: SLF001
             "echo", policy=POLICY, env_vars=cast("dict[str, str]", environment)
         )
     assert SECRET not in "".join(format_exception(error.value))
@@ -138,7 +139,9 @@ def test_invalid_environment(environment: dict[object, object]) -> None:
 def test_unknown_options_are_rejected() -> None:
     """Unsupported upstream options cannot silently change execution semantics."""
     with pytest.raises(ValueError, match="Unsupported") as error:
-        OpenShellProvider()._create_request("echo", policy=POLICY, unsupported=SECRET)  # noqa: SLF001
+        OpenShellProvider(command=["server"])._create_request(  # noqa: SLF001
+            "echo", policy=POLICY, unsupported=SECRET
+        )
     assert SECRET not in "".join(format_exception(error.value))
 
 
@@ -146,7 +149,7 @@ def test_request_detaches_caller_input(caplog: pytest.LogCaptureFixture) -> None
     """Prepared inputs survive later mutation and keep secrets out of diagnostics."""
     environment = {"TOKEN": SECRET}
     policy: dict[str, object] = {"filesystem": {"read_write": ["/workspace"]}}
-    request = OpenShellProvider()._create_request(  # noqa: SLF001
+    request = OpenShellProvider(command=["server"])._create_request(  # noqa: SLF001
         "echo", policy=policy, env_vars=environment
     )
     environment.clear()
@@ -170,7 +173,7 @@ def test_provider_selection_is_explicit_and_detached(
 ) -> None:
     """Only selected instance names reach the wire, without environment discovery."""
     selected = tuple(names)
-    provider = OpenShellProvider(providers=names)
+    provider = OpenShellProvider(providers=names, command=["server"])
     names.append("later-mutation")
     request = provider._create_request(  # noqa: SLF001
         "echo", policy=POLICY, env_vars={"MAX_CONCURRENT_ENVS": "8"}
@@ -181,3 +184,56 @@ def test_provider_selection_is_explicit_and_detached(
     assert tuple(spec.providers) == selected
     assert dict(spec.environment) == {"MAX_CONCURRENT_ENVS": "8"}
     assert not spec.template.environment
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        [],
+        "server",
+        b"server",
+        42,
+        [""],
+        [" "],
+        ["server", 42],
+        ["server", SECRET + "\x00"],
+    ],
+)
+def test_invalid_command(command: object, sdk: MagicMock) -> None:
+    """Invalid or missing argv fails offline without disclosing argument values."""
+    with pytest.raises((TypeError, ValueError), match="command") as error:
+        OpenShellProvider(command=cast("list[str]", command))
+    assert SECRET not in "".join(format_exception(error.value))
+    sdk.health.assert_not_called()
+    sdk.create.assert_not_called()
+
+
+def test_command_is_detached_and_preserved(sdk: MagicMock) -> None:
+    """Caller argv is frozen, redacted, and transmitted without shell rewriting."""
+    command = ["sh", "-c", 'cd "/app dir" && exec server "$TOKEN"', "", SECRET]
+    provider = OpenShellProvider(command=command)
+    command.clear()
+    request = provider._create_request("echo", policy=POLICY)  # noqa: SLF001
+    fake = FakeSandboxAdapter()
+    fake.create(request)
+    with patch(
+        "openenv_openshell._sdk.SandboxClient.from_active_cluster", return_value=sdk
+    ):
+        provider._connect_adapter().create(request)  # noqa: SLF001
+    assert list(sdk.create.call_args.kwargs["spec"].command) == list(request.command)
+    assert request.command == provider.config.command
+    captured = fake.calls[0]
+    assert isinstance(captured, CreateCall)
+    assert captured.request.command == request.command
+    assert SECRET not in repr(provider.config)
+    assert SECRET not in repr(request)
+    assert SECRET not in repr(fake.calls)
+
+
+def test_missing_command_fails_before_gateway(sdk: MagicMock) -> None:
+    """Readiness-only configuration is allowed but cannot prepare a workload."""
+    provider = OpenShellProvider()
+    with pytest.raises(ValueError, match=r"0\.1\.2 requires explicit command"):
+        provider._create_request("echo", policy=POLICY)  # noqa: SLF001
+    sdk.health.assert_not_called()
+    sdk.create.assert_not_called()
