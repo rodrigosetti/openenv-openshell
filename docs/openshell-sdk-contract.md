@@ -361,3 +361,13 @@ handling remain S6a/P4 work.
 `tests/unit/test_create_request.py` exercises these prepared inputs against the
 pinned SDK models and a mocked public client. These are offline mapping checks,
 not evidence of runtime resource enforcement or automatic image startup.
+
+## S6a image startup limitation
+
+The [startup comparison](image-startup.md) establishes that omitted command
+starts the runtime's scratch login shell on the pinned VM lane; supplying the
+exact EchoEnv CMD passes routed health and protocol. VM source uses `/sandbox`
+as startup workdir and merges template/spec environment without image ENV.
+The SDK has no public image-config resolver or portable create-time workdir.
+S6b must resolve the proposed explicit-command API before P4. The current
+adapter's empty command must not be presented as automatic image startup.

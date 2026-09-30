@@ -573,8 +573,13 @@ S3a/S5 verified a native arm64 EchoEnv image on the local VM driver with its
 canonical command supplied explicitly. S4's empty command proved sandbox
 readiness only. Automatic OCI entrypoint/CMD execution, working-directory and
 image-environment preservation MUST NOT be claimed from those results. **S6a**
-tracks validation and selection of a supported startup strategy before P4
-implements provider startup. Do not silently start a shell, hardcode an EchoEnv
+validated the comparison: omitted command selects a scratch login shell on
+0.1.2 and does not start EchoEnv; explicit image CMD passes health and protocol.
+The selected SDK has no public image-config resolver or portable startup
+workdir field. See [S6a evidence and proposed API change](docs/image-startup.md).
+**S6b** tracks the required startup API decision before P4 implementation;
+automatic image startup remains a requirement until that decision changes it.
+Do not silently start a shell, hardcode an EchoEnv
 command, or add a local Docker dependency for remote callers.
 
 Image compatibility is compute-driver-specific. The tested VM image includes
@@ -1903,7 +1908,8 @@ unqualified compatibility claims. The remaining questions still apply before v0.
 4. **Partially answered (S3a/S6):** the native VM lane requires a compatible
    architecture, image utilities, executable lookup, and policy paths. The
    pinned arm64 test image is validated; arbitrary images/drivers are not.
-   Automatic entrypoint/CMD handling remains S6a; remote image validation S5a.
+   S6a established that omitted command selects a shell, not image CMD, on the
+   pinned VM lane. Startup API resolution remains S6b; remote image validation S5a.
    See section 12.3.
 
 5. **Resolved (S6):** embed the validated explicit policy in the initial
