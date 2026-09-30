@@ -4,39 +4,40 @@
 
 - Read `SPEC.md` before changing behavior or public APIs. It defines the product
   requirements, security posture, milestones, and acceptance criteria.
-- Read `TODO.md` before starting roadmap work. It is the live execution ledger;
-  do not maintain a competing task list elsewhere.
-- If `SPEC.md` and `TODO.md` disagree, follow `SPEC.md` and correct `TODO.md` in
-  the same change.
+- Use Beads (`bd`) as the live execution ledger. Run `bd prime` and `bd ready`
+  before starting roadmap work; inspect selected issues with `bd show <id>`.
+- If `SPEC.md` and a Beads issue disagree, follow `SPEC.md` and correct the issue
+  in the same change.
 
-## Keeping `TODO.md` current
+## Keeping Beads current
 
 Every change that advances, blocks, splits, adds, or invalidates roadmap work
-must update `TODO.md` in the same branch or pull request.
+must update the corresponding Beads issues.
 
-- Select task IDs whose dependencies are complete before implementing them.
-- Change a selected task from `⬜` to `🚧` while it is actively owned. Avoid
-  claiming unrelated tasks or tasks already active in another worktree.
-- Change `🚧` to `✅` only after its stated outcome is implemented, relevant
-  tests and documentation are present, and the applicable checks pass.
-- Use `⛔` only for a concrete blocker. Add a brief note naming the missing
-  decision, dependency, permission, or external capability needed to unblock it.
-- Return abandoned or paused work to `⬜` unless a concrete blocker remains.
-- When work uncovers more than one session of additional scope, add new,
-  narrowly scoped task IDs with explicit dependencies instead of silently
-  expanding the current task.
-- Keep dependencies accurate when tasks are added, removed, reordered, or
-  split. A task may appear in “Ready to work in parallel” only when every listed
-  dependency is complete.
-- Update milestone gates and the release checklist only when there is test or
+- Select issues whose dependencies are complete before implementing them.
+- Claim selected work with `bd update <id> --claim`. Avoid claiming unrelated
+  issues or work already active in another worktree.
+- Close an issue only after its stated outcome is implemented, relevant tests
+  and documentation are present, and the applicable checks pass.
+- Use `blocked` only for a concrete blocker; record the missing decision,
+  dependency, permission, or external capability needed to unblock it.
+- Return abandoned or paused work to `open` unless a concrete blocker remains.
+- When work uncovers more than one session of additional scope, create narrowly
+  scoped issues with explicit dependencies rather than silently expanding scope.
+- Keep dependency edges accurate when work is added, removed, reordered, or split.
+  Use `bd ready` to find issues whose prerequisites are complete.
+- Close milestone gates and verify release checklist items only with test or
   documentation evidence. Do not infer completion from partial implementation.
-- Preserve completed entries as history. If a completed behavior regresses,
-  add a repair task or reopen the original task with a short explanation.
-- Keep the board concise: link to implementation details in code, tests, or
-  `SPEC.md` rather than duplicating them in `TODO.md`.
+- Preserve closed issues as history. If completed behavior regresses, create a
+  repair issue or reopen the original issue with a short explanation.
+- Keep issues concise: link to implementation details in code, tests, or `SPEC.md`.
+- Original roadmap IDs remain in titles and stable IDs, such as
+  `openenv-openshell-s5`. Milestone gate IDs are `openenv-openshell-m0` through
+  `openenv-openshell-m5`; the release checklist lives in M3's description.
 
-For changes unrelated to the roadmap, update `TODO.md` only if they alter task
-status, dependencies, scope, or readiness.
+For changes unrelated to the roadmap, update issues only if they alter task
+status, dependencies, scope, or readiness. `.beads/issues.jsonl` is a passive
+export for review and interchange; use `bd` to change the live database.
 
 ## Development expectations
 
