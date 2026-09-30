@@ -538,7 +538,9 @@ def start_container(
 OpenShell 0.1.2's official Python wheel supports creating, waiting for
 readiness, executing commands, deleting, and identity-aware deletion waiting.
 It also supports atomic service exposures and returned service URLs. The
-repository pins that wheel by release URL and SHA-256. S1a selects a confined,
+repository pins that wheel in the development group by release URL and SHA-256.
+Published distributions require installing the same wheel separately as a runtime
+prerequisite because package indexes reject direct URL dependencies. S1a selects a confined,
 contract-tested generated-model dependency for workload and policy inputs;
 public lifecycle calls remain the runtime boundary. See
 [`docs/openshell-sdk-contract.md`](docs/openshell-sdk-contract.md) for the exact
@@ -1388,9 +1390,14 @@ Because OpenEnv explicitly describes itself as experimental and subject to API c
 ## 31.3 OpenShell
 
 The selected compatibility target is exactly SDK/gateway `0.1.2`. The SDK
-dependency is the official GitHub wheel pinned by URL and SHA-256 in
-`pyproject.toml` and `uv.lock`; it replaces the incompatible PyPI `0.0.116`
-baseline. S1a permits generated workload/policy models only inside the private
+runtime prerequisite is the official GitHub wheel pinned by URL and SHA-256 in
+the `pyproject.toml` development group and `uv.lock`; it replaces the
+incompatible PyPI `0.0.116`
+baseline. I13 omits OpenShell from published Requires-Dist because package
+indexes reject direct references. Maintainers and users install the same
+hash-pinned wheel separately; the private adapter rejects absent or mismatched
+SDKs before gateway access. No PyPI SDK substitution or compatibility widening
+is permitted. S1a permits generated workload/policy models only inside the private
 adapter with offline contract tests. Do not widen the SDK range until its
 model and lifecycle contracts are reviewed and runtime compatibility is tested.
 

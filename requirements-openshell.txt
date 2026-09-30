@@ -1,0 +1,2 @@
+# Official runtime prerequisite. Do not substitute the incompatible PyPI SDK.
+openshell @ https://github.com/NVIDIA/OpenShell/releases/download/v0.1.2/openshell-0.1.2-py3-none-any.whl#sha256=8c409da4f176d42418d92366fe201f47cceef2c0fa432bfbce2bf938649d59cf

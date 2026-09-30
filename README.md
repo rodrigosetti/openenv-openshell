@@ -52,6 +52,10 @@ uv sync --locked --all-groups
 make check
 ```
 
+Published artifacts require the separately installed, hash-pinned OpenShell
+0.1.2 SDK; see [SDK installation and release procedure](docs/releases.md).
+Source setup above installs that same prerequisite from the development group.
+
 Unit tests use typed fakes and do not need an OpenShell installation or gateway.
 The default check excludes the opt-in runtime integration tests.
 `tests/unit/test_successful_lifecycle.py` follows startup and mocked HTTP health

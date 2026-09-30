@@ -1,0 +1,126 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      index:
+        description: Destination (production requires M3 approval)
+        required: true
+        default: testpypi
+        type: choice
+        options: [testpypi, pypi]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.repository == 'rodrigosetti/openenv-openshell' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: '0.11.20'
+          python-version: '3.11'
+      - name: Require a tag on main and explicit production approval
+        env:
+          INDEX: ${{ inputs.index }}
+          TAG: ${{ github.ref_name }}
+          APPROVED_TAG: ${{ vars.APPROVED_RELEASE_TAG }}
+          APPROVED_COMMIT: ${{ vars.APPROVED_RELEASE_COMMIT }}
+          M3_EVIDENCE: ${{ vars.M3_EVIDENCE_URL }}
+        run: |
+          set -eu
+          git merge-base --is-ancestor HEAD origin/main
+          if [ "$INDEX" = pypi ]; then
+            test "$TAG" = "$APPROVED_TAG"
+            test "$(git rev-parse HEAD)" = "$APPROVED_COMMIT"
+            test -n "$M3_EVIDENCE"
+          fi
+      - run: uv sync --locked --all-groups
+      - run: make check
+      - run: uv build --no-build-isolation
+      - name: Validate identity, metadata and contents
+        env:
+          TAG: ${{ github.ref_name }}
+          INDEX: ${{ inputs.index }}
+        run: |
+          uv run python -m scripts.check_distribution --tag "$TAG" --index "$INDEX"
+          uv run twine check --strict dist/*
+      - name: Install each artifact outside the checkout
+        run: |
+          set -eu
+          for artifact in "$GITHUB_WORKSPACE"/dist/*; do
+            clean="$(mktemp -d)"
+            uv venv "$clean/venv" --python 3.11
+            uv pip install --python "$clean/venv/bin/python" "$artifact"
+            (cd "$clean" && "$clean/venv/bin/python" -c 'from openenv_openshell import OpenShellProvider; OpenShellProvider().stop_container()')
+            uv pip install --python "$clean/venv/bin/python" -r requirements-openshell.txt
+            (cd "$clean" && "$clean/venv/bin/python" -c 'from importlib.metadata import version; from openenv_openshell._sdk import SDKAdapter; assert version("openshell") == "0.1.2"')
+          done
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: distributions
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment:
+      name: ${{ inputs.index }}
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: distributions
+          path: dist/
+      - name: Publish to TestPyPI
+        if: inputs.index == 'testpypi'
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          repository-url: https://test.pypi.org/legacy/
+      - name: Publish approved production release
+        if: inputs.index == 'pypi'
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+
+  verify-index:
+    needs: publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: '0.11.20'
+          python-version: '3.11'
+      - name: Install the actual indexed wheel, with dependencies from PyPI
+        env:
+          INDEX: ${{ inputs.index }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -eu
+          clean="$(mktemp -d)"
+          uv venv "$clean/venv" --python 3.11
+          index_url=https://pypi.org/simple/
+          if [ "$INDEX" = testpypi ]; then index_url=https://test.pypi.org/simple/; fi
+          # Fetch only this project from the selected index; do not mix index trust.
+          uv pip install --python "$clean/venv/bin/python" --no-deps --only-binary :all: --index-url "$index_url" "openenv-openshell==${TAG#v}"
+          uv pip install --python "$clean/venv/bin/python" 'httpx>=0.28,<0.29' 'openenv==0.6.0' 'pyyaml>=6.0.3,<7'
+          uv pip install --python "$clean/venv/bin/python" -r requirements-openshell.txt
+          uv pip check --python "$clean/venv/bin/python"
+          (cd "$clean" && "$clean/venv/bin/python" -c 'from importlib.metadata import version; from openenv_openshell import OpenShellProvider; from openenv_openshell._sdk import SDKAdapter; assert version("openshell") == "0.1.2"; OpenShellProvider().stop_container()')
