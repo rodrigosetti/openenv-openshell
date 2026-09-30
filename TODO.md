@@ -22,7 +22,7 @@ IDs; tasks whose dependencies are done may run in parallel.
 Tasks with complete dependencies:
 
 - **S2a** Revalidate local OpenShell 0.1.2 setup
-- **P2** Private SDK adapter
+- **T6** Adapter contract fixtures
 
 ## Milestone 0 — Runtime spike
 
@@ -76,9 +76,13 @@ service and the sandbox is deleted afterward.
   arguments, positive ports/timeouts/resources, safe names, generated
   `openenv-<image>-<suffix>` names, defensive copies, and non-secret label
   validation. _Depends: F3._
-- ⬜ **P2 — Define the private SDK adapter.** Isolate unstable OpenShell imports
-  and models behind a small typed protocol; translate connection failures and
-  make dependency/version errors actionable. _Depends: S1a._
+- ✅ **P2 — Define the private SDK adapter.** SDK imports/models isolated behind
+  a typed protocol; exact SDK/gateway checks, secret-safe error translation,
+  create-time routes, deletion outcomes, and connection cleanup are covered by
+  [offline adapter tests](tests/unit/test_adapter.py) and documented in the
+  [SDK contract](docs/openshell-sdk-contract.md#p2-private-adapter). Typed fake
+  conforms; `make check` passes (144 tests, 100% branch coverage).
+  _Depends: S1a._
 - ⬜ **P3 — Translate create requests.** Map image, environment variables,
   workspace, service exposure, labels, providers, resources, gateway, and
   optional configuration into the adapter without logging secrets.

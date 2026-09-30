@@ -6,9 +6,18 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal, TypeAlias
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
+    from collections.abc import Mapping
 
-    from openenv_openshell import OpenShellResources
+
+from openenv_openshell._adapter import (
+    CreateRequest,
+)
+from openenv_openshell._adapter import (
+    Deletion as FakeDeletion,
+)
+from openenv_openshell._adapter import (
+    Sandbox as FakeSandbox,
+)
 
 FakeOperation: TypeAlias = Literal[
     "create",
@@ -16,38 +25,8 @@ FakeOperation: TypeAlias = Literal[
     "service_url",
     "delete",
     "wait_deleted",
+    "close",
 ]
-
-
-@dataclass(frozen=True, slots=True)
-class FakeSandbox:
-    """Minimal sandbox data returned by create and readiness operations."""
-
-    name: str = "openenv-test-abc123"
-    sandbox_id: str = "sandbox-123"
-
-
-@dataclass(frozen=True, slots=True)
-class FakeDeletion:
-    """Deletion acknowledgement used to guard against sandbox replacement."""
-
-    sandbox_id: str = "sandbox-123"
-
-
-@dataclass(frozen=True, slots=True)
-class CreateRequest:
-    """Stable lifecycle inputs accepted by the fake adapter."""
-
-    workspace: str
-    name: str
-    image: str
-    environment: Mapping[str, str]
-    service_name: str
-    target_port: int
-    labels: Mapping[str, str]
-    providers: Sequence[str]
-    resources: OpenShellResources | None
-    policy: object | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,7 +94,9 @@ class FakeSandboxAdapter:
         failures: Mapping[FakeOperation, BaseException] | None = None,
     ) -> None:
         """Configure results and per-operation failures without external I/O."""
-        self.create_result = create_result or FakeSandbox()
+        self.create_result = create_result or FakeSandbox(
+            "openenv-test-abc123", "sandbox-123"
+        )
         self.ready_result = ready_result or self.create_result
         self.service_url_result = service_url
         self.delete_result = delete_result or FakeDeletion(
@@ -123,6 +104,7 @@ class FakeSandboxAdapter:
         )
         self.failures = dict(failures or {})
         self.calls: list[AdapterCall] = []
+        self.closed = False
 
     def create(self, request: CreateRequest) -> FakeSandbox:
         """Capture a create request and return its configured sandbox."""
@@ -187,6 +169,11 @@ class FakeSandboxAdapter:
             ),
         )
         self._raise_failure("wait_deleted")
+
+    def close(self) -> None:
+        """Release fake resources without contacting a gateway."""
+        self._raise_failure("close")
+        self.closed = True
 
     def _raise_failure(self, operation: FakeOperation) -> None:
         failure = self.failures.get(operation)

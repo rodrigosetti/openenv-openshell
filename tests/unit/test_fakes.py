@@ -113,7 +113,7 @@ def _invoke(adapter: FakeSandboxAdapter, operation: FakeOperation) -> None:
     elif operation == "wait_ready":
         adapter.wait_ready("sandbox", workspace="default", timeout_s=1.0)
     elif operation == "service_url":
-        adapter.service_url(FakeSandbox(), "")
+        adapter.service_url(FakeSandbox("openenv-test-abc123", "sandbox-123"), "")
     elif operation == "delete":
         adapter.delete("sandbox", workspace="default")
     else:
@@ -145,4 +145,7 @@ def test_fake_can_return_a_missing_service_url() -> None:
     """The fake represents the missing-route startup failure explicitly."""
     adapter = FakeSandboxAdapter(service_url=None)
 
-    assert adapter.service_url(FakeSandbox(), "") is None
+    assert (
+        adapter.service_url(FakeSandbox("openenv-test-abc123", "sandbox-123"), "")
+        is None
+    )
