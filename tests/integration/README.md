@@ -15,46 +15,6 @@ Tests in this directory exercise real transports or an OpenShell runtime.
 Mark each test with `@pytest.mark.integration`; they are excluded from the
 default unit-test run configured in `pyproject.toml`.
 
-## SEC5 filesystem enforcement
-
-`test_filesystem_security.py` uses the reusable runtime fixture and the
-unmodified OpenEnv client. Build a small layer over the validated EchoEnv image
-containing **synthetic**, world-readable `/root/.ssh/id_rsa` and
-`/host/etc/shadow` canaries, plus a workspace owned by sandbox UID/GID 1000.
-No host directory is mounted and no real SSH key or password file is read.
-First verify that the local base tag still identifies the pinned EchoEnv image:
-
-```bash
-test "$(docker image inspect --format '{{.Id}}' openenv-openshell-echo:s3)" = \
-  "$(cat tests/integration/images/echo/local-image-id.txt)"
-docker build -t openenv-openshell-filesystem:sec5 tests/integration/images/filesystem
-OPENENV_OPENSHELL_ECHO_IMAGE_ID="$(docker image inspect --format '{{.Id}}' \
-  openenv-openshell-filesystem:sec5)" \
-  uv run pytest -m integration --no-cov tests/integration/test_filesystem_security.py -v
-```
-
-The test derives filesystem rules from `examples/policies/deny-all.yaml`, retains
-`include_workdir: false`, hard-required Landlock, and deny-by-default egress, and
-uses the same runtime default identity in both sandboxes. The positive control
-explicitly allows the two canary paths and verifies their known contents. The
-strict control requires `EACCES`/`EPERM`; missing files and other I/O errors fail.
-Both the initial workload and a subsequent SDK exec process run the probe, which
-also writes, reads, and removes files in `/workspace` and `/tmp`.
-
-The OpenEnv client keeps its WebSocket open across the exec probes. Echo step,
-state, and a second reset must succeed afterward. Client close must delete each
-sandbox, and a separate SDK listing checks absence before fixture fallback
-cleanup. These checks establish enforcement on the tested guest paths, not
-arbitrary host mounts, other compute drivers, or remote gateways.
-
-Verified on 2026-09-30 with the local OpenShell SDK/gateway 0.1.2 native VM
-lane. The fixture image ID was
-`sha256:56f8d4785e74fe015c2f7f587ae5fe834b06c6cc6875a53ba913c25ffeec65b7`,
-built from the pinned EchoEnv image. The allow and deny controls passed initial
-and exec probes, workspace/temp write controls, continued OpenEnv protocol,
-and independent deletion checks. `make check` passed Ruff, strict Pyright,
-416 unit tests, and 99.50% branch-inclusive coverage.
-
 `test_http_readiness.py` uses a local HTTP server and needs no OpenShell gateway:
 
 ```bash
@@ -128,6 +88,46 @@ gateway rejection of every semantically invalid policy, filesystem/network
 denials (SEC5/SEC6), automatic image command handling, or a complete provider
 lifecycle. P4 must load explicit policy before connecting/creating and preserve
 this atomic submission path.
+
+## SEC5 filesystem enforcement
+
+`test_filesystem_security.py` uses the reusable runtime fixture and the
+unmodified OpenEnv client. Build a small layer over the validated EchoEnv image
+containing **synthetic**, world-readable `/root/.ssh/id_rsa` and
+`/host/etc/shadow` canaries, plus a workspace owned by sandbox UID/GID 1000.
+No host directory is mounted and no real SSH key or password file is read.
+First verify that the local base tag still identifies the pinned EchoEnv image:
+
+```bash
+test "$(docker image inspect --format '{{.Id}}' openenv-openshell-echo:s3)" = \
+  "$(cat tests/integration/images/echo/local-image-id.txt)"
+docker build -t openenv-openshell-filesystem:sec5 tests/integration/images/filesystem
+OPENENV_OPENSHELL_ECHO_IMAGE_ID="$(docker image inspect --format '{{.Id}}' \
+  openenv-openshell-filesystem:sec5)" \
+  uv run pytest -m integration --no-cov tests/integration/test_filesystem_security.py -v
+```
+
+The test derives filesystem rules from `examples/policies/deny-all.yaml`, retains
+`include_workdir: false`, hard-required Landlock, and deny-by-default egress, and
+uses the same runtime default identity in both sandboxes. The positive control
+explicitly allows the two canary paths and verifies their known contents. The
+strict control requires `EACCES`/`EPERM`; missing files and other I/O errors fail.
+Both the initial workload and a subsequent SDK exec process run the probe, which
+also writes, reads, and removes files in `/workspace` and `/tmp`.
+
+The OpenEnv client keeps its WebSocket open across the exec probes. Echo step,
+state, and a second reset must succeed afterward. Client close must delete each
+sandbox, and a separate SDK listing checks absence before fixture fallback
+cleanup. These checks establish enforcement on the tested guest paths, not
+arbitrary host mounts, other compute drivers, or remote gateways.
+
+Verified on 2026-09-30 with the local OpenShell SDK/gateway 0.1.2 native VM
+lane. The fixture image ID was
+`sha256:56f8d4785e74fe015c2f7f587ae5fe834b06c6cc6875a53ba913c25ffeec65b7`,
+built from the pinned EchoEnv image. The allow and deny controls passed initial
+and exec probes, workspace/temp write controls, continued OpenEnv protocol,
+and independent deletion checks. `make check` passed Ruff, strict Pyright,
+416 unit tests, and 99.50% branch-inclusive coverage.
 
 ## SEC7 managed credential visibility
 
