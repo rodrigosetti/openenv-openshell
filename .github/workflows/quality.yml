@@ -1,0 +1,49 @@
+name: Quality
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+    env:
+      # Keep every uv command on the matrix interpreter despite .python-version.
+      UV_PYTHON: ${{ matrix.python-version }}
+      UV_LOCKED: "true"
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.11.20"
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - name: Validate lockfile
+        run: uv lock --check
+      - name: Install locked dependencies
+        run: uv sync --locked --all-groups
+      - name: Check formatting, lint, strict typing, unit tests, and coverage
+        run: make check
+      - name: Build source distribution and wheel
+        # hatchling is installed from the dev group in uv.lock.
+        run: uv build --no-build-isolation

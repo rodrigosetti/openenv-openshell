@@ -95,8 +95,25 @@ spike milestone. The [M1 acceptance review](docs/provider-acceptance.md) records
 the production provider lifecycle, client compatibility, and cleanup evidence.
 
 The checks enforce formatting and linting with Ruff, strict static typing with
-Pyright, and unit-test branch coverage of at least 95%. Tests that require a
-real OpenShell gateway belong in `tests/integration` and are opt-in:
+Pyright, and unit-test branch coverage of at least 95%.
+The [Quality workflow](.github/workflows/quality.yml) runs those same checks on
+Ubuntu with Python 3.11, 3.12, 3.13, and 3.14 for pull requests, pushes to `main`,
+and manual runs. Each matrix job validates `uv.lock`, installs locked development
+dependencies, and builds both the source distribution and wheel with the locked
+Hatchling backend. Its uv setup follows the
+[official GitHub Actions guide](https://docs.astral.sh/uv/guides/integration/github/).
+To reproduce a job locally (choose any supported version):
+
+```bash
+export UV_PYTHON=3.12 UV_LOCKED=true
+uv lock --check
+uv sync --locked --all-groups
+make check
+uv build --no-build-isolation
+```
+
+Tests that require a real OpenShell gateway belong in `tests/integration` and are
+opt-in:
 
 ```bash
 uv run pytest -m integration
