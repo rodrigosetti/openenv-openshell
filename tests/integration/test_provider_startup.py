@@ -12,7 +12,8 @@ from tests.integration.test_protocol_spike import COMMAND, probe_protocol
 
 
 @pytest.mark.integration
-def test_provider_startup() -> None:
+@pytest.mark.parametrize("cleanup", ["stop", "close", "context", "context_error"])
+def test_provider_startup(cleanup: str) -> None:
     """Provider returns the create route and the actual workload serves OpenEnv."""
     image = os.environ.get("OPENENV_OPENSHELL_ECHO_IMAGE_ID")
     if image is None:
@@ -26,7 +27,8 @@ def test_provider_startup() -> None:
         policy=Path(__file__).parent / "images/echo/policy.yaml",
         labels={"openenv-p4": name},
     )
-    try:
+
+    def run_workload() -> None:
         url = provider.start_container(image, env_vars={"P4_CONTROL": "ordinary"})
         assert provider.state.base_url == url
         assert provider.state.created
@@ -39,6 +41,28 @@ def test_provider_startup() -> None:
         assert provider.metadata is not None
         assert provider.metadata.ready_at is not None
         probe_protocol(url)
+
+    def run_failing_context() -> None:
+        with provider:
+            run_workload()
+            msg = "context body failed"
+            raise RuntimeError(msg)
+
+    try:
+        if cleanup == "context_error":
+            with pytest.raises(RuntimeError, match="context body failed"):
+                run_failing_context()
+        elif cleanup == "context":
+            with provider:
+                run_workload()
+        else:
+            run_workload()
+            if cleanup == "close":
+                provider.close()
+            else:
+                provider.stop_container()
+        assert provider.state.sandbox_name is None
+        assert provider.state.deleted
     finally:
         provider.stop_container()
         provider.stop_container()

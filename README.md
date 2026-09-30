@@ -104,6 +104,14 @@ disappear, and releases client resources. Repeated calls are harmless. With
 `keep_sandbox=True`, it closes the client and clears local ownership while leaving
 the sandbox running. Deletion, wait, or client-close failures raise a sanitized
 `SandboxDeletionError` and retain enough state for another stop call to retry.
+`close()` performs the same cleanup, and `with OpenShellProvider(...) as provider:`
+calls it on exit, including when the body raises. Context entry returns the provider
+without starting a sandbox. Cleanup before startup or after a successful stop/close
+is harmless. If context cleanup fails, it raises `SandboxDeletionError` with the
+exception chain suppressed to keep SDK secrets out of tracebacks. Call
+`provider.close()` again to retry. `keep_sandbox=True` also applies to close and
+context exit.
+
 Lifecycle events use standard Python logging under `openenv_openshell` (INFO for
 successful transitions, WARNING for cleanup failures). Event messages contain
 only fixed names; they omit workload arguments, environment, policy contents,
