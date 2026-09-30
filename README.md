@@ -50,6 +50,15 @@ make check
 Unit tests use typed fakes and do not need an OpenShell installation or gateway.
 The default check excludes the opt-in runtime integration tests.
 
+Offline failure acceptance tests cover create/readiness timeouts, missing or
+malformed service URLs, persistent HTTP errors and redirects, transport failures,
+and the OpenEnv health deadline. They verify startup rollback and caller-driven
+cleanup after a health timeout, including original sandbox identity and retained
+metadata with no successful readiness timestamp. See
+[startup failures](tests/unit/test_startup_failures.py),
+[startup rollback](tests/unit/test_start_container.py), and
+[HTTP deadlines](tests/unit/test_readiness.py).
+
 The shared [Codex local environment](.codex/environments/environment.toml)
 runs `uv sync --locked --all-groups` when a new worktree is created, using
 Python 3.11 from `.python-version`. Install uv on the host first. Its actions
