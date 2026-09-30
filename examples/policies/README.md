@@ -3,8 +3,10 @@
 These examples target the exact SDK/gateway 0.1.2 pair in `uv.lock`.
 Their field shapes are checked offline against the installed release wheel;
 they are reviewable starting points, not evidence of live enforcement.
-The production provider's startup/cleanup and `policy_mode` API are still
-pending. Do not pass `policy_mode="strict"` or `policy_mode="image"` today.
+The production provider implements startup/cleanup, subject to the
+[SEC8a ownership finding](../../docs/security-review.md#cleanup-blast-radius).
+The `policy_mode` API remains proposed. Do not pass `policy_mode="strict"` or
+`policy_mode="image"` today.
 
 | Example | Intended use | Tradeoff |
 | --- | --- | --- |
@@ -28,8 +30,9 @@ from openenv_openshell import OpenShellProvider
 provider = OpenShellProvider(policy="examples/policies/deny-all.yaml")
 ```
 
-This constructs configuration only; `start_container()` remains unimplemented.
-The adapter embeds a loaded explicit policy in the initial create request.
+This constructs configuration only; supply the selected image's exact command
+argv before calling `start_container()`. The provider loads explicit policy
+before gateway access, and the adapter embeds it in the initial create request.
 An invalid explicit policy must stop startup, never trigger image/default
 selection. See [SPEC sections 18–19](../../SPEC.md#18-policy-configuration).
 
@@ -82,10 +85,10 @@ For an image you control, bake the compatibility example into its Dockerfile:
 COPY examples/policies/image-compatible.yaml /etc/openshell/policy.yaml
 ```
 
-At the existing adapter boundary, omitting an explicit policy preserves the
+In provider startup, omitting an explicit policy preserves the
 SDK's image discovery behavior. `tests/unit/test_policy_examples.py` checks
 that `CreateRequest(policy=None)` leaves `SandboxSpec.policy` absent. This is
-an offline selection example; it does not implement provider image mode.
+an offline selection check; there is no separate `policy_mode` option.
 The pinned wheel's `openshell/sandbox.py` (`_default_spec`) documents discovery
 at `/etc/openshell/policy.yaml`. The adapter must preserve absence rather than
 send an empty policy message. `load_policy(None)` deliberately raises: it is
@@ -108,7 +111,9 @@ check the intended filesystem, identity, and network grants. They require no
 OpenShell CLI or gateway. Schema validity alone cannot establish kernel support,
 image users/paths, TLS inspection, or gateway semantic acceptance.
 
-SEC4 must demonstrate policy application before execution; SEC5 and SEC6
-must demonstrate filesystem and network denial on the real runtime. Those
-checks, and the remaining provider lifecycle work, are required before treating
-these examples as a supported end-to-end quickstart.
+SEC4 demonstrates explicit policy validation before execution; SEC5 and SEC6
+demonstrate filesystem and network denials on the tested local runtime. See the
+[integration evidence and fixtures](../../tests/integration/README.md) for the
+actual policies/images and limits; these examples are not a universal end-to-end
+quickstart. Security milestone acceptance still requires the SEC8a cleanup
+repair and retains the [process-capacity exclusion](../../docs/process-capacity.md).

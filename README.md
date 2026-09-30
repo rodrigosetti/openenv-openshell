@@ -38,8 +38,14 @@ Publication status and baseline review are recorded in the
   handling. Automatic OCI ENTRYPOINT/CMD, ENV, and WORKDIR resolution is outside
   the MVP contract.
 - Policy parsing and atomic request validation are tested, but the release's
-  filesystem and network denial acceptance tests remain pending. Trusted
-  external verification is a later milestone.
+  security milestone remains incomplete: SEC8a tracks unsafe name-based cleanup.
+  Local filesystem/network denials have runtime evidence; process capacity and
+  availability isolation for hostile workloads are excluded on the local VM
+  lane. Trusted external verification is a later milestone.
+
+See the [architecture guide](docs/architecture.md) for lifecycle, routing,
+failure recovery, and metadata, and the [security guide](docs/security.md) for
+policy precedence, credentials, enforcement evidence, and residual risks.
 
 ## Development
 
