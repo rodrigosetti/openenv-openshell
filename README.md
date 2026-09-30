@@ -54,6 +54,10 @@ make check
 
 Unit tests use typed fakes and do not need an OpenShell installation or gateway.
 The default check excludes the opt-in runtime integration tests.
+Separate filesystem and network security jobs run with `make security-filesystem`
+and `make security-network`, or sequentially with `make security-e2e`. They require
+explicit per-job images and a prepared gateway; see the
+[security E2E job setup](tests/integration/README.md#separate-security-e2e-jobs-i3).
 `tests/unit/test_successful_lifecycle.py` follows startup and mocked HTTP health
 through identity-aware deletion, client closure, cleared ownership, and retained
 non-secret metadata. It also checks cleanup through the production SDK adapter
