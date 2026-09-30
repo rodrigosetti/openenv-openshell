@@ -1,6 +1,9 @@
-.PHONY: check format integration lint openshell-prereqs openshell-smoke test typecheck
+.PHONY: check compatibility format integration lint openshell-prereqs openshell-smoke test typecheck
 
 check: lint typecheck test
+
+compatibility:
+	uv run --locked pytest --no-cov tests/unit/test_compatibility.py tests/unit/test_openenv_client.py tests/unit/test_openshell_contract.py tests/unit/test_adapter_contract.py tests/unit/test_adapter.py
 
 format:
 	uv run ruff format .
