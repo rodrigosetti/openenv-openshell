@@ -217,7 +217,8 @@ Security limits observed during the 0.1.2 run:
 - The guest console still warned that runtime cgroup `pids.max` is unavailable;
   a PID limit must be supplied by the runtime/compute driver before claiming it.
   [SEC8's review](security-review.md) rechecked the process hierarchy and records
-  the unresolved capacity contract as SEC8b, a direct M2 dependency.
+  the capacity observations. [SEC8b's decision](process-capacity.md) explicitly
+  excludes the PID guarantee from this lane's v0.1 contract and M2 acceptance.
 - Landlock was reported available and applied in both the failed baseline
   attempt and the successful final probe (14 rules applied, none skipped),
   improving on 0.0.116's unavailable warning. This does not prove the SEC filesystem denial

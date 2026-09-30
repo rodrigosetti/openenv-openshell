@@ -19,7 +19,7 @@ M2 security milestone or establish remote/runtime-independent enforcement.
 | Labels | `config._validate_labels`, `provider._create_request`, `test_config.py` | Keys/shapes are constrained, recognizable sensitive keys are rejected, and management labels override caller values. This heuristic cannot recognize secrets under an innocuous key: all labels must be public operational data. Labels are not ownership authorization. |
 | Credentials/errors/logs | SEC7, `test_secret_safety.py` | Synthetic managed material is absent from tested environment prints; ordinary environment values remain readable. Public lifecycle messages, formatted tracebacks, retry notes and package logs omit synthetic secrets. Third-party/application logs and intentional inspection of raw exception objects are outside that evidence. |
 | CPU/memory/GPU | `_sdk.SDKAdapter.create`, `test_adapter.py`, `test_openshell_contract.py` | Requested values reach the pinned wire fields. No runtime capacity/enforcement guarantee follows from serialization; different drivers may interpret these requests differently. |
-| PID capacity | `test_security_review.py`, S3a console evidence | No visible `pids.max` file was found in the process's cgroup hierarchy. Both probes reported soft/hard RLIMIT_NPROC 7698. That per-user limit is not proof of a sandbox-specific process budget. SEC8b must establish a supported bound or an explicit SPEC/milestone scope decision. |
+| PID capacity | `test_security_review.py`, S3a console evidence | No visible `pids.max` file was found in the process's cgroup hierarchy. Both probes reported soft/hard RLIMIT_NPROC 7698. That per-user limit is not proof of a sandbox-specific process budget. SEC8b adopts the explicit SPEC section 22.1 scope decision excluding that guarantee on the local VM lane; see [residual risk](process-capacity.md). |
 | Cleanup | `provider.start_container`, `provider.stop_container`, `_sdk.SDKAdapter.delete`, pinned SDK `DeleteSandboxRequest` | **High severity: name-based rollback can delete an unowned sandbox.** Identity-aware waiting verifies disappearance after a destructive request; it does not constrain the delete. SEC8a is required before M2 acceptance. |
 
 ## Cleanup blast radius
@@ -57,12 +57,14 @@ enforcement. The diagnostic only reads identity, cgroup files and limits; it
 does not fork children or stress the host. Missing visible files alone do not
 prove that no other driver/host capacity control exists.
 
-SEC8b requires either evidence of a supported runtime/driver bound or an
-explicit change to SPEC.md and milestone acceptance excluding that guarantee.
+SEC8b resolves this finding through SPEC.md section 22.1 and M2 acceptance,
+excluding guaranteed sandbox-specific process capacity and process-exhaustion
+protection on the local 0.1.2 VM lane. See [the decision](process-capacity.md).
 No guest-side limiter, private runtime fork, or weakened policy is introduced.
 M2 has direct dependencies on **SEC8a** and **SEC8b**, in addition to this review,
 so completing SEC8 cannot be mistaken for security acceptance. Architecture
-documentation and audit exports must carry these limitations until resolved.
+documentation and audit exports must retain the excluded availability guarantee;
+this decision does not establish PID enforcement or close M2.
 
 ## Reproduce the runtime review
 
@@ -92,4 +94,5 @@ cases). Each sandbox's deletion was independently confirmed. Both SEC8 probes
 reported UID/GID 1000, `pids_max: []`, and `rlimit_nproc: [7698, 7698]`.
 `make check` passed Ruff, strict Pyright, and 416 unit tests with 99.50%
 branch-inclusive coverage. The offline collision reproduction confirmed the
-cleanup finding above. These passing controls leave SEC8a and SEC8b open.
+cleanup finding above. SEC8a remains a required repair; SEC8b is dispositioned
+by the documented scope decision, with the runtime limitation retained.

@@ -20,8 +20,9 @@ SEC8's [security review](../../docs/security-review.md) uses
 strict non-root identity in the initial workload and exec, workspace writes,
 continued OpenEnv protocol, and independent cleanup. Its bounded cgroup/rlimit
 diagnostic records capacity observations without claiming PID enforcement.
-The review also identifies the SEC8a name-based cleanup vulnerability and SEC8b
-process-capacity follow-up; both directly block M2 acceptance.
+The review also identifies the SEC8a name-based cleanup vulnerability, which
+remains a required repair. SEC8b adopts the [process-capacity scope exclusion](../../docs/process-capacity.md)
+in SPEC and M2 acceptance; closing it does not establish PID enforcement.
 
 ## Separate security E2E jobs (I3)
 

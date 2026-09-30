@@ -13,7 +13,7 @@ this decision and M2 acceptance must preserve the limitation.
 | Evidence | What it establishes |
 | --- | --- |
 | [S3a VM console](echo-env-image.md#verified-outcome-012-2026-09-29) warns that `pids.max` is unavailable | The validated image/runtime lane has a recorded PID-control gap. |
-| SEC8 read-only initial-workload and exec diagnostics on 2026-09-30: `pids_max: []`, `rlimit_nproc: [7698, 7698]`, UID/GID 1000 | No PID cgroup limit was visible along the process's cgroup hierarchy; an inherited per-user limit is present, but no sandbox-specific bound was established. |
+| [SEC8 read-only initial-workload and exec diagnostics](security-review.md#resource-gap-and-milestone-decision) on 2026-09-30: `pids_max: []`, `rlimit_nproc: [7698, 7698]`, UID/GID 1000 | No PID cgroup limit was visible along the process's cgroup hierarchy; an inherited per-user limit is present, but no sandbox-specific bound was established. |
 | [Pinned policy schema](https://github.com/NVIDIA/OpenShell/blob/v0.1.2/proto/sandbox.proto): `ProcessPolicy` | Process policy configures user/group identity only. |
 | [Pinned resource schema](https://github.com/NVIDIA/OpenShell/blob/v0.1.2/proto/openshell.proto): `ResourceCapabilities`, `SandboxResources` | Portable resource fields describe CPU, memory, and GPU, without a portable PID-budget field. |
 | `OpenShellResources` and [adapter contracts](openshell-sdk-contract.md#workload-policy-providers-and-resources) | The provider maps CPU/memory/GPU requests; it exposes no process-capacity setting. Wire tests do not establish runtime enforcement. |

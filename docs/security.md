@@ -3,7 +3,8 @@
 The [SEC8 security review](security-review.md) records the checked boundaries,
 runtime evidence, and unresolved acceptance findings. Name-based cleanup can
 delete an unowned same-name sandbox (SEC8a), and the local VM lane has no
-established sandbox PID bound (SEC8b). M2 depends on both follow-ups; completion
+established sandbox PID bound. SEC8b resolves the capacity contract through the
+scope exclusion below; SEC8a remains a required repair. Completion
 of the review is not security milestone approval. Resource request mapping
 does not prove runtime resource enforcement.
 
