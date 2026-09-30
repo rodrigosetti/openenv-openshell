@@ -77,5 +77,5 @@ API; it casts the installed class without wrapping its behavior.
 This local check does not validate remote authentication, long idle sessions,
 reconnects, other OpenEnv releases, arbitrary images, or other compute drivers.
 The image ID is local Docker configuration identity, not a pullable registry
-digest. I1/I2 retain the reusable E2E fixture and broader EchoEnv suite; S5a
-retains remote validation. Security denial acceptance remains SEC5/SEC6.
+digest. I2 extends this check with the I1 runtime fixture and broader EchoEnv
+assertions; S5a retains remote validation. Security denial acceptance remains SEC5/SEC6.

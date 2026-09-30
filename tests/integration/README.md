@@ -3,8 +3,12 @@
 P10's [public client compatibility check](../../docs/openenv-compatibility.md)
 uses the installed, unmodified OpenEnv 0.6.0 `GenericEnvClient` with the public
 provider. Run `test_openenv_client.py` with the same image opt-in shown below.
-Both async and synchronous cases verify factory health, repeated reset/step/state,
-client-owned cleanup, and independent sandbox absence. Offline public-client
+I2 extends both async and synchronous cases using `openshell_runtime`: explicit
+routed HTTP health, two WebSocket reset episodes with three echo steps each
+(including Unicode and multiline text), exact echo results, per-step state,
+client-owned cleanup, and independent sandbox absence before fixture teardown.
+The fixture honors `OPENSHELL_GATEWAY` and `OPENSHELL_WORKSPACE` and owns fallback
+cleanup for setup failures and interruptions. Offline public-client
 contracts live in `tests/unit/test_openenv_client.py`.
 
 Tests in this directory exercise real transports or an OpenShell runtime.
@@ -84,6 +88,46 @@ gateway rejection of every semantically invalid policy, filesystem/network
 denials (SEC5/SEC6), automatic image command handling, or a complete provider
 lifecycle. P4 must load explicit policy before connecting/creating and preserve
 this atomic submission path.
+
+## SEC5 filesystem enforcement
+
+`test_filesystem_security.py` uses the reusable runtime fixture and the
+unmodified OpenEnv client. Build a small layer over the validated EchoEnv image
+containing **synthetic**, world-readable `/root/.ssh/id_rsa` and
+`/host/etc/shadow` canaries, plus a workspace owned by sandbox UID/GID 1000.
+No host directory is mounted and no real SSH key or password file is read.
+First verify that the local base tag still identifies the pinned EchoEnv image:
+
+```bash
+test "$(docker image inspect --format '{{.Id}}' openenv-openshell-echo:s3)" = \
+  "$(cat tests/integration/images/echo/local-image-id.txt)"
+docker build -t openenv-openshell-filesystem:sec5 tests/integration/images/filesystem
+OPENENV_OPENSHELL_ECHO_IMAGE_ID="$(docker image inspect --format '{{.Id}}' \
+  openenv-openshell-filesystem:sec5)" \
+  uv run pytest -m integration --no-cov tests/integration/test_filesystem_security.py -v
+```
+
+The test derives filesystem rules from `examples/policies/deny-all.yaml`, retains
+`include_workdir: false`, hard-required Landlock, and deny-by-default egress, and
+uses the same runtime default identity in both sandboxes. The positive control
+explicitly allows the two canary paths and verifies their known contents. The
+strict control requires `EACCES`/`EPERM`; missing files and other I/O errors fail.
+Both the initial workload and a subsequent SDK exec process run the probe, which
+also writes, reads, and removes files in `/workspace` and `/tmp`.
+
+The OpenEnv client keeps its WebSocket open across the exec probes. Echo step,
+state, and a second reset must succeed afterward. Client close must delete each
+sandbox, and a separate SDK listing checks absence before fixture fallback
+cleanup. These checks establish enforcement on the tested guest paths, not
+arbitrary host mounts, other compute drivers, or remote gateways.
+
+Verified on 2026-09-30 with the local OpenShell SDK/gateway 0.1.2 native VM
+lane. The fixture image ID was
+`sha256:56f8d4785e74fe015c2f7f587ae5fe834b06c6cc6875a53ba913c25ffeec65b7`,
+built from the pinned EchoEnv image. The allow and deny controls passed initial
+and exec probes, workspace/temp write controls, continued OpenEnv protocol,
+and independent deletion checks. `make check` passed Ruff, strict Pyright,
+416 unit tests, and 99.50% branch-inclusive coverage.
 
 ## SEC7 managed credential visibility
 
@@ -291,3 +335,16 @@ destinations; each allowed HTTPS read returned HTTP 200 with TLS verification.
 All twelve reset/step/state controls passed on their existing client connections,
 and independent SDK listings confirmed deletion of all four sandboxes.
 `make check` passed Ruff, strict Pyright, and 416 unit tests with 99.50% coverage.
+
+## I2 EchoEnv E2E evidence
+
+Verified on 2026-09-30 with OpenEnv 0.6.0, SDK/gateway 0.1.2, and the pinned
+native arm64 EchoEnv image: both async and sync cases in
+`test_openenv_client.py` passed. Each checked routed HTTP health and two episodes
+over the unmodified client's WebSocket connection, with six successful echo
+steps, including Unicode/multiline payloads, distinct episode IDs, reset state,
+and per-step counts. Client context exit cleared ownership and recorded deletion;
+an independent SDK listing confirmed absence before fixture fallback cleanup.
+`make check` passed 416 unit tests, Ruff, strict Pyright, and 99.50% coverage.
+This establishes local E2E behavior for the pinned stack; remote authentication,
+long idle/reconnect behavior, and other versions/drivers remain unverified.

@@ -5,17 +5,19 @@ environment servers under NVIDIA OpenShell filesystem, network, and credential
 policies. It targets OpenEnv's existing `ContainerProvider` interface so users
 can keep their environment protocol and training loop while changing runtimes.
 
-**Pre-alpha: the production provider is unfinished.** Configuration validation,
-sandbox startup, HTTP readiness, strict policy loading, and private SDK request
-translation and public cleanup are implemented. This source baseline is for
-development; it is not a usable production provider, a PyPI release, or a claim to the PyPI package name.
+**Pre-alpha: the local provider lifecycle is implemented and validated.**
+Configuration validation, sandbox startup, HTTP readiness, strict policy loading,
+private SDK request translation, and public cleanup are implemented. This source
+baseline is for development; public release acceptance remains incomplete. It is
+not a PyPI release or a claim to the PyPI package name.
 
 The completed local lifecycle spike demonstrated routed HTTP health,
 WebSocket reset/step/state, and verified sandbox deletion with SDK/gateway
 0.1.2. The public provider now also passes the unmodified OpenEnv 0.6.0 client
 lifecycle in async and synchronous modes on that local lane. See the
 [public client compatibility check](docs/openenv-compatibility.md),
-[M0 acceptance evidence](docs/protocol-spike.md#m0-acceptance-verification-2026-09-30)
+[M0 acceptance evidence](docs/protocol-spike.md#m0-acceptance-verification-2026-09-30),
+[M1 acceptance evidence](docs/provider-acceptance.md),
 and [SPEC.md](SPEC.md) for requirements and milestones.
 
 The public home is [rodrigosetti/openenv-openshell](https://github.com/rodrigosetti/openenv-openshell).
@@ -25,7 +27,8 @@ Publication status and baseline review are recorded in the
 ## Known limitations
 
 - OpenEnv compatibility is verified and pinned to 0.6.0; other versions remain
-  unverified. The reusable E2E fixture and wider acceptance suite remain pending.
+  unverified. The reusable E2E fixture is implemented; the wider EchoEnv
+  acceptance suite remains pending.
 - The validated image is a locally built arm64 EchoEnv image on the native VM
   lane. Its checked-in Docker image ID is not a pullable registry digest;
   arbitrary images and compute drivers are unverified.
@@ -88,7 +91,8 @@ atomic routing, readiness, and deletion without using the production provider.
 record the remaining image-startup and remote-validation prerequisites.
 The [M0 acceptance rerun](docs/protocol-spike.md#m0-acceptance-verification-2026-09-30)
 verified local routed EchoEnv reset/step and sandbox deletion, completing the
-spike milestone. Production provider lifecycle remains Milestone 1 work.
+spike milestone. The [M1 acceptance review](docs/provider-acceptance.md) records
+the production provider lifecycle, client compatibility, and cleanup evidence.
 
 The checks enforce formatting and linting with Ruff, strict static typing with
 Pyright, and unit-test branch coverage of at least 95%. Tests that require a
