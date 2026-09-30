@@ -36,7 +36,7 @@ from openenv_openshell.metadata import (
     ProviderState,
     package_version,
 )
-from openenv_openshell.policy import load_policy
+from openenv_openshell.policy import load_policy, policy_digest
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -185,6 +185,9 @@ class OpenShellProvider(ContainerProvider):
         request = self._create_request(
             image, policy=policy, port=port, env_vars=env_vars, **kwargs
         )
+        submitted_policy_digest = (
+            None if request.policy is None else policy_digest(request.policy)
+        )
         # Prepare state before connecting so state construction cannot leak a client.
         state = ProviderState(sandbox_name=request.name, image=image)
         adapter = self._connect_adapter()
@@ -212,7 +215,7 @@ class OpenShellProvider(ContainerProvider):
                 workspace=request.workspace,
                 image=image,
                 service_url=base_url,
-                policy_digest=None,
+                policy_digest=submitted_policy_digest,
                 created_at=created_at,
                 openenv_provider_version=package_version("openenv-openshell"),
                 openshell_version=package_version("openshell"),
