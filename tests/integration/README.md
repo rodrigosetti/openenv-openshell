@@ -182,3 +182,63 @@ After incorporating P8 logging/metadata and P9 close/context cleanup from `main`
 (provider 100%). The combined runtime suite passed all ten cases: four healthy
 cleanup paths, four failed-start/health cleanup paths, and two loopback HTTP
 readiness cases. Independent SDK absence checks passed for every runtime sandbox.
+
+## I1 reusable runtime fixture
+
+New EchoEnv and security E2E tests can request `openshell_runtime` from
+`conftest.py`. They must carry the `integration` marker. Without an explicit
+`OPENENV_OPENSHELL_ECHO_IMAGE_ID`, the fixture skips before gateway access.
+Once opted in, gateway/version/workspace failures fail the test. The fixture
+connects to an existing registered local gateway; it does not install or restart
+runtime services. Prepare that gateway using the local setup guide above.
+
+`OPENSHELL_GATEWAY` selects a registered gateway (otherwise the active gateway
+is used), and `OPENSHELL_WORKSPACE` selects the workspace (default `default`).
+The image variable may contain the validated local image ID or an explicitly
+selected compatible OCI image. The default command and policy target the
+checked-in EchoEnv image; other workloads must supply their exact command and
+policy to `openshell_runtime.provider(command=..., policy=...)`. Image selection
+does not build an image or infer its startup metadata.
+
+```python
+@pytest.mark.integration
+def test_workload(openshell_runtime: Runtime) -> None:
+    provider = openshell_runtime.provider()
+    url = provider.start_container(openshell_runtime.image)
+    provider.wait_for_ready(url, timeout_s=30)
+    # Exercise the client or security checks here.
+```
+
+The fixture registers each uniquely named provider before startup. Teardown
+runs on normal exit, assertion/setup failure, Ctrl-C, and catchable SIGTERM,
+including interruption during create/readiness. It cleans every registered
+provider, retries a cleanup failure once, restores the prior SIGTERM handler,
+and reports persistent cleanup failure without hiding a primary test failure.
+Create providers through this factory to receive those guarantees. No Python
+finalizer can handle SIGKILL, host termination, or a permanently unavailable
+gateway; cleanup failures remain explicit and require retrying the named sandbox.
+
+Pytest's `OpenShell E2E` teardown report section contains generated sandbox
+names and fixed lifecycle flags before and after cleanup. It excludes argv,
+environment, policy contents, image references, service URLs, raw SDK output,
+and credentials. For runtime troubleshooting use the named sandbox and the
+local setup guide's workspace listing commands.
+
+Run the healthy workload and SIGTERM controls, which independently confirm
+sandbox absence through the public SDK:
+
+```bash
+OPENENV_OPENSHELL_ECHO_IMAGE_ID="$(cat tests/integration/images/echo/local-image-id.txt)" \
+  uv run pytest -m integration --no-cov tests/integration/test_runtime_fixture.py -v
+```
+
+Offline controls in `tests/unit/test_runtime_fixture.py` exercise body and
+startup interruptions, signal restoration, cleanup retries, continued cleanup
+of other providers, and sanitized diagnostics. I2 and I3 use this fixture for
+their client and security acceptance work; these fixture controls do not close
+those acceptance gates.
+
+Verified on 2026-09-30 with local SDK/gateway 0.1.2 and the pinned native arm64
+image: both healthy and SIGTERM controls passed routed HTTP/WebSocket protocol
+and independent sandbox absence checks. `make check` passed Ruff, strict
+Pyright, and 380 unit tests with 99.50% provider-package coverage.
