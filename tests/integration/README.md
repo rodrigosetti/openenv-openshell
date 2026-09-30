@@ -15,6 +15,14 @@ Tests in this directory exercise real transports or an OpenShell runtime.
 Mark each test with `@pytest.mark.integration`; they are excluded from the
 default unit-test run configured in `pyproject.toml`.
 
+SEC8's [security review](../../docs/security-review.md) uses
+`test_security_review.py` with the SEC5 synthetic filesystem image to verify
+strict non-root identity in the initial workload and exec, workspace writes,
+continued OpenEnv protocol, and independent cleanup. Its bounded cgroup/rlimit
+diagnostic records capacity observations without claiming PID enforcement.
+The review also identifies the SEC8a name-based cleanup vulnerability and SEC8b
+process-capacity follow-up; both directly block M2 acceptance.
+
 ## Separate security E2E jobs (I3)
 
 `make security-filesystem` runs only SEC5, and `make security-network` runs only

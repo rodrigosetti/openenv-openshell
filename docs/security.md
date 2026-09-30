@@ -1,4 +1,11 @@
-# Credentials and provider selection
+# Security boundaries and credentials
+
+The [SEC8 security review](security-review.md) records the checked boundaries,
+runtime evidence, and unresolved acceptance findings. Name-based cleanup can
+delete an unowned same-name sandbox (SEC8a), and the local VM lane has no
+established sandbox PID bound (SEC8b). M2 depends on both follow-ups; completion
+of the review is not security milestone approval. Resource request mapping
+does not prove runtime resource enforcement.
 
 ## Process capacity and availability
 
@@ -69,7 +76,7 @@ provider = OpenShellProvider(
     workspace="default",
     providers=["github-readonly"],
 )
-# Ordinary start_container configuration, once startup is implemented:
+# Ordinary start_container configuration (also supply exact command argv):
 # env_vars={"MAX_CONCURRENT_ENVS": "8"}
 ```
 
@@ -83,8 +90,8 @@ Provider resolution and authorization belong to the gateway. Existing
 non-empty-string validation remains in effect.
 
 Configuration and create-request mapping are implemented and tested offline.
-Public `start_container()` is implemented; `stop_container()` remains pending
-P6, so this example does not claim a complete public client lifecycle. Provider provisioning is an operator action, separate from sandbox
+Public startup and cleanup are implemented, subject to the SEC8a cleanup
+finding above. Provider provisioning is an operator action, separate from sandbox
 cleanup; this package does not own or delete an operator's provider.
 
 ## SEC7 credential visibility check
