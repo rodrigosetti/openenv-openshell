@@ -41,7 +41,12 @@ def test_provider_startup(cleanup: str) -> None:
         assert provider.state.created
         assert not provider.state.ready
         assert provider.state.sandbox_id
+        assert provider.metadata is not None
+        assert provider.metadata.service_url == url
+        assert provider.metadata.sandbox_id == provider.state.sandbox_id
         provider.wait_for_ready(url, timeout_s=30)
+        assert provider.metadata is not None
+        assert provider.metadata.ready_at is not None
         probe_protocol(url)
 
     def run_failing_context() -> None:
@@ -70,6 +75,8 @@ def test_provider_startup(cleanup: str) -> None:
         provider.stop_container()
         assert provider.state.sandbox_name is None
         assert provider.state.deleted
+        assert provider.metadata is not None
+        assert provider.metadata.deleted_at is not None
         with SandboxClient.from_active_cluster(timeout=30) as client:
             assert not client.list(
                 workspace=workspace, label_selector=f"openenv-p4={name}"

@@ -176,3 +176,9 @@ passed. Both loopback HTTP readiness tests also passed (seven integration tests
 total). `make check` passed Ruff, strict Pyright, and 340 unit tests with 99.47%
 branch-inclusive coverage (provider 100%). Unmodified-client integration and
 remote service support remain P10/I2/S5a.
+
+After incorporating P8 logging/metadata and P9 close/context cleanup from `main`,
+`make check` passed 365 unit tests, Ruff, strict Pyright, and 99.50% coverage
+(provider 100%). The combined runtime suite passed all ten cases: four healthy
+cleanup paths, four failed-start/health cleanup paths, and two loopback HTTP
+readiness cases. Independent SDK absence checks passed for every runtime sandbox.

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from importlib.metadata import PackageNotFoundError, version
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -33,3 +34,17 @@ class OpenShellRunMetadata:
     service_url: str
     policy_digest: str | None
     created_at: datetime
+
+    openenv_provider_version: str | None = None
+    openshell_version: str | None = None
+    openenv_version: str | None = None
+    ready_at: datetime | None = None
+    deleted_at: datetime | None = None
+
+
+def package_version(distribution: str) -> str | None:
+    """Read installed distribution provenance without importing runtime SDKs."""
+    try:
+        return version(distribution)
+    except PackageNotFoundError:
+        return None
