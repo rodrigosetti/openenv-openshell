@@ -152,3 +152,14 @@ strict deny-all egress, minimal Hugging Face reads, and an image compatibility
 policy. Their schema and create-request serialization are checked against the
 pinned 0.1.2 wheel. The guide explains image-policy selection, the proposed
 `policy_mode` API, and the difference between compatibility and least privilege.
+
+## Credentials
+
+Prefer OpenShell provider-backed credentials for secrets; use `env_vars` for
+ordinary configuration. Raw environment values are readable by sandbox
+processes even when request representations and errors redact them. The
+`providers` option selects existing provider instance names in the configured
+workspace and maps them to the sandbox spec; it does not provision credentials
+or infer providers. See the [credential and provider guide](docs/security.md)
+for setup, permission scope, and the SEC7 runtime visibility check. Public
+sandbox startup and cleanup remain pending Milestone 1.
