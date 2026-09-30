@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "openenv_openshell",
+  "project_id": "b802871b-e93a-4632-ae57-271831c06016"
+}

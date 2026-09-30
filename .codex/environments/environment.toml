@@ -1,0 +1,47 @@
+version = 1
+name = "openenv-openshell"
+
+[setup]
+script = """
+set -eu
+if ! command -v uv >/dev/null 2>&1; then
+    echo "Install uv before setting up this project: https://docs.astral.sh/uv/getting-started/installation/" >&2
+    exit 1
+fi
+uv sync --locked --all-groups
+"""
+
+[[actions]]
+name = "Check"
+icon = "run"
+command = "make check"
+
+[[actions]]
+name = "Unit tests"
+icon = "run"
+command = "make test"
+
+[[actions]]
+name = "Format"
+icon = "run"
+command = "make format"
+
+[[actions]]
+name = "HTTP integration"
+icon = "run"
+command = "uv run pytest -m integration tests/integration/test_http_readiness.py --no-cov"
+
+[[actions]]
+name = "OpenShell prerequisites"
+icon = "run"
+command = "make openshell-prereqs"
+
+[[actions]]
+name = "OpenShell smoke"
+icon = "run"
+command = "make openshell-smoke"
+
+[[actions]]
+name = "Integration tests"
+icon = "run"
+command = "uv run pytest -m integration --no-cov"
