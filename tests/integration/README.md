@@ -33,3 +33,18 @@ OPENENV_OPENSHELL_ECHO_IMAGE_ID="$(cat tests/integration/images/echo/local-image
   uv run pytest -m integration --no-cov tests/integration/test_protocol_spike.py \
   -v --log-cli-level=INFO
 ```
+
+## S6a image startup comparison
+
+See [the startup evidence](../../docs/image-startup.md) for the omitted-command
+limitation and explicit-command protocol success on SDK/gateway 0.1.2.
+
+```bash
+OPENENV_OPENSHELL_ECHO_IMAGE_ID="$(cat tests/integration/images/echo/local-image-id.txt)" \
+  uv run pytest -m integration --no-cov tests/integration/test_image_startup.py \
+  -v --log-cli-level=INFO
+```
+
+Both cases verify deletion. The negative case records that Ready alone does
+not establish image startup; it expects routed health to time out. Revisit this
+assertion when upgrading to a runtime with automatic image startup support.

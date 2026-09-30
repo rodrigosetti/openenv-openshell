@@ -80,7 +80,7 @@ def _probe_session(ws: ClientConnection) -> None:
     ws.send(json.dumps({"type": "close"}))
 
 
-def probe_protocol(url: str) -> None:
+def probe_protocol(url: str, *, health_timeout_s: float = 60) -> None:
     """Assert health and two episodes over one gateway-routed WebSocket."""
     parsed = urlsplit(url)
     assert parsed.hostname is not None
@@ -94,7 +94,7 @@ def probe_protocol(url: str) -> None:
         else http.client.HTTPConnection
     )
     path = parsed.path.rstrip("/")
-    deadline = time.monotonic() + 60
+    deadline = time.monotonic() + health_timeout_s
     while True:
         connection = connection_type(host, port, timeout=2)
         try:

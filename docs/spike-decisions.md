@@ -9,7 +9,7 @@ experiments. S6 changes requirements and documentation, not runtime behavior.
 | --- | --- | --- |
 | Target-port precedence | Explicit non-`None` `start_container(port=...)` overrides constructor `service_port`; otherwise use `service_port`, default 8000. Validate before create. The value is the sandbox target port and does not change the workload's listen port. The spike tested 8000 only. | P3/T2 must test overrides, defaults, and invalid inputs. |
 | Service naming | Default to the unnamed service (`""`); use an explicit `service_name` unchanged. Create the exposure atomically and persist the exact matching create-time URL before readiness polling. Fail and clean up if that route is missing or unusable. S3a verified a named route; S4/S5 verified the unnamed route. | P3/P4/T2 must exercise both names, route selection, and missing-route cleanup through the provider. |
-| Image constraints | Compatibility is driver-specific. Use the validated native arm64 image for the Apple Silicon VM lane. Its utilities, executable lookup, and read-only `/app` policy are required by the tested setup. Neither the rejected amd64 registry candidate nor arbitrary OCI images are approved by this result. | S6a must validate automatic image startup; S5a requires a pullable immutable image compatible with its remote driver. |
+| Image constraints | Compatibility is driver-specific. Use the validated native arm64 image for the Apple Silicon VM lane. Its utilities, executable lookup, and read-only `/app` policy are required by the tested setup. S6a found omitted command selects a shell; explicit CMD passes health/protocol. | S6b must resolve the startup API limitation; S5a requires a pullable immutable image compatible with its remote driver. |
 | Service authentication | The local HTTP/WebSocket route needed no extra application credentials; SDK lifecycle calls used mTLS. Treat these as separate authentication contracts. Preserve TLS verification and require a URL usable by the unmodified client; do not embed secrets in it or bypass authentication. | S5a retains the concrete remote access/image blocker and must test service authentication, certificate trust, and client compatibility before M3. |
 | WebSocket keepalive | Preserve OpenEnv's client transport behavior. S5 proved two episodes, four echo steps, state transitions, and ping/pong on one local connection. That evidence covers short active sessions. | P10/I2 must validate the unmodified local client; S5a must test remotely. Long idle and reconnect behavior remain unverified. |
 | Initial policy | Load and strictly convert an explicit policy before create; embed it in the same request as workload and service exposure. Never create first and install static policy afterward or replace an invalid explicit policy with a default. S3a/S4/S5 supplied initial policy; P2/T6 verify strict conversion offline. | SEC1 owns general loading/normalization; SEC4 must prove invalid policy prevents execution. SEC5/SEC6 own denial tests. |
@@ -28,7 +28,7 @@ supplied the canonical command explicitly before proving health and protocol.
 Neither experiment proves automatic OCI entrypoint/CMD handling, working
 directory, or image environment preservation.
 
-**S6a — Validate image entrypoint and CMD startup** therefore blocks **P4 —
+**S6a — Validate image entrypoint and CMD startup** originally blocked **P4 —
 Implement `start_container`**. It must compare omitted-command and explicit-command
 runs, verify routed health/protocol and cleanup, and select a strategy supported
 by the pinned runtime. Any required translation belongs behind the private
@@ -37,6 +37,11 @@ command or require local Docker for remote callers. If the upstream contract
 cannot satisfy section 12.3, document the precise limitation and proposed API
 change before implementing startup. P3 may proceed with the resolved port and
 service mapping while S6a is open.
+
+S6a's [completed comparison](image-startup.md) confirms the missing automatic
+startup contract on 0.1.2. Its explicit-command proposal is pending **S6b**;
+P4 now depends on that decision. The proposal does not amend automatic startup
+requirements or authorize an empty-command shell fallback.
 
 ## Evidence boundaries
 
