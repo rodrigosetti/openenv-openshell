@@ -362,6 +362,26 @@ startup; S6b selects explicit workload argv.
 pinned SDK models and a mocked public client. These are offline mapping checks,
 not evidence of runtime resource enforcement or automatic image startup.
 
+## T2 successful provider startup tests
+
+`tests/unit/test_successful_lifecycle.py` exercises public `start_container()`
+through the typed fake adapter and `wait_for_ready()` through an in-memory HTTP
+transport. It checks default and configured requests, detached caller inputs,
+exact command/environment preservation, workspace and name selection, labels,
+provider selections, resources, policy, and constructor/explicit target-port
+precedence (including both valid port boundaries). It asserts startup call order
+and the distinction between sandbox creation and HTTP readiness in `ProviderState`.
+
+The same module exercises public startup through the production adapter with
+signature-aware SDK doubles, checking registered-gateway selection and exact
+named/unnamed create-time URL selection after readiness drops the route map.
+These checks require no gateway, OpenShell CLI, or network sockets. They do not
+establish live routing, resource enforcement, or WebSocket compatibility.
+
+The remaining full successful-lifecycle assertions for public cleanup and
+exposed run metadata are tracked by T2a, dependent on P6 and P8. Existing P3/P4
+tests cover malformed request inputs, missing routes, and startup rollback.
+
 ## S6a image startup limitation
 
 The [startup comparison](image-startup.md) establishes that omitted command
