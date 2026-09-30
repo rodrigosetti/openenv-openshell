@@ -12,8 +12,10 @@ development; it is not a usable production provider, a PyPI release, or a claim 
 
 The completed local lifecycle spike demonstrated routed HTTP health,
 WebSocket reset/step/state, and verified sandbox deletion with SDK/gateway
-0.1.2. That evidence comes from separate integration probes, not the public
-provider. See the [M0 acceptance evidence](docs/protocol-spike.md#m0-acceptance-verification-2026-09-30)
+0.1.2. The public provider now also passes the unmodified OpenEnv 0.6.0 client
+lifecycle in async and synchronous modes on that local lane. See the
+[public client compatibility check](docs/openenv-compatibility.md),
+[M0 acceptance evidence](docs/protocol-spike.md#m0-acceptance-verification-2026-09-30)
 and [SPEC.md](SPEC.md) for requirements and milestones.
 
 The public home is [rodrigosetti/openenv-openshell](https://github.com/rodrigosetti/openenv-openshell).
@@ -22,8 +24,8 @@ Publication status and baseline review are recorded in the
 
 ## Known limitations
 
-- Unmodified OpenEnv client integration remains Milestone 1 work. Runtime probes
-  do not establish complete provider behavior.
+- OpenEnv compatibility is verified and pinned to 0.6.0; other versions remain
+  unverified. The reusable E2E fixture and wider acceptance suite remain pending.
 - The validated image is a locally built arm64 EchoEnv image on the native VM
   lane. Its checked-in Docker image ID is not a pullable registry digest;
   arbitrary images and compute drivers are unverified.
@@ -49,6 +51,20 @@ make check
 
 Unit tests use typed fakes and do not need an OpenShell installation or gateway.
 The default check excludes the opt-in runtime integration tests.
+`tests/unit/test_successful_lifecycle.py` follows startup and mocked HTTP health
+through identity-aware deletion, client closure, cleared ownership, and retained
+non-secret metadata. It also checks cleanup through the production SDK adapter
+using an offline SDK double; runtime evidence is recorded separately in the
+[integration guide](tests/integration/README.md).
+
+Offline failure acceptance tests cover create/readiness timeouts, missing or
+malformed service URLs, persistent HTTP errors and redirects, transport failures,
+and the OpenEnv health deadline. They verify startup rollback and caller-driven
+cleanup after a health timeout, including original sandbox identity and retained
+metadata with no successful readiness timestamp. See
+[startup failures](tests/unit/test_startup_failures.py),
+[startup rollback](tests/unit/test_start_container.py), and
+[HTTP deadlines](tests/unit/test_readiness.py).
 
 The shared [Codex local environment](.codex/environments/environment.toml)
 runs `uv sync --locked --all-groups` when a new worktree is created, using

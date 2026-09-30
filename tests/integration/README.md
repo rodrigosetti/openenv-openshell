@@ -1,5 +1,12 @@
 # Integration tests
 
+P10's [public client compatibility check](../../docs/openenv-compatibility.md)
+uses the installed, unmodified OpenEnv 0.6.0 `GenericEnvClient` with the public
+provider. Run `test_openenv_client.py` with the same image opt-in shown below.
+Both async and synchronous cases verify factory health, repeated reset/step/state,
+client-owned cleanup, and independent sandbox absence. Offline public-client
+contracts live in `tests/unit/test_openenv_client.py`.
+
 Tests in this directory exercise real transports or an OpenShell runtime.
 Mark each test with `@pytest.mark.integration`; they are excluded from the
 default unit-test run configured in `pyproject.toml`.
