@@ -304,5 +304,31 @@ The provider's configuration-to-request translation remains P3.
 
 `tests/unit/test_adapter.py` exercises real SDK response/spec models with
 signature-aware client doubles, without a CLI or gateway. These P2 tests
-cover the adapter boundary but do not establish runtime enforcement or close
-T6's later upgrade-contract review.
+cover the adapter boundary but do not establish runtime enforcement.
+
+## T6 adapter contract fixtures
+
+[`tests/fixtures/openshell-0.1.2.json`](../tests/fixtures/openshell-0.1.2.json)
+is the reviewed release snapshot. The offline
+[`adapter contract tests`](../tests/unit/test_adapter_contract.py) compare it
+with the installed wheel's exact public signatures (including parameter kinds,
+defaults, and response annotations), response dataclass fields, health wire
+fields, and deletion enum names/values. A method or model mismatch identifies
+the contract that needs review.
+
+The same fixture records the adapter's complete lifecycle call sequence and
+arguments, including the serialized workload, policy, resources, atomic
+service exposure, timeout keywords, missing-sandbox deletion, and original
+sandbox identity. Signature-aware doubles return real SDK models. Tests verify
+identity translation, unnamed/named routes, detached immutable route storage,
+readiness responses without routes, and idempotent client closure. The existing
+adapter tests cover all deletion outcomes, including absent IDs and unknown
+future enum values. These checks require the locked Python wheel, but no
+OpenShell CLI, gateway, or network calls.
+
+For an SDK upgrade, inspect the new wheel, review changes to this snapshot and
+the adapter together, update the dependency URL/hash and lock, and run
+`make check`. Tests never regenerate or accept a new snapshot automatically.
+Annotation-only changes also require explicit fixture review. Passing offline
+contracts does not establish routing or policy enforcement on a live runtime;
+the selected SDK/gateway pair still needs the roadmap's runtime validation.
