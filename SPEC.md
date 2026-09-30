@@ -547,21 +547,19 @@ If OpenEnv calls:
 provider.start_container(image, port=9000)
 ```
 
-the provider SHOULD interpret `port` as:
+the provider MUST interpret `port` as the target OpenEnv environment server
+port inside the sandbox. An explicit non-`None` `port` MUST take precedence over
+the constructor's `service_port`; otherwise use `service_port` (default 8000).
+Both inputs MUST be integers from 1 through 65535, excluding booleans. Invalid
+explicit values MUST fail before create, without falling back to the constructor.
 
-```text
-target OpenEnv environment server port
-```
+For example, `OpenShellProvider(service_port=8000).start_container(image,
+port=9000)` requests an OpenShell exposure targeting 9000. This selects routing;
+it does not rewrite the image command, its listen port, or its environment.
+The image workload must already listen on the selected port.
 
-rather than a host port.
-
-No host port needs to be selected because OpenShell owns routing.
-
-Default:
-
-```text
-port = 8000
-```
+No host port is selected or independently published; OpenShell owns routing.
+This is the S6 API decision, not evidence that the spike tested port overrides.
 
 ## 12.3 Workload command
 
@@ -570,6 +568,23 @@ Preferred MVP behavior:
 - respect the image's normal entrypoint/CMD;
 - expose the configured OpenEnv port;
 - do not invent a server startup command unless explicitly configured.
+
+S3a/S5 verified a native arm64 EchoEnv image on the local VM driver with its
+canonical command supplied explicitly. S4's empty command proved sandbox
+readiness only. Automatic OCI entrypoint/CMD execution, working-directory and
+image-environment preservation MUST NOT be claimed from those results. **S6a**
+tracks validation and selection of a supported startup strategy before P4
+implements provider startup. Do not silently start a shell, hardcode an EchoEnv
+command, or add a local Docker dependency for remote callers.
+
+Image compatibility is compute-driver-specific. The tested VM image includes
+`iproute2`, `nftables`, a discoverable uvicorn executable, and a policy granting
+read-only `/app` access. The inspected upstream amd64-only image is not approved
+for the native Apple Silicon VM lane. The checked-in `sha256:` image ID is a
+local Docker configuration ID, not a pullable registry manifest digest. Remote
+validation requires a pullable immutable image compatible with that gateway's
+driver (**S5a**). These are tested-image constraints, not universal requirements
+for every OpenShell driver. See [image evidence](docs/echo-env-image.md).
 
 Optional future constructor field:
 
@@ -598,7 +613,7 @@ service exposure
 gateway URL
 ```
 
-The provider SHOULD request the exposure during sandbox creation.
+The provider MUST request the exposure atomically during sandbox creation.
 
 Conceptual request:
 
@@ -621,19 +636,42 @@ still private. S1a explicitly permits its generated types only inside the
 private adapter, backed by the pinned-wheel offline contracts. Generated types
 MUST NOT enter the provider public API.
 
-The unnamed service SHOULD be used by default:
+The unnamed service MUST be used by default:
 
 ```text
 service = ""
 ```
 
-Named service support MAY be enabled:
+An explicitly configured `service_name` MUST select the named exposure:
 
 ```text
 service = "openenv"
 ```
 
 OpenShell uses gateway-managed URLs for these services, including local `openshell.localhost` addresses for loopback gateways and HTTPS URLs for appropriately configured remote gateways.
+
+The provider MUST select the create response's `service_urls[service_name]`
+using the exact configured key, including `""`, and persist it before readiness
+polling. Later `get()`/`wait_ready()` responses do not retain these URLs in the
+pinned SDK. A missing or unusable selected route MUST fail startup and trigger
+cleanup; do not select another service or synthesize a URL. S3a verified a named
+local route; S4/S5 verified the unnamed local route.
+
+## 13.1 Service authentication
+
+Gateway SDK authentication and access to a routed environment are separate
+contracts. The local S5 route accepted HTTP/WebSocket requests without additional
+application credentials; gateway lifecycle calls used mTLS. That local result
+MUST NOT imply that a remote service is anonymous or accepts the SDK credentials.
+
+The returned URL must be directly usable by an unmodified OpenEnv client for
+both HTTP and WebSocket traffic. The provider MUST NOT embed credentials in the
+URL, copy gateway credentials into the workload, disable TLS verification, or
+silently bypass a service authentication requirement. Remote service
+credentials, certificate trust, and unmodified-client compatibility remain
+unverified and are tracked by **S5a**, a prerequisite of the M3 release gate.
+Deployments requiring unsupported service authentication must fail explicitly;
+remote support MUST NOT be advertised until validated.
 
 ---
 
@@ -658,6 +696,15 @@ state()              → succeeds
 ```
 
 A provider MUST NOT be considered functional based only on the HTTP health endpoint.
+
+S5 verified two reset episodes, four echo steps, state transitions, and ping/pong
+after each step over one local routed connection on SDK/gateway 0.1.2. This
+establishes short-session liveness. Long idle sessions, reconnect behavior, and
+remote keepalive remain unverified. The provider MUST preserve the OpenEnv
+client's transport and keepalive behavior and MUST NOT add a substitute protocol
+or infer arbitrary idle-duration guarantees. P10/I2 must exercise the unmodified
+client over the local route; S5a must repeat protocol and ping/pong checks remotely.
+See [protocol evidence](docs/protocol-spike.md).
 
 ---
 
@@ -825,6 +872,16 @@ policy={
     ...
 }
 ```
+
+An explicit policy MUST be loaded, normalized, and strictly converted before
+create, then embedded in `SandboxSpec.policy` in the same create request as the
+workload and service. Static controls MUST be established before workload
+execution; creating first and applying policy afterward is not an acceptable
+startup sequence. Invalid policy MUST prevent the create call. S3a/S4/S5 use an
+embedded initial policy; the offline adapter contracts verify strict conversion.
+SEC1 implements general policy loading; SEC4 must prove on the real runtime that
+an invalid policy prevents workload execution. These spike results do not close
+filesystem/network denial acceptance (SEC5/SEC6).
 
 The provider MUST NOT silently broaden permissions when a supplied policy fails.
 
@@ -1826,21 +1883,38 @@ TrustedVerificationRunner
 
 ---
 
-# 41. Open Questions
+# 41. Spike Decisions and Open Questions
 
-The implementation spike should answer these before v0.1:
+S6 records the decisions and limits in [spike-decisions.md](docs/spike-decisions.md).
+Questions 3 and 5 are resolved as requirements in sections 12.2 and 18. Questions
+1, 4, and 6 have local evidence and explicit follow-up scope below; they are not
+unqualified compatibility claims. The remaining questions still apply before v0.1:
 
-1. Does the current OpenShell service route transparently support OpenEnv WebSocket keepalive behavior under both local and remote gateways?
+1. **Partially answered (S5):** local short-session ping/pong and repeated
+   reset/step/state succeed. Remote keepalive remains S5a; unmodified-client
+   validation remains P10/I2. Long idle/reconnect behavior is unverified.
 
 2. What is the exact Python SDK API for specifying image, command, environment variables, resource requirements, policy, and `service_exposures` in the currently released OpenShell version?
 
-3. Should `start_container(port=...)` interpret `port` as the target service port or should `service_port` always take precedence?
+3. **Resolved (S6):** explicit non-`None` `port` overrides `service_port` and
+   denotes the sandbox target port; it does not alter workload configuration.
+   See section 12.2.
 
-4. Can arbitrary Hugging Face Space OCI images run directly under every OpenShell compute driver, or are image-layout constraints required?
+4. **Partially answered (S3a/S6):** the native VM lane requires a compatible
+   architecture, image utilities, executable lookup, and policy paths. The
+   pinned arm64 test image is validated; arbitrary images/drivers are not.
+   Automatic entrypoint/CMD handling remains S6a; remote image validation S5a.
+   See section 12.3.
 
-5. Should policy be supplied through `SandboxClient.create()` directly or through a separate API operation after creation? Static policy controls should be established before workload execution whenever OpenShell requires that.
+5. **Resolved (S6):** embed the validated explicit policy in the initial
+   `SandboxClient.create()` request. Policy loading/strict conversion precedes
+   create; runtime prevention of invalid-policy execution remains SEC4.
+   See section 18.
 
-6. What authentication mechanism should remote OpenShell service URLs require from an OpenEnv client?
+6. **Open (S5a):** local services required no extra application credentials,
+   independently of gateway mTLS. Remote service authentication is unverified;
+   validate it with an unmodified OpenEnv client before claiming support.
+   See section 13.1.
 
 7. Does `EnvClient` require any change for authenticated remote service URLs, or can OpenShell provide a directly usable endpoint?
 
