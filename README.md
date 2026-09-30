@@ -12,8 +12,10 @@ development; it is not a usable production provider, a PyPI release, or a claim 
 
 The completed local lifecycle spike demonstrated routed HTTP health,
 WebSocket reset/step/state, and verified sandbox deletion with SDK/gateway
-0.1.2. That evidence comes from separate integration probes, not the public
-provider. See the [M0 acceptance evidence](docs/protocol-spike.md#m0-acceptance-verification-2026-09-30)
+0.1.2. The public provider now also passes the unmodified OpenEnv 0.6.0 client
+lifecycle in async and synchronous modes on that local lane. See the
+[public client compatibility check](docs/openenv-compatibility.md),
+[M0 acceptance evidence](docs/protocol-spike.md#m0-acceptance-verification-2026-09-30)
 and [SPEC.md](SPEC.md) for requirements and milestones.
 
 The public home is [rodrigosetti/openenv-openshell](https://github.com/rodrigosetti/openenv-openshell).
@@ -22,8 +24,8 @@ Publication status and baseline review are recorded in the
 
 ## Known limitations
 
-- Unmodified OpenEnv client integration remains Milestone 1 work. Runtime probes
-  do not establish complete provider behavior.
+- OpenEnv compatibility is verified and pinned to 0.6.0; other versions remain
+  unverified. The reusable E2E fixture and wider acceptance suite remain pending.
 - The validated image is a locally built arm64 EchoEnv image on the native VM
   lane. Its checked-in Docker image ID is not a pullable registry digest;
   arbitrary images and compute drivers are unverified.
