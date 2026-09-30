@@ -68,6 +68,7 @@ from openenv_openshell import OpenShellProvider, OpenShellResources
 
 provider = OpenShellProvider(
     workspace="default",
+    command=["/path/in/image/to/server-launcher"],
     service_port=8000,
     startup_timeout_s=120,
     labels={"openenv.run_id": "example-run"},
@@ -75,6 +76,14 @@ provider = OpenShellProvider(
     resources=OpenShellResources(cpu=2, memory="4Gi"),
 )
 ```
+
+The planned startup contract requires explicit `command` argv for the selected
+image. The path above illustrates configuration; choose the actual image server
+launcher, supply required environment through `env_vars`, and establish any
+required directory in that command. The adapter preserves argv exactly and
+rejects missing/invalid command before gateway access. It does not resolve OCI
+ENTRYPOINT/CMD, WORKDIR, or ENV. Omission remains valid for configuration-only
+and HTTP readiness use. See the [S6b decision](docs/image-startup.md).
 
 Ports, timeouts, and requested resources must be positive. Explicit sandbox and
 service names use lowercase letters, digits, and hyphens; otherwise the provider

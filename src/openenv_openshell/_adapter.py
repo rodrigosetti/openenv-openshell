@@ -24,6 +24,7 @@ class CreateRequest:
     workspace: str
     name: str
     image: str
+    command: Sequence[str] = field(repr=False)
     environment: Mapping[str, str] = field(repr=False)
     service_name: str
     target_port: int

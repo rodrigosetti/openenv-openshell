@@ -60,7 +60,7 @@ def test_lifecycle(sdk: MagicMock, create_request: CreateRequest) -> None:
     assert spec.template.resources["limits"] == {"cpu": "2", "memory": "4Gi"}
     assert spec.resource_requirements.gpu.count == 1
     assert spec.HasField("policy")
-    assert not spec.command
+    assert list(spec.command) == list(create_request.command)
     sdk.wait_ready.assert_called_once_with(
         "sandbox", workspace="default", timeout_seconds=12
     )
@@ -316,3 +316,16 @@ def test_fake_conforms() -> None:
     """The existing deterministic fake satisfies the production protocol."""
     adapter: SandboxAdapter = FakeSandboxAdapter()
     adapter.close()
+
+
+@pytest.mark.parametrize("command", [(), ("",), ("server", SECRET + "\x00")])
+def test_adapter_rejects_invalid_command(
+    command: tuple[str, ...], sdk: MagicMock, create_request: CreateRequest
+) -> None:
+    """Direct adapter requests cannot silently create a shell workload."""
+    adapter = SDKAdapter(sdk)
+    with pytest.raises(ValueError, match="command") as error:
+        adapter.create(replace(create_request, command=command))
+    assert SECRET not in "".join(format_exception(error.value))
+    sdk.health.assert_not_called()
+    sdk.create.assert_not_called()

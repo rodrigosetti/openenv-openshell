@@ -69,9 +69,9 @@ passed HTTP health, two reset/step/state episodes, four echo steps and ping/pong
 `oe-sec4-7096bbed` was deleted and absence confirmed. `make check` passed 247
 unit tests with 99.38% branch-inclusive coverage, lint and strict typing.
 
-The test supplies the previously validated EchoEnv command only at the SDK
-boundary because provider startup remains P4. S6a documents why omitted
-commands cannot start this image on the selected runtime. This verifies
+The test supplies the previously validated EchoEnv command in `CreateRequest`
+through the S6b production adapter translation. Provider lifecycle remains P4.
+S6a documents why omitted commands cannot start this image on the selected runtime. This verifies
 the loader/adapter gate and initial policy submission; it does not establish
 gateway rejection of every semantically invalid policy, filesystem/network
 denials (SEC5/SEC6), automatic image command handling, or a complete provider

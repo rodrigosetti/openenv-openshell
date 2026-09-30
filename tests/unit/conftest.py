@@ -44,6 +44,7 @@ def create_request() -> CreateRequest:
         workspace="default",
         name="sandbox",
         image="image@sha256:fixture",
+        command=("server",),
         environment={"SECRET": SECRET},
         service_name="",
         target_port=8000,

@@ -19,11 +19,14 @@ The provider allows existing OpenEnv clients to replace the default local Docker
 ```python
 env = await CodingEnv.from_docker_image(
     "registry.hf.space/openenv-coding-env:latest",
-    provider=OpenShellProvider(),
+    provider=OpenShellProvider(command=server_argv),
 )
 ```
 
-while preserving the normal OpenEnv API:
+The caller supplies `server_argv`, the exact intended server command for the
+selected image, and any required environment. Automatic OCI startup metadata
+resolution is outside the 0.1.2 MVP contract (section 12.3). The normal OpenEnv
+API is preserved:
 
 ```python
 await env.reset()
@@ -355,12 +358,12 @@ All external access SHOULD travel through the OpenShell service exposure.
 
 # 9. Public API
 
-## 9.1 Minimal API
+## 9.1 Minimal API with explicit startup
 
 ```python
 from openenv_openshell import OpenShellProvider
 
-provider = OpenShellProvider()
+provider = OpenShellProvider(command=server_argv)
 
 env = await EchoEnv.from_docker_image(
     "registry.hf.space/openenv-echo-env:latest",
@@ -376,6 +379,7 @@ provider = OpenShellProvider(
     policy="./openshell-policy.yaml",
     service_port=8000,
     startup_timeout_s=120,
+    command=server_argv,
 )
 ```
 
@@ -401,6 +405,7 @@ class OpenShellProvider(ContainerProvider):
         workspace: str = "default",
         sandbox_name: str | None = None,
         policy: str | Path | Mapping[str, Any] | None = None,
+        command: Sequence[str] | None = None,
         service_port: int = 8000,
         service_name: str = "",
         startup_timeout_s: float = 120.0,
@@ -519,7 +524,7 @@ def start_container(
 `start_container()` MUST:
 
 1. reject startup if the provider already owns a live sandbox;
-2. determine the target OpenEnv port;
+2. validate explicit command argv and determine the target OpenEnv port;
 3. resolve the effective OpenShell policy;
 4. generate a unique sandbox name if one was not supplied;
 5. create the sandbox;
@@ -553,8 +558,9 @@ the constructor's `service_port`; otherwise use `service_port` (default 8000).
 Both inputs MUST be integers from 1 through 65535, excluding booleans. Invalid
 explicit values MUST fail before create, without falling back to the constructor.
 
-For example, `OpenShellProvider(service_port=8000).start_container(image,
-port=9000)` requests an OpenShell exposure targeting 9000. This selects routing;
+For example, a provider configured with `service_port=8000` and explicit command
+argv, called with `start_container(image, port=9000)`, requests an OpenShell
+exposure targeting 9000. This selects routing;
 it does not rewrite the image command, its listen port, or its environment.
 The image workload must already listen on the selected port.
 
@@ -563,24 +569,41 @@ This is the S6 API decision, not evidence that the spike tested port overrides.
 
 ## 12.3 Workload command
 
-Preferred MVP behavior:
+**S6b decision: explicit startup for the pinned 0.1.2 SDK/gateway.**
 
-- respect the image's normal entrypoint/CMD;
-- expose the configured OpenEnv port;
-- do not invent a server startup command unless explicitly configured.
+The constructor accepts `command: Sequence[str] | None = None`. `None` permits
+configuration-only use (such as HTTP readiness); starting a sandbox requires
+nonempty explicit argv. Missing command MUST fail before gateway connection or
+create with an actionable compatibility error. Invalid supplied command MUST
+fail during configuration validation. Reject bare strings/bytes, empty argv,
+non-string elements, NUL characters, and an empty/whitespace executable.
+Empty subsequent arguments and whitespace within arguments MUST be preserved.
+Copy argv defensively and omit it from configuration/request representations,
+logs, and errors because arguments may contain secrets.
 
-S3a/S5 verified a native arm64 EchoEnv image on the local VM driver with its
-canonical command supplied explicitly. S4's empty command proved sandbox
-readiness only. Automatic OCI entrypoint/CMD execution, working-directory and
-image-environment preservation MUST NOT be claimed from those results. **S6a**
-validated the comparison: omitted command selects a scratch login shell on
-0.1.2 and does not start EchoEnv; explicit image CMD passes health and protocol.
-The selected SDK has no public image-config resolver or portable startup
-workdir field. See [S6a evidence and proposed API change](docs/image-startup.md).
-**S6b** tracks the required startup API decision before P4 implementation;
-automatic image startup remains a requirement until that decision changes it.
-Do not silently start a shell, hardcode an EchoEnv
-command, or add a local Docker dependency for remote callers.
+The caller MUST supply the intended workload, including ENTRYPOINT/CMD
+composition when applicable, as exact argv. The private adapter MUST pass it
+verbatim to `SandboxSpec.command` in the initial atomic policy/workload/service
+request, without adding a shell, hardcoding a server, or launching a separate
+exec operation. A shell command is supported only when the caller explicitly
+supplies that shell and its arguments. `start_container` kwargs do not override
+constructor command; unsupported options MUST fail locally.
+
+The caller supplies all required image environment through `env_vars` and must
+choose a command that establishes any required working directory (for example,
+an image launcher or explicitly configured `sh -c 'cd ... && exec ...'`). There
+is no portable `workdir` constructor option. Do not automatically merge image
+ENV, infer OCI ENTRYPOINT/CMD/WORKDIR, inspect through local Docker, or fetch
+registry configuration. The port selects routing only and does not rewrite
+argv or environment. Automatic image metadata resolution requires a separately
+reviewed upstream/resolution contract; it is outside the v0.1 requirements.
+
+S6a found that omitted command starts a scratch login shell on the tested VM
+lane; explicit image CMD passes routed health and protocol. The SDK exposes no
+public image-config resolver or portable create-time workdir. S6b adopts the
+supported explicit startup strategy and extends offline argv/environment
+contracts. P4 still owns production lifecycle wiring and startup-failure tests.
+See [startup evidence and decision](docs/image-startup.md).
 
 Image compatibility is compute-driver-specific. The tested VM image includes
 `iproute2`, `nftables`, a discoverable uvicorn executable, and a policy granting
@@ -590,14 +613,6 @@ local Docker configuration ID, not a pullable registry manifest digest. Remote
 validation requires a pullable immutable image compatible with that gateway's
 driver (**S5a**). These are tested-image constraints, not universal requirements
 for every OpenShell driver. See [image evidence](docs/echo-env-image.md).
-
-Optional future constructor field:
-
-```python
-command: Sequence[str] | None
-```
-
-This may be useful for images that contain OpenEnv but do not declare the server process as their normal workload.
 
 ---
 
@@ -1605,6 +1620,7 @@ from echo_env import EchoEnv
 
 provider = OpenShellProvider(
     policy="policy.yaml",
+    command=server_argv,
 )
 
 env = EchoEnv.from_docker_image(
@@ -1615,6 +1631,11 @@ env = EchoEnv.from_docker_image(
 with env:
     result = env.reset()
 ```
+
+Here `server_argv` is caller-supplied for the selected image; pass required image
+environment via `env_vars`. See section 12.3 for directory handling. The snippets
+are API illustrations; the README quickstart must use a concrete validated image
+and startup configuration before release.
 
 No OpenShell-specific lifecycle logic should be required in the user's training loop.
 
@@ -1773,7 +1794,10 @@ The project is ready for a public v0.1 release when all of the following hold:
 
 - [ ] `OpenShellProvider` subclasses OpenEnv `ContainerProvider`.
 - [ ] Existing OpenEnv clients require no source modifications.
-- [ ] `from_docker_image(..., provider=OpenShellProvider())` works.
+- [ ] `from_docker_image(..., provider=OpenShellProvider(command=server_argv))` works
+  with a documented image, exact command, and required environment/directory.
+- [ ] Missing or invalid command fails before gateway access/create; no shell fallback.
+- [ ] Exact argv and explicit environment reach the initial workload unchanged.
 - [ ] The environment container runs inside OpenShell.
 - [ ] The environment is reachable only through an OpenShell-managed service.
 - [ ] HTTP `/health` succeeds.
@@ -1914,7 +1938,10 @@ unqualified compatibility claims. The remaining questions still apply before v0.
    architecture, image utilities, executable lookup, and policy paths. The
    pinned arm64 test image is validated; arbitrary images/drivers are not.
    S6a established that omitted command selects a shell, not image CMD, on the
-   pinned VM lane. Startup API resolution remains S6b; remote image validation S5a.
+   pinned VM lane. S6b resolves startup through explicit caller argv, environment,
+   and directory handling;
+   automatic image metadata resolution is outside v0.1. Remote image validation
+   remains S5a.
    See section 12.3.
 
 5. **Resolved (S6):** embed the validated explicit policy in the initial
@@ -1997,6 +2024,7 @@ env = CodingEnv.from_docker_image(
     IMAGE,
     provider=OpenShellProvider(
         policy="policy.yaml",
+        command=server_argv,
     ),
 ).sync()
 
