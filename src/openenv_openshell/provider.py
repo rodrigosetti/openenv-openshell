@@ -171,10 +171,12 @@ class OpenShellProvider(ContainerProvider):
         request = self._create_request(
             image, policy=policy, port=port, env_vars=env_vars, **kwargs
         )
+        # Prepare state before connecting so state construction cannot leak a client.
+        state = ProviderState(sandbox_name=request.name, image=image)
         adapter = self._connect_adapter()
         self._adapter = adapter
         # Record ownership before create: a lost response can still leave a sandbox.
-        self.state = ProviderState(sandbox_name=request.name, image=image)
+        self.state = state
         error = SandboxCreationError
         try:
             sandbox = adapter.create(request)
@@ -196,36 +198,21 @@ class OpenShellProvider(ContainerProvider):
                 msg = "OpenShell readiness returned a different sandbox identity"
                 raise SandboxReadinessError(msg)  # noqa: TRY301 - Stage-specific failure enters rollback.
         except Exception:  # noqa: BLE001 - Sanitize runtime failures and always roll back.
-            self._cleanup_failed_start(adapter, request.name)
             # Do not expose upstream exception text, workload argv, or route data.
-            msg = "OpenShell sandbox startup failed"
-            raise error(msg) from None
+            failure = error("OpenShell sandbox startup failed")
+            self._cleanup_failed_start(failure)
+            raise failure from None
         return base_url
 
-    def _cleanup_failed_start(self, adapter: SandboxAdapter, name: str) -> None:
-        """Best-effort rollback; uncertain deletion retains ownership for retry."""
+    def _cleanup_failed_start(self, failure: OpenShellProviderError) -> None:
+        """Use public cleanup without replacing the primary startup failure."""
         try:
-            if not self.config.keep_sandbox:
-                deletion = adapter.delete(name, workspace=self.config.workspace)
-                identity = self.state.sandbox_id or deletion.sandbox_id
-                if identity is not None:
-                    adapter.wait_deleted(
-                        name,
-                        workspace=self.config.workspace,
-                        expected_sandbox_id=identity,
-                        timeout_s=self.config.deletion_timeout_s,
-                    )
-                    self.state.deleted = True
-                elif deletion.outcome in {"completed", "already_absent"}:
-                    self.state.deleted = True
-        except Exception:  # noqa: BLE001 - Rollback must preserve the startup failure.
-            return
-        if self.config.keep_sandbox or self.state.deleted:
-            try:
-                adapter.close()
-            except Exception:  # noqa: BLE001 - Preserve the startup failure.
-                return
-            self._adapter = None
+            self.stop_container()
+        except SandboxDeletionError:
+            # Notes appear in tracebacks without exposing runtime errors or inputs.
+            failure.add_note(
+                "OpenShell sandbox cleanup failed; call stop_container again to retry"
+            )
 
     @staticmethod
     def _validate_service_url(base_url: str) -> httpx.URL:

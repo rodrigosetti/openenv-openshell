@@ -7,7 +7,8 @@ import httpx
 import pytest
 
 from openenv_openshell import OpenShellProvider
-from openenv_openshell.errors import OpenEnvReadinessTimeout
+from openenv_openshell.errors import OpenEnvReadinessTimeout, SandboxDeletionError
+from tests.fakes import DeleteCall, FakeSandboxAdapter
 
 
 @dataclass
@@ -220,3 +221,40 @@ def test_invalid_url_is_rejected_without_echoing_input(url: str) -> None:
     with pytest.raises(ValueError, match="base_url") as caught:
         OpenShellProvider().wait_for_ready(url)
     assert "secret" not in str(caught.value)
+
+
+@pytest.mark.parametrize("keep", [False, True])
+@pytest.mark.parametrize("cleanup_fails", [False, True])
+def test_owned_health_timeout_public_cleanup(
+    monkeypatch: pytest.MonkeyPatch,
+    clock: Clock,
+    *,
+    keep: bool,
+    cleanup_fails: bool,
+) -> None:
+    """OpenEnv-style teardown deletes unhealthy workloads or retains debug sandboxes."""
+    adapter = FakeSandboxAdapter()
+    provider = OpenShellProvider(command=["server"], keep_sandbox=keep)
+    monkeypatch.setattr(provider, "_connect_adapter", lambda: adapter)
+    url = provider.start_container("image")
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        clock.now += 1
+        return httpx.Response(503)
+
+    install_client(monkeypatch, handler)
+    with pytest.raises(OpenEnvReadinessTimeout):
+        provider.wait_for_ready(url, timeout_s=1)
+    assert not provider.state.ready
+    if cleanup_fails:
+        adapter.failures["close" if keep else "wait_deleted"] = TimeoutError("secret")
+        with pytest.raises(SandboxDeletionError):
+            provider.stop_container()
+        assert provider.state.sandbox_name is not None
+        adapter.failures.clear()
+    provider.stop_container()
+    provider.stop_container()
+    assert adapter.closed
+    assert provider.state.sandbox_name is None
+    assert provider.state.deleted == (not keep)
+    assert any(isinstance(call, DeleteCall) for call in adapter.calls) == (not keep)

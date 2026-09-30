@@ -22,8 +22,7 @@ Publication status and baseline review are recorded in the
 
 ## Known limitations
 
-- Complete failed-start cleanup reporting and unmodified OpenEnv client
-  integration remain Milestone 1 work. Runtime probes do not establish complete
+- Unmodified OpenEnv client integration remains Milestone 1 work. Runtime probes do not establish complete
   provider behavior.
 - The validated image is a locally built arm64 EchoEnv image on the native VM
   lane. Its checked-in Docker image ID is not a pullable registry digest;
@@ -97,15 +96,19 @@ from openenv_openshell import OpenShellProvider
 `start_container` creates an atomic policy/workload/service request, captures
 the configured create-time service URL, waits for OpenShell readiness, and
 populates `provider.state`. It rejects a second start while it owns a sandbox.
-Startup failures attempt deletion and retain ownership when cleanup is uncertain;
-`keep_sandbox=True` retains failed sandboxes for inspection.
+Startup failures use public cleanup and preserve the sanitized creation/readiness
+error. If rollback fails, an exception note instructs callers to retry
+`stop_container()`; ownership and recovered identity remain available for retry.
+`keep_sandbox=True` retains failed sandboxes for inspection and releases local
+ownership after the client closes.
 `stop_container()` deletes the owned sandbox, waits for its original identity to
 disappear, and releases client resources. Repeated calls are harmless. With
 `keep_sandbox=True`, it closes the client and clears local ownership while leaving
 the sandbox running. Deletion, wait, or client-close failures raise a sanitized
 `SandboxDeletionError` and retain enough state for another stop call to retry.
-Lifecycle logging, run metadata, and complete failure cleanup reporting remain
-P7/P8 work.
+After a health timeout, OpenEnv invokes `stop_container()`; callers using the
+provider directly must also stop it after readiness or connection failures.
+Lifecycle logging and run metadata remain P8 work.
 See [SPEC.md](SPEC.md) for the design and milestones.
 
 Provider configuration is accepted directly as keyword arguments and validated

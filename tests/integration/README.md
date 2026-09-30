@@ -140,3 +140,29 @@ stop was harmless, local ownership was cleared, and the independent SDK listing
 confirmed absence. `make check` passed Ruff, strict Pyright, and 310 unit tests
 with 99.48% branch-inclusive coverage (provider 100%). This local result does not
 establish remote service support or unmodified-client lifecycle behavior.
+
+## P7 failed-start cleanup
+
+`test_provider_startup.py` also injects failures at the real adapter boundary:
+create completes but its response is lost, the selected service URL is absent,
+and readiness fails after create. Each case verifies automatic rollback through
+public cleanup and independent label-filtered sandbox absence. A workload that
+never serves health verifies timeout followed by public cleanup, matching the
+OpenEnv teardown contract. Direct provider callers must stop after health or
+connection failure; readiness itself does not delete the sandbox.
+
+Run the P4/P6 control and P7 failures with the same image opt-in command above.
+Unit tests additionally cover state-update failures, secret-safe rollback retry
+notes, recovery of identity after a lost create response, delete/wait/close retry,
+uncertain acknowledgements, and debug retention. Rollback uses `stop_container()`
+and preserves the sanitized startup error; failed cleanup adds a fixed exception
+note instructing the caller to retry. Successful keep-mode rollback releases
+local ownership and leaves the sandbox running for inspection.
+
+Verified on 2026-09-30 with local SDK/gateway 0.1.2 and the pinned arm64 image:
+all five provider integration cases passed, including the healthy routed
+WebSocket control and all four failure scenarios; all sandbox absence checks
+passed. Both loopback HTTP readiness tests also passed (seven integration tests
+total). `make check` passed Ruff, strict Pyright, and 340 unit tests with 99.47%
+branch-inclusive coverage (provider 100%). Unmodified-client integration and
+remote service support remain P10/I2/S5a.
