@@ -16,7 +16,9 @@ make check
 The SDK is pinned to the official OpenShell 0.1.2 release wheel by URL and
 SHA-256. Use a matching 0.1.2 gateway for future runtime work; see the
 [distribution and model-boundary decision](docs/openshell-sdk-contract.md).
-The local 0.1.2 runtime still needs revalidation (S2a).
+The local 0.1.2 runtime and pinned EchoEnv image have been revalidated (S2a/S3a).
+The separate [S4 lifecycle spike](docs/lifecycle-spike.md) exercises SDK creation,
+atomic routing, readiness, and deletion without using the production provider.
 
 The checks enforce formatting and linting with Ruff, strict static typing with
 Pyright, and unit-test branch coverage of at least 95%. Tests that require a

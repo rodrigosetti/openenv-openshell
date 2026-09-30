@@ -21,7 +21,7 @@ IDs; tasks whose dependencies are done may run in parallel.
 
 Tasks with complete dependencies:
 
-- **S4** One-file lifecycle spike
+- **S5** Protocol connectivity
 
 ## Milestone 0 — Runtime spike
 
@@ -58,9 +58,12 @@ Tasks with complete dependencies:
   applies, but the VM PID-limit gap remains. [Evidence](docs/echo-env-image.md#verified-outcome-012-2026-09-29).
   `make check` passes (93 unit tests, 100% coverage); opt-in image probe passes.
   _Depends: S2a, S3._
-- ⬜ **S4 — Build the one-file lifecycle spike.** Create a sandbox from the
-  image, declare its service, wait for OpenShell readiness, obtain the routed
-  URL, and always delete it. Keep this separate from production code.
+- ✅ **S4 — Build the one-file lifecycle spike.** Separate SDK
+  [experiment](tests/integration/_lifecycle_spike.py) creates EchoEnv with an
+  atomic unnamed route, waits ready, preserves its URL, and confirms deletion
+  by ID. Offline failure/interruption tests and the live 0.1.2 test pass;
+  `make check` passes (169 unit tests, 100% package branch coverage).
+  [Run instructions and evidence](docs/lifecycle-spike.md).
   _Depends: S1a, S2a, S3a._
 - ⬜ **S5 — Prove protocol connectivity.** Through the routed URL, verify HTTP
   `/health`, WebSocket `/ws`, `reset`, `step("hello")`, and `state`; record local
