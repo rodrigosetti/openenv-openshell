@@ -1081,6 +1081,30 @@ These values SHOULD map directly to OpenShell resource configuration.
 
 No additional scheduler abstraction should be invented.
 
+## 22.1 Process capacity: SEC8b scope decision
+
+The v0.1 provider contract on the supported local OpenShell 0.1.2 native VM
+lane excludes a guaranteed sandbox-specific process/thread limit and resistance
+to process-exhaustion denial of service. The provider exposes no PID-budget
+setting. Process policy selects user/group identity; Landlock controls filesystem
+access. Neither establishes process capacity. CPU/memory/GPU requests MUST NOT
+be presented as proof of PID enforcement or runtime resource enforcement.
+
+SEC8's read-only diagnostic found no visible `pids.max` in the workload's cgroup
+hierarchy and reported inherited soft/hard RLIMIT_NPROC of 7698. This does not
+establish a sandbox-specific bound or prove the absence of controls outside the
+guest. A workload may exhaust guest capacity, disrupt its server and other
+workloads sharing that capacity, or consume host resources. This lane MUST NOT
+be advertised as providing availability isolation for hostile workloads.
+
+Operators needing that guarantee must select and independently validate a
+runtime/compute driver with an enforced sandbox-specific budget. The provider
+MUST remain a thin adapter: no guest limiter, hidden permissive fallback, or
+private runtime fork is part of this decision. A future PID guarantee requires
+a supported upstream configuration contract and bounded runtime evidence that
+identifies the enforcement owner and covers initial workload and exec processes.
+See [process-capacity decision](docs/process-capacity.md) for evidence and limits.
+
 ---
 
 # 23. Sandbox Naming
@@ -1734,6 +1758,13 @@ filesystem denial tests
 network denial tests
 policy digest metadata
 ```
+
+Acceptance requires fail-closed explicit policies, demonstrated filesystem and
+network denials with continued OpenEnv operation, and disposition of the security
+review findings. Under section 22.1, bounded process capacity is excluded on the
+local 0.1.2 native VM lane; M2 completion MUST retain that documented residual
+availability risk and MUST NOT imply process-exhaustion protection. Cleanup
+ownership safety remains a separate requirement (SEC8a).
 
 ---
 

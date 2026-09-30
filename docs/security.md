@@ -3,9 +3,93 @@
 The [SEC8 security review](security-review.md) records the checked boundaries,
 runtime evidence, and unresolved acceptance findings. Name-based cleanup can
 delete an unowned same-name sandbox (SEC8a), and the local VM lane has no
-established sandbox PID bound (SEC8b). M2 depends on both follow-ups; completion
+established sandbox PID bound. SEC8b resolves the capacity contract through the
+scope exclusion below; SEC8a remains a required repair. Completion
 of the review is not security milestone approval. Resource request mapping
 does not prove runtime resource enforcement.
+
+## Policy selection and enforcement ownership
+
+The [architecture guide](architecture.md) explains lifecycle and routing.
+OpenShell enforces the submitted policy; the provider validates and translates
+configuration. An explicit `policy` path or mapping is loaded and strictly
+converted before gateway access, then embedded with command and service exposure
+in the initial create. There is no create-first/apply-later window or fallback
+to a broader policy when explicit input fails.
+
+With `policy=None`, the adapter leaves the policy field absent and delegates
+selection to OpenShell: image policy, then the runtime's restrictive default.
+It does not automatically select `examples/policies/deny-all.yaml`. Review and
+pin an image's baked policy before relying on that precedence. `policy_mode`
+is proposed in SPEC and is not an implemented constructor argument.
+
+The strict [policy examples](../examples/policies/README.md) request required
+Landlock, explicit non-root identity, reviewed read-only paths, bounded writable
+paths, and no undeclared egress. Paths/users must exist in the selected image
+with suitable Unix permissions. A grant does not create paths or override file
+ownership. The compatibility example uses best-effort Landlock and writable
+workdir discovery, and omits an explicit non-root identity; it provides a
+different posture. Configuration validity does not prove runtime enforcement.
+
+The loader rejects unsupported fields/types, duplicate and merge keys, YAML
+anchors/aliases, unsafe tags, nulls, and unsupported versions. YAML files are
+limited to 1 MiB and mappings to 64 nesting levels. Strict conversion is an
+offline schema check; gateway semantic acceptance, kernel support, and actual
+denials require runtime evidence. A digest records normalized submitted fields,
+not the effective image/default policy or proof of enforcement.
+
+## Ingress, egress, and gateway access
+
+SDK lifecycle traffic uses gateway credentials from the registered host-side
+configuration. OpenEnv health and WebSocket traffic use an OpenShell-managed
+service route. Sandbox outbound requests are separately governed by network
+policy; publishing a service does not allow internet egress. Neither a reachable
+gateway nor HTTP health proves WebSocket compatibility or authorization.
+
+The local tested route requires no additional application credential. Remote
+service authentication and trust remain unverified (S5a); gateway mTLS cannot
+be assumed to authorize an OpenEnv service request. Service URLs must be absolute
+HTTP(S) without embedded credentials, query parameters, or fragments. The
+provider preserves path prefixes, avoids health redirects, and never disables
+TLS verification or exposes a substitute Docker port. Validate both HTTP and
+WebSocket use with an unmodified client before claiming remote support.
+
+## Commands, labels, and cleanup ownership
+
+Exact caller argv is supplied to the initial workload without interpolation or
+an added shell. Argument metacharacters remain data unless the caller explicitly
+chooses a shell. That shell's script and the workload remain trusted caller
+configuration. Ordinary environment values and argv may contain secrets and
+reach the workload even though request representations and public errors omit
+them. Do not log raw configuration or SDK objects in application code.
+
+Management labels identify the adapter but do not authorize deletion. Validation
+rejects recognizable sensitive label keys; it cannot identify a secret hidden
+under an innocuous key. Keep labels, names, image references, and metadata public
+and free of prompts, credentials, or private task contents.
+
+SEC8a remains an unresolved ownership repair: rollback after a name collision
+can delete an unowned sandbox, and a reused name can target a replacement.
+Identity-aware deletion waiting checks absence after deletion; it does not
+condition the delete request on ownership. Reserve unique names and avoid reuse
+while this repair is pending, without treating that practice as a guarantee.
+See [the concrete finding](security-review.md#cleanup-blast-radius).
+Cleanup failures retain retry state and sanitized diagnostics.
+`keep_sandbox=True` intentionally leaves workloads running, including after
+failed startup, and releases local ownership; operators must remove retained
+sandboxes. It does not retain or own operator-created credential providers.
+
+## Process capacity and availability
+
+The v0.1 security contract excludes a guaranteed sandbox-specific process/thread
+budget on the local OpenShell 0.1.2 native VM lane. A hostile or accidental
+process burst can exhaust guest capacity, interrupt the OpenEnv server or other
+workloads sharing capacity, and consume host resources. Filesystem and network
+enforcement do not establish availability isolation. CPU/memory/GPU serialization
+also does not establish runtime enforcement. Operators requiring process capacity
+isolation must independently validate an enforcing runtime/compute driver.
+See [SPEC section 22.1](../SPEC.md#221-process-capacity-sec8b-scope-decision) and
+the [evidence and scope decision](process-capacity.md).
 
 Filesystem enforcement is exercised by [SEC5's runtime test](../tests/integration/test_filesystem_security.py).
 It uses synthetic SSH/host-shadow canaries with an explicit readable control,
