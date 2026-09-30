@@ -54,9 +54,9 @@ the tests independently confirm sandbox deletion.
 The jobs select the `integration` marker and use `--no-cov` because these small
 runtime suites cannot satisfy the whole-package unit coverage gate. `make check`
 and the Quality workflow continue to enforce unit coverage without runtime access.
-I5 tracks gated integration CI and runner provisioning; these local job commands
-are its reusable entry points. They do not establish a hosted CI run or remote
-gateway support.
+I5's manual CI workflow uses the same suites through a bounded entry point;
+see [CI runner setup](../../docs/integration-ci.md). These local job commands
+do not establish a hosted CI run or remote gateway support.
 
 Validated on 2026-09-30 with local SDK/gateway 0.1.2 and the previously validated
 native arm64 EchoEnv and SEC5 canary images: `make -j2 security-e2e` passed one
