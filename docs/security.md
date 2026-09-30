@@ -11,7 +11,7 @@ approved outbound requests. Credential attachment and network authorization
 must both be configured; attaching a provider is not proof that a request is
 allowed or that its credential scope is least privilege. Review the provider
 profile's endpoints, methods, paths, and binary paths for the actual image.
-See NVIDIA's [provider guide](https://docs.nvidia.com/openshell/sandboxes/manage-providers)
+See NVIDIA's [provider guide](https://github.com/NVIDIA/OpenShell/blob/v0.1.2/docs/how-it-works/providers/overview.mdx)
 and the [pinned 0.1.2 guide](https://github.com/NVIDIA/OpenShell/blob/v0.1.2/docs/how-it-works/providers/overview.mdx).
 
 ## Configure credentials outside the workload

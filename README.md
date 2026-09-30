@@ -1,17 +1,55 @@
 # openenv-openshell
 
-`openenv-openshell` is a planned OpenEnv `ContainerProvider` backed by NVIDIA
-OpenShell. Configuration validation and HTTP readiness are implemented; sandbox
-startup and cleanup described in [SPEC.md](SPEC.md) are still pending.
+`openenv-openshell` is an experimental adapter for running Hugging Face OpenEnv
+environment servers under NVIDIA OpenShell filesystem, network, and credential
+policies. It targets OpenEnv's existing `ContainerProvider` interface so users
+can keep their environment protocol and training loop while changing runtimes.
+
+**Pre-alpha: the production provider is unfinished.** Configuration validation,
+HTTP readiness, strict policy loading, and private SDK request translation are
+implemented. Public `start_container()` and `stop_container()` still raise
+`NotImplementedError`. This source baseline is for development; it is not a
+usable production provider, a PyPI release, or a claim to the PyPI package name.
+
+The completed local lifecycle spike demonstrated routed HTTP health,
+WebSocket reset/step/state, and verified sandbox deletion with SDK/gateway
+0.1.2. That evidence comes from separate integration probes, not the public
+provider. See the [M0 acceptance evidence](docs/protocol-spike.md#m0-acceptance-verification-2026-09-30)
+and [SPEC.md](SPEC.md) for requirements and milestones.
+
+The public home is [rodrigosetti/openenv-openshell](https://github.com/rodrigosetti/openenv-openshell).
+Publication status and baseline review are recorded in the
+[repository publication guide](docs/repository-publication.md).
+
+## Known limitations
+
+- Production startup, cleanup, and unmodified OpenEnv client integration remain
+  Milestone 1 work. Runtime probes do not establish complete provider behavior.
+- The validated image is a locally built arm64 EchoEnv image on the native VM
+  lane. Its checked-in Docker image ID is not a pullable registry digest;
+  arbitrary images and compute drivers are unverified.
+- Remote gateways, service authentication, long idle sessions, and reconnects
+  are unverified. No remote compatibility claim follows from local tests.
+- Startup requires caller-supplied command argv, environment, and directory
+  handling. Automatic OCI ENTRYPOINT/CMD, ENV, and WORKDIR resolution is outside
+  the MVP contract.
+- Policy parsing and atomic request validation are tested, but the release's
+  filesystem and network denial acceptance tests remain pending. Trusted
+  external verification is a later milestone.
 
 ## Development
 
 Python 3.11 or newer and [uv](https://docs.astral.sh/uv/) are required.
 
 ```bash
+git clone https://github.com/rodrigosetti/openenv-openshell.git
+cd openenv-openshell
 uv sync --locked --all-groups
 make check
 ```
+
+Unit tests use typed fakes and do not need an OpenShell installation or gateway.
+The default check excludes the opt-in runtime integration tests.
 
 The shared [Codex local environment](.codex/environments/environment.toml)
 runs `uv sync --locked --all-groups` when a new worktree is created, using
@@ -50,7 +88,7 @@ the CLI, gateway, workspace, compute-driver, and service-routing prerequisites.
 
 ## Status
 
-The public import is reserved and usable for development:
+The public import is available in a development checkout:
 
 ```python
 from openenv_openshell import OpenShellProvider
@@ -172,3 +210,7 @@ workspace and maps them to the sandbox spec; it does not provision credentials
 or infer providers. See the [credential and provider guide](docs/security.md)
 for setup, permission scope, and the SEC7 runtime visibility check. Public
 sandbox startup and cleanup remain pending Milestone 1.
+
+## License
+
+Apache-2.0; see [LICENSE](LICENSE).

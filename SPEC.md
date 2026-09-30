@@ -126,10 +126,10 @@ Important OpenShell references:
 [OpenShell Python SDK](https://docs.nvidia.com/openshell/latest/sdk/python?utm_source=chatgpt.com)
 
 **OpenShell policy schema**  
-[OpenShell policy schema](https://docs.nvidia.com/openshell/latest/reference/policy-schema?utm_source=chatgpt.com)
+[OpenShell policy schema](https://github.com/NVIDIA/OpenShell/blob/v0.1.2/docs/how-it-works/policies/schema.mdx)
 
 **OpenShell sandbox management**  
-[OpenShell sandbox management](https://docs.nvidia.com/openshell/latest/sandboxes/manage-sandboxes?utm_source=chatgpt.com)
+[OpenShell sandbox management](https://github.com/NVIDIA/OpenShell/blob/v0.1.2/docs/how-it-works/sandboxes/overview.mdx)
 
 **OpenShell protobuf/API definition**  
 [OpenShell public API proto](https://github.com/NVIDIA/OpenShell/blob/main/proto/openshell.proto?utm_source=chatgpt.com)
