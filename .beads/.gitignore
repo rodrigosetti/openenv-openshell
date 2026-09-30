@@ -3,6 +3,9 @@ dolt/
 embeddeddolt/
 proxieddb/
 
+# Generated issue snapshot; the shared Dolt database is authoritative.
+issues.jsonl
+
 # Runtime files
 bd.sock
 bd.sock.startlock

@@ -6,6 +6,12 @@ Welcome to Beads! This repository uses **Beads** for issue tracking - a modern, 
 
 Beads is issue tracking that lives in your repo, making it perfect for AI coding agents and developers who want their issues close to their code. No web UI required - everything works through the CLI and integrates seamlessly with git.
 
+**Repository workflow:** Linked worktrees share the primary checkout's live
+Dolt database. Generated `issues.jsonl` is ignored, with automatic export and
+hook import disabled. Source-branch merges must not synchronize issue data.
+See [the worktree guide](../docs/beads-worktrees.md) for branch migration,
+manual exports, and database synchronization.
+
 **Learn more:** [github.com/steveyegge/beads](https://github.com/steveyegge/beads)
 
 ## Quick Start
