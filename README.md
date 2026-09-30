@@ -49,6 +49,11 @@ make check
 
 Unit tests use typed fakes and do not need an OpenShell installation or gateway.
 The default check excludes the opt-in runtime integration tests.
+`tests/unit/test_successful_lifecycle.py` follows startup and mocked HTTP health
+through identity-aware deletion, client closure, cleared ownership, and retained
+non-secret metadata. It also checks cleanup through the production SDK adapter
+using an offline SDK double; runtime evidence is recorded separately in the
+[integration guide](tests/integration/README.md).
 
 Offline failure acceptance tests cover create/readiness timeouts, missing or
 malformed service URLs, persistent HTTP errors and redirects, transport failures,
