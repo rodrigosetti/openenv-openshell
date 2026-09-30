@@ -34,9 +34,20 @@ def test_supported_pair(openenv_version: str, openshell_version: str) -> None:
     assert [item for item in requirements if item.startswith("openenv")] == [
         f"openenv=={openenv_version}"
     ]
-    assert [item for item in requirements if item.startswith("openshell")] == [
+    assert not any(item.startswith("openshell") for item in requirements)
+    groups = cast(
+        "dict[str, list[str]]",
+        tomllib.loads((ROOT / "pyproject.toml").read_text())["dependency-groups"],
+    )
+    assert [item for item in groups["dev"] if item.startswith("openshell")] == [
         SDK_REQUIREMENT
     ]
+    prerequisite = [
+        line
+        for line in (ROOT / "requirements-openshell.txt").read_text().splitlines()
+        if line and not line.startswith("#")
+    ]
+    assert prerequisite == [SDK_REQUIREMENT]
     assert version("openenv") == openenv_version
     assert version("openshell") == openshell_version == SDK_VERSION
     assert os.environ.get("COMPAT_OPENENV", openenv_version) == openenv_version

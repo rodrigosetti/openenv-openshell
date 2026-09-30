@@ -34,7 +34,11 @@ The Quality workflow has a dedicated dependency-pair matrix on Python 3.11.
 Its matrix labels are checked against both installed versions and the reviewed
 pair; relabeling a job cannot make an untested pair appear supported. Installation
 uses the lock and the exact official SDK wheel URL/hash, rather than the unrelated
-older PyPI SDK. The full quality job separately exercises Python 3.11–3.14.
+older PyPI SDK. I13 keeps that pin in the development group and in
+`requirements-openshell.txt`; the dependency-bound test checks both. Published
+metadata omits the SDK URL because package indexes reject direct references.
+Users install the exact SDK separately following the [release instructions](releases.md).
+The full quality job separately exercises Python 3.11–3.14.
 Local execution does not establish that those hosted CI jobs have run.
 
 ## Live pair validation
