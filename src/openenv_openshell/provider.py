@@ -290,6 +290,15 @@ class OpenShellProvider(ContainerProvider):
         self._adapter = None
         self.state = ProviderState(deleted=self.state.deleted)
 
+    def close(self) -> None:
+        """Delete the owned sandbox and release resources, including on context exit.
+
+        This has the same keep_sandbox and retry semantics as stop_container.
+        The inherited OpenEnv context manager calls close without suppressing
+        exceptions. Cleanup failures retain ownership for an explicit retry.
+        """
+        self.stop_container()
+
     def wait_for_ready(self, base_url: str, timeout_s: float = 30.0) -> None:
         """Wait until the OpenEnv server's health endpoint is ready."""
         if isinstance(timeout_s, bool) or not isfinite(timeout_s) or timeout_s <= 0:

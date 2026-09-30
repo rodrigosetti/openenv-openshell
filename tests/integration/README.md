@@ -140,3 +140,13 @@ stop was harmless, local ownership was cleared, and the independent SDK listing
 confirmed absence. `make check` passed Ruff, strict Pyright, and 310 unit tests
 with 99.48% branch-inclusive coverage (provider 100%). This local result does not
 establish remote service support or unmodified-client lifecycle behavior.
+
+P9 extends this test to four cleanup paths: `stop_container()`, `close()`,
+normal provider context exit, and context exit after a body exception. Each path
+checks cleared ownership and independently confirms sandbox absence. Verified
+on 2026-09-30 with local SDK/gateway 0.1.2 and the pinned arm64 image: all four
+cases passed routed health, WebSocket protocol, and deletion checks. `make check`
+passed Ruff, strict Pyright, and 334 unit tests with 99.48% branch-inclusive
+coverage (provider 100%). Offline tests additionally cover pre-start close,
+repeated cleanup, keep_sandbox, partial startup rollback, and retry after
+delete/wait/client-close failures on context exit.
