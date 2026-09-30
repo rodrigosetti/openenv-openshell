@@ -143,3 +143,9 @@ validation and real enforcement remain separate checks.
 be a deliberate caller choice and cannot recover from an explicit-policy error.
 The loader is ready for provider startup integration; startup itself remains
 pending, and no runtime enforcement claim follows from these offline tests.
+
+See the [policy examples and selection guide](examples/policies/README.md) for
+strict deny-all egress, minimal Hugging Face reads, and an image compatibility
+policy. Their schema and create-request serialization are checked against the
+pinned 0.1.2 wheel. The guide explains image-policy selection, the proposed
+`policy_mode` API, and the difference between compatibility and least privilege.

@@ -1,0 +1,35 @@
+# Same strict filesystem/identity posture as deny-all.yaml, with one egress rule.
+# Illustrates curl reads of huggingface.co; not a full Hub download policy.
+version: 1
+filesystem_policy:
+  include_workdir: false
+  read_only:
+    - /bin
+    - /usr
+    - /lib
+    - /etc
+    - /proc
+    - /dev/urandom
+    - /app
+  read_write:
+    - /workspace
+    - /tmp
+    - /dev/null
+landlock:
+  compatibility: hard_requirement
+process:
+  run_as_user: sandbox
+  run_as_group: sandbox
+network_policies:
+  huggingface-read:
+    name: huggingface-read
+    binaries:
+      - path: /usr/bin/curl
+    endpoints:
+      - host: huggingface.co
+        port: 443
+        protocol: rest
+        # Omitted tls selects automatic detection; terminate is deprecated
+        # and rejected by OpenShell 0.1.2 gateway policy validation.
+        enforcement: enforce
+        access: read_only
