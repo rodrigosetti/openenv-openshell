@@ -38,8 +38,14 @@ Publication status and baseline review are recorded in the
   handling. Automatic OCI ENTRYPOINT/CMD, ENV, and WORKDIR resolution is outside
   the MVP contract.
 - Policy parsing and atomic request validation are tested, but the release's
-  filesystem and network denial acceptance tests remain pending. Trusted
-  external verification is a later milestone.
+  security milestone remains incomplete: SEC8a tracks unsafe name-based cleanup.
+  Local filesystem/network denials have runtime evidence; process capacity and
+  availability isolation for hostile workloads are excluded on the local VM
+  lane. Trusted external verification is a later milestone.
+
+See the [architecture guide](docs/architecture.md) for lifecycle, routing,
+failure recovery, and metadata, and the [security guide](docs/security.md) for
+policy precedence, credentials, enforcement evidence, and residual risks.
 
 ## Development
 
@@ -58,6 +64,10 @@ Source setup above installs that same prerequisite from the development group.
 
 Unit tests use typed fakes and do not need an OpenShell installation or gateway.
 The default check excludes the opt-in runtime integration tests.
+Separate filesystem and network security jobs run with `make security-filesystem`
+and `make security-network`, or sequentially with `make security-e2e`. They require
+explicit per-job images and a prepared gateway; see the
+[security E2E job setup](tests/integration/README.md#separate-security-e2e-jobs-i3).
 `tests/unit/test_successful_lifecycle.py` follows startup and mocked HTTP health
 through identity-aware deletion, client closure, cleared ownership, and retained
 non-secret metadata. It also checks cleanup through the production SDK adapter
@@ -99,8 +109,25 @@ spike milestone. The [M1 acceptance review](docs/provider-acceptance.md) records
 the production provider lifecycle, client compatibility, and cleanup evidence.
 
 The checks enforce formatting and linting with Ruff, strict static typing with
-Pyright, and unit-test branch coverage of at least 95%. Tests that require a
-real OpenShell gateway belong in `tests/integration` and are opt-in:
+Pyright, and unit-test branch coverage of at least 95%.
+The [Quality workflow](.github/workflows/quality.yml) runs those same checks on
+Ubuntu with Python 3.11, 3.12, 3.13, and 3.14 for pull requests, pushes to `main`,
+and manual runs. Each matrix job validates `uv.lock`, installs locked development
+dependencies, and builds both the source distribution and wheel with the locked
+Hatchling backend. Its uv setup follows the
+[official GitHub Actions guide](https://docs.astral.sh/uv/guides/integration/github/).
+To reproduce a job locally (choose any supported version):
+
+```bash
+export UV_PYTHON=3.12 UV_LOCKED=true
+uv lock --check
+uv sync --locked --all-groups
+make check
+uv build --no-build-isolation
+```
+
+Tests that require a real OpenShell gateway belong in `tests/integration` and are
+opt-in:
 
 ```bash
 uv run pytest -m integration
@@ -196,6 +223,12 @@ service names use lowercase letters, digits, and hyphens; otherwise the provider
 generates a bounded `openenv-<image>-<suffix>` sandbox name. Labels are copied
 defensively and must contain only non-secret operational metadata—never tokens,
 credentials, prompts, or private task/user content.
+
+Resource values are requests to OpenShell, not proof of runtime enforcement.
+The local 0.1.2 native VM lane has no validated sandbox-specific process budget;
+v0.1 excludes protection against process-exhaustion denial of service on that
+lane. Non-root identity and Landlock do not supply that guarantee. See the
+[process-capacity scope and operator requirements](docs/process-capacity.md).
 
 ## HTTP readiness
 

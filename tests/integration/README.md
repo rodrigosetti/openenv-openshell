@@ -15,6 +15,58 @@ Tests in this directory exercise real transports or an OpenShell runtime.
 Mark each test with `@pytest.mark.integration`; they are excluded from the
 default unit-test run configured in `pyproject.toml`.
 
+SEC8's [security review](../../docs/security-review.md) uses
+`test_security_review.py` with the SEC5 synthetic filesystem image to verify
+strict non-root identity in the initial workload and exec, workspace writes,
+continued OpenEnv protocol, and independent cleanup. Its bounded cgroup/rlimit
+diagnostic records capacity observations without claiming PID enforcement.
+The review also identifies the SEC8a name-based cleanup vulnerability, which
+remains a required repair. SEC8b adopts the [process-capacity scope exclusion](../../docs/process-capacity.md)
+in SPEC and M2 acceptance; closing it does not establish PID enforcement.
+
+## Separate security E2E jobs (I3)
+
+`make security-filesystem` runs only SEC5, and `make security-network` runs only
+SEC6. `make security-e2e` checks both image inputs before starting and runs the
+two jobs sequentially, including with `make -j`. These jobs require a prepared
+OpenShell 0.1.2 gateway and explicitly selected images; they do not install,
+restart, or configure the gateway or build images. Build the SEC5 synthetic
+canary layer as described below before running the filesystem job.
+
+```bash
+export OPENENV_OPENSHELL_FILESYSTEM_IMAGE_ID="$(docker image inspect --format '{{.Id}}' openenv-openshell-filesystem:sec5)"
+export OPENENV_OPENSHELL_NETWORK_IMAGE_ID="$(cat tests/integration/images/echo/local-image-id.txt)"
+make security-e2e
+# Or run either job independently:
+make security-filesystem
+make security-network
+```
+
+Each job maps its own image input to the shared fixture's
+`OPENENV_OPENSHELL_ECHO_IMAGE_ID`, so the filesystem job cannot silently reuse
+an ordinary EchoEnv opt-in. Missing job inputs fail before pytest or gateway
+access. A wrong image, unavailable gateway, version/workspace failure, missing
+canary, or failed network positive control fails the opted-in suite. SEC6 also
+requires gateway internet access to `huggingface.co` and `example.com`.
+`OPENSHELL_GATEWAY` and `OPENSHELL_WORKSPACE` retain the fixture semantics below.
+The fixture provides interruption cleanup and sanitized teardown diagnostics;
+the tests independently confirm sandbox deletion.
+
+The jobs select the `integration` marker and use `--no-cov` because these small
+runtime suites cannot satisfy the whole-package unit coverage gate. `make check`
+and the Quality workflow continue to enforce unit coverage without runtime access.
+I5's manual CI workflow uses the same suites through a bounded entry point;
+see [CI runner setup](../../docs/integration-ci.md). These local job commands
+do not establish a hosted CI run or remote gateway support.
+
+Validated on 2026-09-30 with local SDK/gateway 0.1.2 and the previously validated
+native arm64 EchoEnv and SEC5 canary images: `make -j2 security-e2e` passed one
+filesystem case and both network destination cases, including independent
+sandbox absence checks. All three missing-input guards failed before pytest;
+the combined guard also rejected a missing network input with the filesystem
+input present. `make check` passed 416 unit tests, Ruff, strict Pyright, and
+99.50% branch-inclusive coverage.
+
 `test_http_readiness.py` uses a local HTTP server and needs no OpenShell gateway:
 
 ```bash

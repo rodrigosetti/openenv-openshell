@@ -21,6 +21,9 @@ is attached to the GitHub release but was not published on PyPI at inspection
 time; PyPI still resolves 0.0.116. The repository must not combine the old
 0.0.116 SDK with a 0.1.x gateway and call that a supported pair.
 
+The [I6 compatibility matrix](compatibility-matrix.md) combines this exact
+SDK/gateway target with OpenEnv 0.6.0; its supported range endpoints coincide.
+
 [v0.1.2 release]: https://github.com/NVIDIA/OpenShell/releases/tag/v0.1.2
 [Python wheel]: https://github.com/NVIDIA/OpenShell/releases/download/v0.1.2/openshell-0.1.2-py3-none-any.whl
 [PyPI 0.0.116]: https://pypi.org/project/openshell/0.0.116/

@@ -11,6 +11,10 @@ The tested OpenEnv range is **exactly 0.6.0**, pinned in `pyproject.toml` and
 evidence. Widen it only after testing factory, protocol, and cleanup contracts
 against each added release. This check used Python 3.11.8.
 
+I6 makes the singleton range explicit in the
+[client/SDK/gateway matrix](compatibility-matrix.md), with a focused offline
+command and a dedicated CI dependency-pair job.
+
 ## Local check
 
 Complete the [local setup](local-openshell-testing.md) and build the
