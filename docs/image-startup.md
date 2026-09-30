@@ -108,10 +108,12 @@ no-RPC rejection. The typed fake retains the command. The SEC4 integration
 control now supplies its command through the production adapter instead of
 injecting it at the mocked SDK call.
 
-P4 owns lifecycle wiring, including local validation before connection and
-cleanup after partial startup. This decision does not implement `start_container`
-or close release acceptance gates. The S6a runtime evidence above covers the
-explicit fixture command on the local VM; remote images/drivers remain S5a.
+P4 now implements `start_container`, including local validation before connection,
+create-time route capture, readiness, and best-effort failed-start deletion.
+See the [P4 runtime control](../tests/integration/README.md#p4-provider-startup).
+Public cleanup remains P6/P7 and release acceptance gates remain open.
+The S6a runtime evidence above covers the explicit fixture command on the local
+VM; remote images/drivers remain S5a.
 
 ### S6b validation
 

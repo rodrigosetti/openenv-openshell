@@ -109,3 +109,23 @@ echo steps, and ping/pong passed. Sandbox absence and disposable provider/profil
 cleanup succeeded. `make check` passed 271 unit tests, Ruff, strict Pyright, and
 99.40% branch-inclusive coverage. This is a local credential visibility result;
 endpoint rewriting and remote credential behavior remain unverified.
+
+## P4 provider startup
+
+The production provider now loads explicit policy before connecting, submits exact
+argv/environment through the adapter, captures the selected create-time route,
+and waits for sandbox readiness. This opt-in runtime test exercises provider
+startup, HTTP health, and the routed EchoEnv protocol. Public `stop_container`
+remains P6; this test uses SDK teardown and verifies sandbox absence.
+
+```bash
+OPENENV_OPENSHELL_ECHO_IMAGE_ID="$(cat tests/integration/images/echo/local-image-id.txt)" \
+  uv run pytest -m integration --no-cov tests/integration/test_provider_startup.py \
+  -v --log-cli-level=INFO
+```
+
+Verified on 2026-09-30 with the local SDK/gateway 0.1.2 and pinned arm64 image:
+provider startup and HTTP health passed; routed WebSocket passed two reset/step/state
+episodes, four echo steps and ping/pong. Sandbox `oe-p4-0eeac947` deletion and
+absence were verified. This does not establish unmodified-client lifecycle or
+remote service support (P10/I2/S5a).

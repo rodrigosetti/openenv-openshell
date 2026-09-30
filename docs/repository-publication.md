@@ -16,6 +16,10 @@ of public visibility, origin, and the published commit.
 
 ## Baseline review
 
+This records the original publication review. Local main subsequently gained
+P4 sandbox startup; the merge preserves that implementation and updates README
+accordingly. Public cleanup remains pending P6.
+
 - README distinguishes implemented configuration, HTTP readiness, offline policy
   loading, and private request translation from unfinished public startup and
   cleanup. It links the local M0 evidence and states image, remote routing,

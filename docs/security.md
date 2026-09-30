@@ -64,9 +64,8 @@ Provider resolution and authorization belong to the gateway. Existing
 non-empty-string validation remains in effect.
 
 Configuration and create-request mapping are implemented and tested offline.
-Public `start_container()` and `stop_container()` remain pending Milestone 1;
-the example configures future startup and does not claim a working public
-lifecycle. Provider provisioning is an operator action, separate from sandbox
+Public `start_container()` is implemented; `stop_container()` remains pending
+P6, so this example does not claim a complete public client lifecycle. Provider provisioning is an operator action, separate from sandbox
 cleanup; this package does not own or delete an operator's provider.
 
 ## SEC7 credential visibility check
@@ -75,7 +74,8 @@ The opt-in [runtime test](../tests/integration/test_managed_credentials.py)
 creates a uniquely named provider profile and provider with a random synthetic
 credential, then selects it through production request preparation and the
 production adapter. The test supplies the validated image command through the production
-`command` configuration and adapter mapping, while public startup wiring remains P4.
+`command` configuration and adapter mapping. P4 separately verifies provider
+startup in `tests/integration/test_provider_startup.py`.
 
 It captures a full environment print from the initial workload and from a new
 exec process. Both must contain a present credential placeholder, contain no

@@ -6,8 +6,8 @@ policies. It targets OpenEnv's existing `ContainerProvider` interface so users
 can keep their environment protocol and training loop while changing runtimes.
 
 **Pre-alpha: the production provider is unfinished.** Configuration validation,
-HTTP readiness, strict policy loading, and private SDK request translation are
-implemented. Public `start_container()` and `stop_container()` still raise
+sandbox startup, HTTP readiness, strict policy loading, and private SDK request
+translation are implemented. Public `stop_container()` still raises
 `NotImplementedError`. This source baseline is for development; it is not a
 usable production provider, a PyPI release, or a claim to the PyPI package name.
 
@@ -23,7 +23,7 @@ Publication status and baseline review are recorded in the
 
 ## Known limitations
 
-- Production startup, cleanup, and unmodified OpenEnv client integration remain
+- Public cleanup and unmodified OpenEnv client integration remain
   Milestone 1 work. Runtime probes do not establish complete provider behavior.
 - The validated image is a locally built arm64 EchoEnv image on the native VM
   lane. Its checked-in Docker image ID is not a pullable registry digest;
@@ -94,9 +94,14 @@ The public import is available in a development checkout:
 from openenv_openshell import OpenShellProvider
 ```
 
-Sandbox startup and cleanup intentionally raise `NotImplementedError` until
-their Milestone 1 tasks are implemented. See [SPEC.md](SPEC.md) for the design
-and milestones.
+`start_container` creates an atomic policy/workload/service request, captures
+the configured create-time service URL, waits for OpenShell readiness, and
+populates `provider.state`. It rejects a second start while it owns a sandbox.
+Startup failures attempt deletion and retain ownership when cleanup is uncertain;
+`keep_sandbox=True` retains failed sandboxes for inspection.
+`stop_container` still raises `NotImplementedError` pending P6. Lifecycle logging,
+run metadata, and complete failure cleanup reporting remain P7/P8 work.
+See [SPEC.md](SPEC.md) for the design and milestones.
 
 Provider configuration is accepted directly as keyword arguments and validated
 without contacting an OpenShell gateway:
@@ -115,7 +120,7 @@ provider = OpenShellProvider(
 )
 ```
 
-The planned startup contract requires explicit `command` argv for the selected
+The startup contract requires explicit `command` argv for the selected
 image. The path above illustrates configuration; choose the actual image server
 launcher, supply required environment through `env_vars`, and establish any
 required directory in that command. The adapter preserves argv exactly and
@@ -191,8 +196,8 @@ validation and real enforcement remain separate checks.
 
 `None` is rejected by this explicit loader. Image/default policy selection must
 be a deliberate caller choice and cannot recover from an explicit-policy error.
-The loader is ready for provider startup integration; startup itself remains
-pending, and no runtime enforcement claim follows from these offline tests.
+Provider startup calls this loader before gateway connection for explicit
+policies. Offline validation does not establish runtime policy enforcement.
 
 See the [policy examples and selection guide](examples/policies/README.md) for
 strict deny-all egress, minimal Hugging Face reads, and an image compatibility
@@ -209,7 +214,7 @@ processes even when request representations and errors redact them. The
 workspace and maps them to the sandbox spec; it does not provision credentials
 or infer providers. See the [credential and provider guide](docs/security.md)
 for setup, permission scope, and the SEC7 runtime visibility check. Public
-sandbox startup and cleanup remain pending Milestone 1.
+sandbox startup is implemented; public cleanup remains pending P6.
 
 ## License
 

@@ -602,7 +602,9 @@ S6a found that omitted command starts a scratch login shell on the tested VM
 lane; explicit image CMD passes routed health and protocol. The SDK exposes no
 public image-config resolver or portable create-time workdir. S6b adopts the
 supported explicit startup strategy and extends offline argv/environment
-contracts. P4 still owns production lifecycle wiring and startup-failure tests.
+contracts. P4 implements production startup wiring and offline startup-failure
+tests in `tests/unit/test_start_container.py`; the local runtime control is
+`tests/integration/test_provider_startup.py`. Public cleanup remains P6/P7.
 See [startup evidence and decision](docs/image-startup.md).
 
 Image compatibility is compute-driver-specific. The tested VM image includes
@@ -904,7 +906,8 @@ invalid explicit inputs send no create RPC and leave no sandbox, while a valid
 initial policy permits the routed EchoEnv control to execute and be deleted.
 The production adapter validates explicit inputs before gateway access and
 embeds policy atomically. This adapter test supplies the validated image command
-at the SDK boundary; provider startup wiring remains P4. See the
+at the SDK boundary. P4 now wires the loader into provider startup before
+connection and verifies the local routed workload. See the
 [SEC4 runtime evidence](tests/integration/README.md). These results do not close
 filesystem/network denial acceptance (SEC5/SEC6).
 
