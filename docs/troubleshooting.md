@@ -57,16 +57,9 @@ the pinned wheel; see [installation](../README.md#install).
 
 ### `SandboxCreationError` on every start
 
-The gateway rejected the create request. The most common cause today is the
-sandbox name: the 0.1.2 gateway accepts at most **19 characters**, but the
-provider's generated default (`openenv-<image>-<suffix>`) is usually longer
-(tracked as `openenv-openshell-zf3`). Pass a short, unique name:
-
-```python
-from secrets import token_hex
-
-OpenShellProvider(sandbox_name=f"oe-{token_hex(4)}", ...)
-```
+The gateway rejected the create request. Generated default names fit the 0.1.2
+gateway's **19-character** limit. If you set `sandbox_name`, keep it within that
+limit and unique in the workspace.
 
 Other causes: a name already in use in the workspace, a `providers` entry that
 does not exist, or a policy the gateway rejects semantically (for example

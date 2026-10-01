@@ -1134,8 +1134,13 @@ openenv-<environment>-<random>
 Example:
 
 ```text
-openenv-coding-a7f213
+openenv-codi-a7f213
 ```
+
+Generated names MUST fit the OpenShell 0.1.2 gateway limit of 19 characters.
+Reserve eight characters for `openenv-`, seven for the hyphen and six-hex
+random suffix, and at most four for the sanitized image basename. Strip trailing
+hyphens after truncation and use `env` if the basename has no usable characters.
 
 Names SHOULD be:
 
@@ -1146,7 +1151,7 @@ Names SHOULD be:
 Recommended implementation:
 
 ```python
-prefix = sanitize(image_basename)
+prefix = sanitize(image_basename)[:4].rstrip("-") or "env"
 suffix = secrets.token_hex(3)
 
 name = f"openenv-{prefix}-{suffix}"
@@ -1287,7 +1292,7 @@ Example:
 
 ```text
 INFO openenv_openshell sandbox.ready
-     sandbox=openenv-coding-a7f213
+     sandbox=openenv-codi-a7f213
      workspace=default
 ```
 
@@ -1306,7 +1311,7 @@ Potential metadata:
   "runtime": "openshell",
   "workspace": "default",
   "sandbox_id": "...",
-  "sandbox_name": "openenv-coding-a7f213",
+  "sandbox_name": "openenv-codi-a7f213",
   "image": "...@sha256:...",
   "policy_sha256": "...",
   "service_url": "...",
