@@ -171,16 +171,21 @@ The gateway needs internet access to `pypi.org` and `example.com`. The
 
 - Only OpenEnv 0.6.0 and OpenShell SDK/gateway 0.1.2 are supported.
 - Validated on the local native arm64 VM driver with locally built images. Their
-  image IDs are not pullable registry digests; other images and compute drivers
-  are unverified.
+  image IDs are not pullable registry digests. S5b also validated a digest-pinned
+  amd64 EchoEnv image on a remote Docker driver with OIDC; arbitrary images and
+  other compute drivers are unverified.
 - Generated default sandbox names exceed the 0.1.2 gateway's 19-character
   limit; pass a short `sandbox_name` (tracked as `openenv-openshell-zf3`).
 - Remote gateways using the standard mTLS configuration are **not supported**
   for unmodified OpenEnv clients: service routes require a TLS client
   certificate the client cannot present. The provider fails with
-  `ServiceAccessError` instead of timing out. OIDC or edge-authenticated
-  gateways, long idle sessions, and reconnects are unverified. See
-  [S5a remote evidence](docs/protocol-spike.md#remote-gateway-validation-s5a-2026-09-30).
+  `ServiceAccessError` instead of timing out. S5b validated an OIDC-configured
+  remote gateway with the unmodified async/sync client: lifecycle RPCs required
+  a bearer token, but service routes were anonymous within the IP-restricted
+  network boundary. OIDC gateway authentication does not protect those service
+  routes. Edge authentication, HTTP 401/403 service challenges, long idle
+  sessions, and reconnects remain unverified. See
+  [S5b remote evidence](docs/protocol-spike.md#oidc-remote-gateway-validation-s5b-2026-10-01).
 - You must supply the server command, environment, and working directory; OCI
   `ENTRYPOINT`/`CMD`, `ENV`, and `WORKDIR` are not resolved.
 - Security milestones are incomplete: name-based cleanup can affect a sandbox

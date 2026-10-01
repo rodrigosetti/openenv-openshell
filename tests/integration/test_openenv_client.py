@@ -1,6 +1,7 @@
 """I2 EchoEnv E2E through the unmodified OpenEnv client and owned runtime."""
 
 import asyncio
+import ssl
 from http import HTTPStatus
 
 import httpx
@@ -22,7 +23,10 @@ def test_unmodified_openenv_client(openshell_runtime: Runtime, mode: str) -> Non
     def assert_health() -> None:
         # Check the actual selected route without a second startup/health wait.
         assert provider.state.base_url is not None
-        with httpx.Client(trust_env=False, timeout=5) as client:
+        # Keep proxies disabled while honoring SSL_CERT_FILE for private CAs.
+        with httpx.Client(
+            trust_env=False, verify=ssl.create_default_context(), timeout=5
+        ) as client:
             response = client.get(f"{provider.state.base_url.rstrip('/')}/health")
         assert response.status_code == HTTPStatus.OK
         assert provider.state.ready

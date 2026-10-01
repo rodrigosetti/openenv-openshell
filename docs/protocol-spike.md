@@ -150,7 +150,8 @@ workload (see SPEC section 13.1).
 - Not validated: OIDC or edge-authenticated gateways, where bearer-only
   clients may connect without a certificate; HTTP 401/403 service
   challenges; long idle sessions and reconnects. HTTP 401/403 keep the existing
-  retry-until-timeout behavior because none was observed.
+  retry-until-timeout behavior because none was observed. S5b below subsequently
+  validated an OIDC gateway with the unmodified client.
 - The OpenShell 0.1.2 Docker driver rejects images that resolve to UID 0 and
   needs a workdir the workload identity can write. The VM-lane image did not
   meet either requirement.
@@ -197,3 +198,87 @@ sandboxed prerequisite check could not connect to localhost.
 M0 is a local spike gate. Production provider startup/cleanup, unmodified-client
 integration, automatic image startup (S6a), remote validation (S5a), and security
 enforcement acceptance remain their respective downstream tasks.
+
+## OIDC remote gateway validation (S5b, 2026-10-01)
+
+The disposable GCE VM `openenv-s5b-gateway` ran Ubuntu 24.04 amd64,
+`e2-standard-2`, in `us-east1-b`, using the OpenShell 0.1.2 Docker driver and
+Keycloak 26.0.8. Its firewall admitted port 8080 only from the tester's public
+IP. The routing domain was `35-229-78-209.sslip.io`. The gateway image resolved
+to `sha256:2fe4dad9118e14ab80a8258b545ea6e6cd74c3469e24ad4e6610f964d98913a2`;
+Keycloak resolved to
+`sha256:09a381c715ab0b111835b70f2905955274843a219c6f27efb348e4d9f4086858`.
+The EchoEnv image was the same manifest-pinned amd64 image used for S5a above.
+
+[The OIDC bootstrap](examples/remote-oidc-gateway-bootstrap.sh) and
+[reproduction commands](remote-gateway-testing.md#oidc-variant-s5b) record the
+complete fixture. Keycloak's issuer and discovery/JWKS endpoints used numeric
+loopback HTTP on the VM with the gateway's explicit development acknowledgement.
+Remote gateway and service traffic used HTTPS/WSS with certificate verification
+and a public-roots-plus-private-CA bundle; verification was never disabled.
+This tests the service-routing authentication boundary, not production IdP
+transport, browser login, token renewal, or a shared multi-user deployment.
+
+The gateway retained its guest/client CA but disabled mTLS user authentication
+and enabled OIDC. In the pinned
+[listener configuration](https://github.com/NVIDIA/OpenShell/blob/v0.1.2/crates/openshell-server/src/cli.rs),
+`require_client_auth` is `has_client_ca && !has_oidc`. Gateway startup confirmed
+OIDC discovery and one usable signing key loaded from Keycloak. The imported
+service account token had audience `openshell-cli` and role `openshell-admin`.
+
+The isolated SDK configuration contained the CA and OIDC token, with **no TLS
+client certificate or key**. Protected `list(workspace="default")` calls using
+CA-only TLS returned `UNAUTHENTICATED` with a missing token and with an invalid
+token; the valid Keycloak bearer succeeded and health reported version 0.1.2.
+The unmodified OpenEnv client received no bearer token or TLS client identity.
+
+### Results
+
+| Check | Service credentials | Result |
+|---|---|---|
+| Raw protocol probe | None | HTTP health, two episodes, four echo steps, state, ping/pong passed |
+| Unmodified OpenEnv 0.6.0 async client | None | Health, two episodes, six echo steps including Unicode, state, client cleanup passed |
+| Unmodified OpenEnv 0.6.0 sync client | None | Same assertions and cleanup passed |
+
+The final combined run reported **3 passed in 79.57 seconds**. Its protocol
+sandbox was `oe-s4-f2927e7a91`, ID `c2e011ba-ad99-4a0a-a45a-06256f33d445`,
+using:
+
+```text
+https://default--oe-s4-f2927e7a91.35-229-78-209.sslip.io:8080/
+```
+
+The async and sync provider sandboxes were `oe-e2e-2d7f2af057` and
+`oe-e2e-8a14a88a36`. Each client close deleted its sandbox; the tests checked
+provider deletion metadata and gateway absence before fallback fixture cleanup.
+The protocol helper verified absence with the original sandbox ID. A final
+protected gateway list returned zero sandboxes.
+
+An earlier combined run passed the protocol probe but failed both client tests
+in their additional health assertion: `httpx.Client(trust_env=False)` ignored
+`SSL_CERT_FILE`. Provider readiness itself had already passed. The assertion
+now passes `ssl.create_default_context()` explicitly, retaining both CA
+verification and disabled proxy lookup. The OpenEnv client and provider
+transport were unchanged. Cleanup succeeded for those failed attempts too.
+
+### Support boundary
+
+This tested OIDC configuration supports the unmodified client. **OIDC protects
+gateway lifecycle RPCs, not the service routes in this deployment.** Service
+routes admitted anonymous HTTP/WebSocket traffic within the IP-restricted
+network boundary. Do not infer per-user service access control from successful
+gateway authentication or generalize this result to an authenticating edge
+proxy. Standard remote mTLS remains unsupported as established by S5a.
+
+No HTTP 401/403 service challenge was observed. Transient startup HTTP 502
+responses recovered through the existing retry path. Provider behavior was not
+changed: observed TLS challenges still fail explicitly with `ServiceAccessError`
+and retain offline regression tests; HTTP 401/403 challenge handling remains
+unvalidated and retains its existing retry behavior. Long idle sessions,
+reconnects, and edge authentication remain unverified.
+
+`UV_CACHE_DIR=/private/tmp/openenv-s5b-uv-cache UV_NO_SYNC=1 make check` passed
+formatting, lint, strict typing, and 457 unit tests with 99.52% production branch
+coverage. `sh -n` passed for the new bootstrap, and `git diff --check` passed.
+The disposable VM, boot disk, firewall rule, and isolated credential directory
+were removed after validation; the active local gateway was never changed.

@@ -86,3 +86,8 @@ assertions. S5a ran this test against a remote mTLS gateway. Both modes failed
 explicitly with `ServiceAccessError`, because the route requires a TLS client
 certificate. See [remote evidence](protocol-spike.md#remote-gateway-validation-s5a-2026-09-30).
 Security denial acceptance remains SEC5/SEC6.
+
+S5b also ran this suite on a remote OIDC-configured Docker-driver gateway,
+using the pinned amd64 registry image. Both modes passed without a TLS client
+certificate or service bearer token. The SDK alone used OIDC for lifecycle
+RPCs. See [OIDC evidence](protocol-spike.md#oidc-remote-gateway-validation-s5b-2026-10-01).

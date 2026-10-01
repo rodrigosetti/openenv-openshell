@@ -705,9 +705,16 @@ raises `ServiceAccessError` without retrying when TLS requires a client
 certificate or rejects the route certificate. It does not wait for the
 readiness timeout. HTTP 401/403 responses keep the normal retry path because
 none was observed. Private CAs are trusted through the standard
-`SSL_CERT_FILE` bundle with verification enabled. OIDC or edge-authenticated
-gateways, where bearer-only clients may connect, remain unverified. See
-[remote evidence](docs/protocol-spike.md#remote-gateway-validation-s5a-2026-09-30).
+`SSL_CERT_FILE` bundle with verification enabled. S5b validated an
+OIDC-configured remote 0.1.2 Docker-driver gateway with Keycloak: lifecycle RPCs required a bearer token, while service HTTP/WebSocket
+routes admitted the unmodified OpenEnv client without credentials or client
+certificates. This is support for the tested deployment only, not a guarantee
+for every OIDC or edge configuration. Service routes in that deployment were
+anonymous within the IP-restricted network boundary; gateway OIDC did not
+protect them. Edge-authenticated routes, HTTP 401/403 challenges, long idle
+sessions, and reconnects remain unverified. See
+[mTLS evidence](docs/protocol-spike.md#remote-gateway-validation-s5a-2026-09-30)
+and [OIDC evidence](docs/protocol-spike.md#oidc-remote-gateway-validation-s5b-2026-10-01).
 
 ---
 
@@ -1986,8 +1993,9 @@ unqualified compatibility claims. The remaining questions still apply before v0.
 
 1. **Partially answered (S5):** local short-session ping/pong and repeated
    reset/step/state succeed. S5a repeated this remotely over HTTPS/WSS with a
-   gateway client certificate; unmodified-client
-   validation remains P10/I2. Long idle/reconnect behavior is unverified.
+   gateway client certificate. S5b validated the unmodified async/sync client
+   remotely on an OIDC gateway without service credentials. Long idle/reconnect
+   behavior is unverified.
 
 2. What is the exact Python SDK API for specifying image, command, environment variables, resource requirements, policy, and `service_exposures` in the currently released OpenShell version?
 
@@ -2015,12 +2023,15 @@ unqualified compatibility claims. The remaining questions still apply before v0.
 6. **Answered for mTLS (S5a):** local services required no extra application
    credentials. A remote mTLS gateway's service route requires a TLS client
    certificate, which the unmodified client cannot present. The provider fails
-   explicitly with `ServiceAccessError`. OIDC/edge-authenticated gateways are
-   unverified. See section 13.1.
+   explicitly with `ServiceAccessError`. S5b validated an OIDC gateway whose
+   service routes admitted unmodified clients without additional credentials;
+   gateway lifecycle RPCs still required a bearer token. Edge authentication
+   remains unverified. See section 13.1.
 
 7. **Partially answered (S5a):** for mTLS gateways, OpenShell does not provide
    a directly usable endpoint, and `EnvClient` would need client-certificate
-   support. Whether OIDC or edge-authenticated gateways do is unverified.
+   support. S5b's OIDC configuration provides a directly usable endpoint for
+   the unmodified client; an edge-authenticated endpoint remains unverified.
 
 8. Should provider-owned startup eventually be supported:
 

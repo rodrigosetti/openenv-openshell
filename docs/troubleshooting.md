@@ -112,8 +112,10 @@ The service route uses TLS the client cannot satisfy. Two messages:
 - *route requires a TLS client certificate*: the gateway uses standard mTLS for
   service routes. Unmodified OpenEnv clients cannot present a client
   certificate, so this setup is **not supported**. Use a local gateway, or a
-  gateway whose service routes do not require client certificates. See the
-  [remote gateway evidence](protocol-spike.md#remote-gateway-validation-s5a-2026-09-30).
+  gateway whose service routes do not require client certificates. The tested
+  [S5b OIDC configuration](protocol-spike.md#oidc-remote-gateway-validation-s5b-2026-10-01)
+  works, but its service routes are anonymous within the network boundary.
+  Gateway OIDC authentication alone does not secure them.
 
 ### `SandboxDeletionError`
 
