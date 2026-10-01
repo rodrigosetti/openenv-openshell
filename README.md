@@ -47,6 +47,23 @@ See the [architecture guide](docs/architecture.md) for lifecycle, routing,
 failure recovery, and metadata, and the [security guide](docs/security.md) for
 policy precedence, credentials, enforcement evidence, and residual risks.
 
+## Coding-agent demo
+
+`examples/coding_env.py` runs the upstream OpenEnv coding environment under a
+strict OpenShell policy: it solves a task over the OpenEnv WebSocket, writes to
+`/workspace`, reaches `pypi.org`, is denied `~/.ssh`, `/host`, and `example.com`,
+keeps the session working, and deletes the sandbox. It needs a local
+OpenShell 0.1.2 gateway and a locally built image:
+
+```bash
+docker build -t openenv-openshell-coding:i8 examples/coding-agent
+export OPENENV_OPENSHELL_CODING_IMAGE_ID="$(docker image inspect --format '{{.Id}}' openenv-openshell-coding:i8)"
+make demo
+```
+
+See the [demo guide](docs/coding-agent-demo.md) for expected output, what each
+check establishes, and limits.
+
 ## Development
 
 Python 3.11 or newer and [uv](https://docs.astral.sh/uv/) are required.

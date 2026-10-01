@@ -181,6 +181,17 @@ and exec probes, workspace/temp write controls, continued OpenEnv protocol,
 and independent deletion checks. `make check` passed Ruff, strict Pyright,
 416 unit tests, and 99.50% branch-inclusive coverage.
 
+## I8 coding-agent demo
+
+`test_coding_demo.py` runs `examples/coding_env.py` unchanged in a subprocess,
+asserts its ten stage lines in order, and independently confirms the printed
+sandbox is absent. It skips without `OPENENV_OPENSHELL_CODING_IMAGE_ID`; build
+the image and see limits in the [demo guide](../../docs/coding-agent-demo.md):
+
+```bash
+uv run pytest -m integration --no-cov tests/integration/test_coding_demo.py -v
+```
+
 ## SEC7 managed credential visibility
 
 The SEC7 test requires CLI/SDK/gateway 0.1.2 and the same pinned image. It imports

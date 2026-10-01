@@ -1,6 +1,6 @@
-.PHONY: check compatibility format integration lint openshell-prereqs openshell-smoke security-e2e security-filesystem security-network test typecheck
+.PHONY: check compatibility demo format integration lint openshell-prereqs openshell-smoke security-e2e security-filesystem security-network test typecheck
 
-export OPENENV_OPENSHELL_FILESYSTEM_IMAGE_ID OPENENV_OPENSHELL_NETWORK_IMAGE_ID
+export OPENENV_OPENSHELL_FILESYSTEM_IMAGE_ID OPENENV_OPENSHELL_NETWORK_IMAGE_ID OPENENV_OPENSHELL_CODING_IMAGE_ID
 
 check: lint typecheck test
 
@@ -39,6 +39,11 @@ security-e2e:
 	@test -n "$$OPENENV_OPENSHELL_FILESYSTEM_IMAGE_ID" && test -n "$$OPENENV_OPENSHELL_NETWORK_IMAGE_ID" || { echo "Set both security job image variables; see tests/integration/README.md" >&2; exit 2; }
 	$(MAKE) security-filesystem
 	$(MAKE) security-network
+
+# I8 reference demo; see docs/coding-agent-demo.md for the image build.
+demo:
+	@test -n "$$OPENENV_OPENSHELL_CODING_IMAGE_ID" || { echo "Set OPENENV_OPENSHELL_CODING_IMAGE_ID; see docs/coding-agent-demo.md" >&2; exit 2; }
+	uv run python examples/coding_env.py
 
 openshell-prereqs:
 	./scripts/check-openshell-local.sh

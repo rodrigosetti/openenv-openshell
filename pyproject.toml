@@ -55,7 +55,7 @@ include = ["src/openenv_openshell", "README.md", "LICENSE", "pyproject.toml"]
 packages = ["src/openenv_openshell"]
 
 [tool.pyright]
-include = ["src", "tests", "scripts"]
+include = ["src", "tests", "scripts", "examples"]
 pythonVersion = "3.11"
 typeCheckingMode = "strict"
 venvPath = "."
@@ -103,6 +103,8 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["S101"]
+# Standalone demo scripts, not an importable package; progress goes to stdout.
+"examples/*.py" = ["INP001", "T201"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["openenv_openshell"]

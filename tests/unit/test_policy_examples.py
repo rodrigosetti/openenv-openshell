@@ -21,14 +21,24 @@ _STRICT_PATHS = {
 }
 
 
+_DEMO_POLICY = _ROOT / "examples/coding-agent/policy.yaml"
+
+
 @pytest.mark.parametrize(
-    "filename", ["deny-all.yaml", "hf-minimal.yaml", "image-compatible.yaml"]
+    "path",
+    [
+        _EXAMPLES / "deny-all.yaml",
+        _EXAMPLES / "hf-minimal.yaml",
+        _EXAMPLES / "image-compatible.yaml",
+        _DEMO_POLICY,
+    ],
+    ids=lambda path: path.name if path != _DEMO_POLICY else "coding-agent",
 )
 def test_example_create_policy_roundtrip(
-    filename: str, sdk: MagicMock, create_request: CreateRequest
+    path: Path, sdk: MagicMock, create_request: CreateRequest
 ) -> None:
     """Every shipped YAML strictly converts to the pinned release's wire model."""
-    policy = load_policy(_EXAMPLES / filename)
+    policy = load_policy(path)
     assert policy["version"] == 1
     SDKAdapter(sdk).create(replace(create_request, policy=policy))
     spec = sdk.create.call_args.kwargs["spec"]
@@ -66,6 +76,28 @@ def test_huggingface_example_limits_egress() -> None:
             "endpoints": [
                 {
                     "host": "huggingface.co",
+                    "port": 443,
+                    "protocol": "rest",
+                    "enforcement": "NETWORK_ENFORCEMENT_MODE_ENFORCE",
+                    "access": "NETWORK_ACCESS_PRESET_READ_ONLY",
+                }
+            ],
+        }
+    }
+
+
+def test_coding_demo_policy_is_strict_with_one_package_read() -> None:
+    """The I8 demo keeps deny-all's posture and adds only a pypi.org read."""
+    policy = load_policy(_DEMO_POLICY)
+    network = policy.pop("network_policies")
+    assert policy == load_policy(_EXAMPLES / "deny-all.yaml")
+    assert network == {
+        "package-index-read": {
+            "name": "package-index-read",
+            "binaries": [{"path": "/usr/local/bin/python3.12"}],
+            "endpoints": [
+                {
+                    "host": "pypi.org",
                     "port": 443,
                     "protocol": "rest",
                     "enforcement": "NETWORK_ENFORCEMENT_MODE_ENFORCE",
