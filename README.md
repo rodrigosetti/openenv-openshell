@@ -10,10 +10,12 @@ and training loops keep working: you swap the provider, not the client.
 env = GenericEnvClient.from_docker_image(image, provider=OpenShellProvider(...)).sync()
 ```
 
-**Pre-alpha.** The provider lifecycle, explicit policies, and cleanup are
+**Alpha; v0.1.0 prepared for release.** The provider lifecycle, explicit policies, and cleanup are
 implemented and validated on a local OpenShell 0.1.2 gateway with OpenEnv 0.6.0.
 It is not yet published to PyPI; install from source. See
 [known limitations](#known-limitations) before relying on it.
+The [v0.1.0 release notes](docs/release-notes/0.1.0.md) describe the prepared
+package; publication awaits the release acceptance gates.
 
 ## Requirements
 
@@ -28,7 +30,7 @@ It is not yet published to PyPI; install from source. See
 
 ## Install
 
-From a checkout (recommended while pre-alpha; includes the SDK and dev tools):
+From a checkout (includes the SDK and dev tools):
 
 ```bash
 git clone https://github.com/rodrigosetti/openenv-openshell.git

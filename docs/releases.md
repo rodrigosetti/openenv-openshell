@@ -1,8 +1,9 @@
 # Release preparation and publishing
 
-I13 prepares publishing; I14 owns the first usable production release. Version
-`0.0.0` is development metadata, not a public release or a PyPI name reservation.
+I10 prepares the `0.1.0` package; I13 prepares publishing; I14 owns the first
+usable production release. Setting the version is not publication or a PyPI name reservation.
 Production remains blocked until Beads M3 and I13 are closed with evidence.
+See the [prepared v0.1.0 release notes](release-notes/0.1.0.md) for scope and limitations.
 
 ## SDK and gateway prerequisites
 
@@ -62,7 +63,7 @@ uv sync --locked --all-groups
 make check
 # Start from an empty dist/; preserve any artifacts you still need elsewhere.
 uv build --no-build-isolation
-uv run python -m scripts.check_distribution --tag v0.0.0 --index testpypi
+uv run python -m scripts.check_distribution --tag v0.1.0 --index pypi
 uv run twine check --strict dist/*
 ```
 
@@ -72,6 +73,27 @@ installs each artifact into a fresh environment outside the checkout, first
 without the SDK and then with the exact prerequisite. Sdist installation rebuilds
 the wheel independently. The upload job downloads those validated artifacts;
 it does not rebuild them or execute repository source with OIDC privileges.
+
+The wheel intentionally contains only the typed runtime package and distribution
+metadata/license. The sdist also ships the SDK prerequisite file, lockfile,
+Makefile, SPEC, documentation (including release notes), examples, scripts, and
+tests. Beads and agent-local configuration are explicitly excluded. Review the
+archive member lists as well as passing the automated validator.
+
+To repeat a clean installation locally, run this for each absolute wheel/sdist
+path, from an empty directory outside the checkout:
+
+```bash
+uv venv venv --python 3.11
+uv pip install --python venv/bin/python /absolute/path/to/distribution
+venv/bin/python -c 'from importlib.metadata import version; from openenv_openshell import OpenShellProvider; assert version("openenv-openshell") == "0.1.0"; OpenShellProvider().stop_container()'
+uv pip install --python venv/bin/python -r /absolute/path/to/requirements-openshell.txt
+venv/bin/python -c 'from importlib.metadata import version; from openenv_openshell._sdk import SDKAdapter; assert version("openshell") == "0.1.2"'
+uv pip check --python venv/bin/python
+```
+
+Use a separate environment per artifact so that the wheel cannot conceal an
+sdist build or dependency problem. These checks do not contact a gateway.
 
 ## TestPyPI rehearsal
 
@@ -180,3 +202,33 @@ been exercised because the usable-release gate is still separate. No production
 package was uploaded. After bringing this evidence onto the newer local main,
 `make check` passed 457 unit tests with 99.52% coverage, strict typing and lint.
 Those later changes are not part of the immutable `v0.0.0` rehearsal artifacts.
+
+## I10 package preparation evidence — October 1, 2026
+
+Prepared metadata for `0.1.0`, Alpha classification, and a release-notes project
+URL; refreshed the lock without widening dependency support. The
+[release notes](release-notes/0.1.0.md) retain the cleanup ownership
+release blocker, the process-capacity exclusion, remote mTLS incompatibility,
+explicit-startup requirements, and image/driver limits.
+
+After integrating current main's TestPyPI evidence and sandbox-name repair,
+on Python 3.11.8, `make check` passed 463 unit tests (27 integration tests
+deselected), Ruff format/lint, strict Pyright, and 99.52% coverage. The final
+wheel and sdist passed `scripts.check_distribution --tag v0.1.0 --index pypi`
+and strict Twine checks. Archive inspection confirmed 14 wheel entries: ten
+package files including `py.typed`, plus metadata, WHEEL, license, and RECORD.
+The sdist includes the documented source material and excludes the Beads and
+agent configuration directories.
+
+Each artifact installed independently into a fresh `/tmp` environment, with
+dependencies resolved from package metadata rather than the development lock.
+The sdist rebuilt its wheel under build isolation. Both installations imported
+the public provider from their own `site-packages`, reported version `0.1.0`,
+contained `py.typed`, and accepted stop-before-start. Without the SDK, the lazy
+adapter raised the actionable installation error before gateway access. After
+installing the hash-pinned SDK, the private adapter imported and reported SDK
+`0.1.2`; `uv pip check` passed before and after SDK installation.
+
+This is local package evidence only. No tag, upload, production acceptance, or
+new runtime compatibility result is asserted. M3, I13, and I14 remain separate
+release gates.
