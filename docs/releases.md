@@ -134,24 +134,49 @@ cannot be overwritten; use a new version/tag after a partial or faulty release.
 Yank a bad production release when appropriate and publish a corrected version.
 Record the incident and validation evidence in Beads.
 
-## Evidence for this preparation
+## Verified TestPyPI rehearsal
 
-On September 30, 2026, the GitHub `pypi` and `testpypi` environments were
-created and read back through the API: reviewer `rodrigosetti`, admin bypass
-disabled, and custom deployment policies allowing only `v*` tags. Self-review
-is allowed so the sole owner can approve a manual dispatch. PyPI/TestPyPI
-publisher registrations and upload remain unverified.
+On September 30, 2026, the owner confirmed both PyPI and TestPyPI Trusted
+Publishers were configured with the identities above and authorized this
+rehearsal. Both GitHub environments were read back through the API: reviewer
+`rodrigosetti`, admin bypass disabled, and custom deployment policies allowing
+only `v*` tags. Self-review is allowed for the sole owner. The TestPyPI deployment
+was approved through the API under that explicit owner authorization.
 
-Local `make check` passed on Python 3.11.8: 425 unit tests, strict Pyright and
-Ruff, 99.50% branch coverage. Wheel and sdist metadata/content checks and strict
-Twine 7 checks passed. Each artifact installed outside the checkout into a fresh
-virtual environment; imports and missing-SDK rejection passed before installing
-the prerequisite, then exact SDK adapter imports and `uv pip check` passed.
-Actionlint 1.7.12 accepted the release workflow. Twine 7 and the publishing action
-v1.14.2 support Hatch's metadata 2.5; the older Twine 6 validator rejected it.
-No gateway/runtime behavior was changed or newly certified by these checks.
+[Release run 36805618165](https://github.com/rodrigosetti/openenv-openshell/actions/runs/36805618165)
+passed all three jobs: build, Trusted Publishing upload, and install from the
+actual index. The source is tag
+[`v0.0.0`](https://github.com/rodrigosetti/openenv-openshell/tree/v0.0.0), commit
+`8d817611b112665384b456ac9fc8fcb1f9ce92fe`. The
+[TestPyPI project](https://test.pypi.org/project/openenv-openshell/0.0.0/)
+contains the validated wheel and sdist. This version is a packaging rehearsal;
+production publication remains subject to M3 and I14.
 
-Local results and unresolved owner actions are recorded in I13. Until its
-TestPyPI run and both publisher configurations are linked, the issue remains
-incomplete and I14 remains blocked. This document does not claim external setup
-or upload has occurred.
+The release build passed 433 unit tests, strict Pyright/Ruff, 99.50% coverage,
+metadata/content validation, strict Twine 7 checks, and clean installation of
+both artifacts outside the checkout. The tagged commit also passed the
+[Quality workflow](https://github.com/rodrigosetti/openenv-openshell/actions/runs/36781917282)
+on Python 3.11–3.14 and the pinned compatibility pair. The index verification
+job installed the actual TestPyPI wheel with ordinary dependencies from PyPI
+and the official hash-pinned OpenShell 0.1.2 wheel, then passed `uv pip check`
+and provider/SDK imports. No gateway was needed for these packaging checks.
+
+The TestPyPI JSON API reported these SHA-256 values, independently matched to
+the artifacts downloaded from the successful CI build:
+
+| File | SHA-256 |
+| --- | --- |
+| `openenv_openshell-0.0.0-py3-none-any.whl` | `5200dc2c532ee42506756b7714939a5e1c2e0871a4029ed389aba44fdd6bf6fe` |
+| `openenv_openshell-0.0.0.tar.gz` | `bb41701825b93faa116cb526704a7ba91f6cf78d3279ea23582a087c2403c417` |
+
+The accepted Requires-Dist entries are `httpx>=0.28,<0.29`, `openenv==0.6.0`,
+and `pyyaml>=6.0.3,<7`; no direct SDK URL is embedded in published metadata.
+Initial local checks also verified actionable rejection of an absent SDK
+before gateway access. Actionlint 1.7.12 accepted the workflow. Twine 7 and
+publishing action v1.14.2 support Hatch's metadata 2.5.
+
+Production publisher registration is owner-confirmed; its OIDC upload has not
+been exercised because the usable-release gate is still separate. No production
+package was uploaded. After bringing this evidence onto the newer local main,
+`make check` passed 457 unit tests with 99.52% coverage, strict typing and lint.
+Those later changes are not part of the immutable `v0.0.0` rehearsal artifacts.
