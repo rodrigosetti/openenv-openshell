@@ -53,7 +53,12 @@ def test_fake_captures_a_complete_successful_lifecycle() -> None:
         is ready
     )
     assert adapter.service_url(ready, "openenv") == "https://routed.example.test"
-    assert adapter.delete("chosen-name", workspace="workspace") is deleted
+    assert (
+        adapter.delete(
+            "chosen-name", workspace="workspace", expected_sandbox_id="sandbox-123"
+        )
+        is deleted
+    )
     assert (
         adapter.wait_deleted(
             "chosen-name",
@@ -118,7 +123,7 @@ def _invoke(adapter: FakeSandboxAdapter, operation: FakeOperation) -> None:
     elif operation == "service_url":
         adapter.service_url(FakeSandbox("openenv-test-abc123", "sandbox-123"), "")
     elif operation == "delete":
-        adapter.delete("sandbox", workspace="default")
+        adapter.delete("sandbox", workspace="default", expected_sandbox_id="identity")
     else:
         adapter.wait_deleted(
             "sandbox",

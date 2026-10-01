@@ -13,6 +13,7 @@ from openenv_openshell._adapter import CreateRequest, Sandbox, connect
 from openenv_openshell.errors import (
     OpenEnvReadinessTimeout,
     SandboxCreationError,
+    SandboxDeletionError,
     SandboxReadinessError,
 )
 from openenv_openshell.policy import load_policy, policy_digest
@@ -113,9 +114,11 @@ def test_failed_start_cleanup(stage: str) -> None:
     )
     adapter = connect(gateway=provider.config.gateway)
     create = adapter.create
+    captured_identity: str | None = None
 
     def lost_create_response(request: CreateRequest) -> Sandbox:
-        create(request)
+        nonlocal captured_identity
+        captured_identity = create(request).sandbox_id
         msg = "Simulated lost create response"
         raise RuntimeError(msg)
 
@@ -144,9 +147,28 @@ def test_failed_start_cleanup(stage: str) -> None:
                 with pytest.raises(OpenEnvReadinessTimeout):
                     provider.wait_for_ready(url, timeout_s=0.5)
                 provider.stop_container()
-        assert provider.state.deleted
-        assert provider.state.sandbox_name is None
+        if stage == "create":
+            assert not provider.state.deleted
+            assert provider.state.sandbox_id is None
+            with pytest.raises(SandboxDeletionError, match="operator"):
+                provider.stop_container()
+        else:
+            assert provider.state.deleted
+            assert provider.state.sandbox_name is None
     finally:
+        if stage == "create" and captured_identity is not None:
+            # Test-only operator control: the fake transport captured a successful
+            # response. Production cannot infer this identity from a lost reply.
+            adapter.delete(
+                name, workspace=workspace, expected_sandbox_id=captured_identity
+            )
+            adapter.wait_deleted(
+                name,
+                workspace=workspace,
+                expected_sandbox_id=captured_identity,
+                timeout_s=60,
+            )
+            provider.state.deleted = True
         provider.stop_container()
         provider.stop_container()
         with SandboxClient.from_active_cluster(timeout=30) as client:

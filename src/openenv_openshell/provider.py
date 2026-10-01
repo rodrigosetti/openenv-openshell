@@ -17,7 +17,12 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
-from openenv_openshell._adapter import CreateRequest, SandboxAdapter, connect
+from openenv_openshell._adapter import (
+    CreateCollisionError,
+    CreateRequest,
+    SandboxAdapter,
+    connect,
+)
 from openenv_openshell._compat import ContainerProvider
 from openenv_openshell.config import (
     OpenShellProviderConfig,
@@ -108,6 +113,7 @@ class OpenShellProvider(ContainerProvider):
         self.state = ProviderState()
         self._adapter: SandboxAdapter | None = None
         self._metadata: OpenShellRunMetadata | None = None
+        self._deletion_attempted = False
 
     @property
     def metadata(self) -> OpenShellRunMetadata | None:
@@ -212,13 +218,16 @@ class OpenShellProvider(ContainerProvider):
         state = ProviderState(sandbox_name=request.name, image=image)
         adapter = self._connect_adapter()
         self._adapter = adapter
-        # Record ownership before create: a lost response can still leave a sandbox.
+        # Retain the attempted name for diagnosis; it is not proof of ownership.
         self.state = state
         self._metadata = None
+        self._deletion_attempted = False
         error = SandboxCreationError
+        created_identity: str | None = None
         try:
             _LOGGER.info("sandbox.create.started")
             sandbox = adapter.create(request)
+            created_identity = sandbox.sandbox_id
             self.state.sandbox_id = sandbox.sandbox_id
             self.state.created = True
             created_at = datetime.now(UTC)
@@ -251,7 +260,17 @@ class OpenShellProvider(ContainerProvider):
             if ready.sandbox_id != sandbox.sandbox_id:
                 msg = "OpenShell readiness returned a different sandbox identity"
                 raise SandboxReadinessError(msg)  # noqa: TRY301 - Stage-specific failure enters rollback.
+        except CreateCollisionError:
+            # The existing sandbox belongs to someone else; close only the client.
+            self.state = ProviderState()
+            failure = SandboxCreationError(
+                "OpenShell sandbox name is already in use; choose another name"
+            )
+            self._cleanup_failed_start(failure)
+            raise failure from None
         except Exception:  # noqa: BLE001 - Sanitize runtime failures and always roll back.
+            if created_identity is not None:
+                self.state.sandbox_id = created_identity
             # Do not expose upstream exception text, workload argv, or route data.
             failure = error("OpenShell sandbox startup failed")
             self._cleanup_failed_start(failure)
@@ -265,9 +284,16 @@ class OpenShellProvider(ContainerProvider):
             self.stop_container()
         except SandboxDeletionError:
             # Notes appear in tracebacks without exposing runtime errors or inputs.
-            failure.add_note(
-                "OpenShell sandbox cleanup failed; call stop_container again to retry"
-            )
+            if self.state.sandbox_name is not None and not self.state.sandbox_id:
+                failure.add_note(
+                    "Sandbox ownership is unconfirmed; operator inspection required "
+                    "before removing the attempted name in provider.state.sandbox_name"
+                )
+            else:
+                failure.add_note(
+                    "OpenShell sandbox cleanup failed; "
+                    "call stop_container again to retry"
+                )
 
     def _record_deletion(self) -> None:
         """Record confirmed absence, independently of releasing the SDK client."""
@@ -315,20 +341,27 @@ class OpenShellProvider(ContainerProvider):
                 if self._adapter is None:
                     self._adapter = self._connect_adapter()
                 _LOGGER.info("sandbox.delete.started")
-                deletion = self._adapter.delete(name, workspace=self.config.workspace)
-                identity = self.state.sandbox_id or deletion.sandbox_id
-                if identity is not None:
-                    # Preserve identity even if this wait fails or times out.
-                    self.state.sandbox_id = identity
-                    self._adapter.wait_deleted(
+                identity = self.state.sandbox_id
+                if not identity:
+                    msg = (
+                        "Sandbox ownership is unconfirmed; operator inspection required"
+                    )
+                    raise SandboxDeletionError(msg)  # noqa: TRY301 - Sanitize all cleanup failures below.
+                if not self._deletion_attempted:
+                    # A lost delete reply may still have been applied. Never send
+                    # a second name-based delete; it could target a replacement.
+                    self._deletion_attempted = True
+                    self._adapter.delete(
                         name,
                         workspace=self.config.workspace,
                         expected_sandbox_id=identity,
-                        timeout_s=self.config.deletion_timeout_s,
                     )
-                elif deletion.outcome not in {"completed", "already_absent"}:
-                    msg = "OpenShell deletion did not confirm sandbox absence"
-                    raise SandboxDeletionError(msg)  # noqa: TRY301 - Sanitize all cleanup failures below.
+                self._adapter.wait_deleted(
+                    name,
+                    workspace=self.config.workspace,
+                    expected_sandbox_id=identity,
+                    timeout_s=self.config.deletion_timeout_s,
+                )
                 self.state.deleted = True
                 self.state.ready = False
                 self._record_deletion()
@@ -336,7 +369,10 @@ class OpenShellProvider(ContainerProvider):
                 self._adapter.close()
         except Exception:  # noqa: BLE001 - SDK errors may contain credentials.
             _LOGGER.warning("provider.cleanup.failed")
-            msg = "OpenShell sandbox cleanup failed; call stop_container again to retry"
+            msg = (
+                "OpenShell sandbox cleanup failed; call stop_container again to retry "
+                "confirmation or inspect the attempted sandbox with an operator"
+            )
             raise SandboxDeletionError(msg) from None
         self._adapter = None
         self.state = ProviderState(deleted=self.state.deleted)

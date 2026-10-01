@@ -78,18 +78,15 @@ def _delete_sandbox(
     workspace: str,
     sandbox_id: str | None,
 ) -> None:
-    """Confirm identity-aware deletion even when create returned no identity."""
-    deletion = adapter.delete(name, workspace=workspace)
-    expected_id = sandbox_id or deletion.sandbox_id
-    if expected_id is not None:
+    """Delete only a confirmed create identity; otherwise verify no sandbox exists."""
+    if sandbox_id is not None:
+        adapter.delete(name, workspace=workspace, expected_sandbox_id=sandbox_id)
         adapter.wait_deleted(
             name,
             workspace=workspace,
-            expected_sandbox_id=expected_id,
+            expected_sandbox_id=sandbox_id,
             timeout_s=60,
         )
-    else:
-        assert deletion.outcome in {"completed", "already_absent"}
     assert not client.list(
         workspace=workspace, label_selector=f"openenv-sec7={name}"
     ).all()

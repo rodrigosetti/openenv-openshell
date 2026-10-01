@@ -81,11 +81,16 @@ def test_public_sdk_failure_redaction(
             provider.close()
     assert_safe(caplog, caught.value)
     getattr(sdk, operation).side_effect = None
-    provider.close()
+    if operation == "create":
+        with pytest.raises(SandboxDeletionError) as cleanup:
+            provider.close()
+        assert_safe(caplog, cleanup.value)
+    else:
+        provider.close()
     assert_safe(caplog)
 
 
-@pytest.mark.parametrize("startup", ["create", "wait_ready"])
+@pytest.mark.parametrize("startup", ["wait_ready"])
 @pytest.mark.parametrize("cleanup", ["delete", "wait_deleted", "close"])
 def test_sdk_rollback_note_and_retry_redaction(
     sdk: MagicMock,

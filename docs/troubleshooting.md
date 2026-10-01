@@ -119,9 +119,15 @@ The service route uses TLS the client cannot satisfy. Two messages:
 
 ### `SandboxDeletionError`
 
-Deletion or confirmation failed. The provider keeps the sandbox identity; call
-`provider.stop_container()` (or `close()`) again. If it keeps failing, delete by
-name and check the list:
+Deletion or confirmation failed. Call `provider.stop_container()` (or `close()`)
+again to retry confirmation of the original identity. After a deletion attempt,
+retries do not send another delete request. If confirmation keeps timing out,
+an operator must verify ownership before removing the sandbox.
+
+If create returned no identity, automatic deletion is refused. Inspect
+`provider.state.sandbox_name` and gateway records; the attempted name alone does
+not establish ownership. Once ownership is independently confirmed, remove the
+sandbox and check the list:
 
 ```bash
 openshell sandbox delete --workspace default <name>

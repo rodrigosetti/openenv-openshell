@@ -23,8 +23,8 @@ SEC8's [security review](../../docs/security-review.md) uses
 strict non-root identity in the initial workload and exec, workspace writes,
 continued OpenEnv protocol, and independent cleanup. Its bounded cgroup/rlimit
 diagnostic records capacity observations without claiming PID enforcement.
-The review also identifies the SEC8a name-based cleanup vulnerability, which
-remains a required repair. SEC8b adopts the [process-capacity scope exclusion](../../docs/process-capacity.md)
+The review records the SEC8a cleanup mitigations and the remaining SEC8c
+atomic-deletion requirement. SEC8b adopts the [process-capacity scope exclusion](../../docs/process-capacity.md)
 in SPEC and M2 acceptance; closing it does not establish PID enforcement.
 
 ## Separate security E2E jobs (I3)
@@ -272,18 +272,22 @@ delete/wait/client-close failures on context exit.
 
 `test_provider_startup.py` also injects failures at the real adapter boundary:
 create completes but its response is lost, the selected service URL is absent,
-and readiness fails after create. Each case verifies automatic rollback through
-public cleanup and independent label-filtered sandbox absence. A workload that
+and readiness fails after create. Confirmed-create cases verify automatic
+rollback through public cleanup and independent label-filtered sandbox absence.
+Since SEC8a, the lost-response case verifies refusal to delete without a known
+identity. Its test transport captures the successful create ID and uses that
+identity for explicit operator cleanup, then independently confirms absence. A workload that
 never serves health verifies timeout followed by public cleanup, matching the
 OpenEnv teardown contract. Direct provider callers must stop after health or
 connection failure; readiness itself does not delete the sandbox.
 
 Run the P4/P6 control and P7 failures with the same image opt-in command above.
 Unit tests additionally cover state-update failures, secret-safe rollback retry
-notes, recovery of identity after a lost create response, delete/wait/close retry,
-uncertain acknowledgements, and debug retention. Rollback uses `stop_container()`
-and preserves the sanitized startup error; failed cleanup adds a fixed exception
-note instructing the caller to retry. Successful keep-mode rollback releases
+notes, refusal to infer identity after a lost create response, confirmation-only
+retry after a delete attempt, client-close retry, and debug retention. Rollback
+uses `stop_container()` and preserves the sanitized startup error. Failed cleanup
+adds a fixed note requesting confirmation retry or, for unknown create ownership,
+operator inspection. Successful keep-mode rollback releases
 local ownership and leaves the sandbox running for inspection.
 
 Verified on 2026-09-30 with local SDK/gateway 0.1.2 and the pinned arm64 image:
