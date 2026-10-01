@@ -1,0 +1,1 @@
+ghcr.io/rodrigosetti/openenv-openshell-echo@sha256:02ea3505fc0b0a451778442ca2994c6be94a45ae4572358899b41b98c1df60a0

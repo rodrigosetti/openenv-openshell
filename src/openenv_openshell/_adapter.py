@@ -14,7 +14,11 @@ if TYPE_CHECKING:
     from openenv_openshell.config import OpenShellResources
 
 SDK_VERSION = "0.1.2"
-_INSTALL_HINT = "Install the locked OpenShell 0.1.2 wheel with uv sync --locked."
+_INSTALL_HINT = (
+    "Install the official hash-pinned OpenShell 0.1.2 wheel; "
+    "see https://github.com/rodrigosetti/openenv-openshell/blob/main/docs/releases.md "
+    "or use uv sync --locked in a source checkout."
+)
 
 
 class CreateCollisionError(SandboxCreationError):

@@ -1,108 +1,216 @@
 # openenv-openshell
 
-`openenv-openshell` is an experimental adapter for running Hugging Face OpenEnv
-environment servers under NVIDIA OpenShell filesystem, network, and credential
-policies. It targets OpenEnv's existing `ContainerProvider` interface so users
-can keep their environment protocol and training loop while changing runtimes.
+`openenv-openshell` runs Hugging Face [OpenEnv](https://github.com/huggingface/OpenEnv)
+environment servers inside NVIDIA [OpenShell](https://github.com/NVIDIA/OpenShell)
+sandboxes, under OpenShell filesystem, network, and credential policies. It
+implements OpenEnv's `ContainerProvider` interface, so existing OpenEnv clients
+and training loops keep working: you swap the provider, not the client.
 
-**Pre-alpha: the local provider lifecycle is implemented and validated.**
-Configuration validation, sandbox startup, HTTP readiness, strict policy loading,
-private SDK request translation, and public cleanup are implemented. This source
-baseline is for development; public release acceptance remains incomplete. It is
-not a PyPI release or a claim to the PyPI package name.
+```python
+env = GenericEnvClient.from_docker_image(image, provider=OpenShellProvider(...)).sync()
+```
 
-The completed local lifecycle spike demonstrated routed HTTP health,
-WebSocket reset/step/state, and verified sandbox deletion with SDK/gateway
-0.1.2. The public provider now also passes the unmodified OpenEnv 0.6.0 client
-lifecycle in async and synchronous modes on that local lane. See the
-[public client compatibility check](docs/openenv-compatibility.md),
-[M0 acceptance evidence](docs/protocol-spike.md#m0-acceptance-verification-2026-09-30),
-[M1 acceptance evidence](docs/provider-acceptance.md),
-and [SPEC.md](SPEC.md) for requirements and milestones.
+**Pre-alpha.** The provider lifecycle, explicit policies, and cleanup are
+implemented and validated on a local OpenShell 0.1.2 gateway with OpenEnv 0.6.0.
+It is not yet published to PyPI; install from source. See
+[known limitations](#known-limitations) before relying on it.
 
-The public home is [rodrigosetti/openenv-openshell](https://github.com/rodrigosetti/openenv-openshell).
-Publication status and baseline review are recorded in the
-[repository publication guide](docs/repository-publication.md).
+## Requirements
 
-## Known limitations
+- Python 3.11+.
+- An OpenShell **0.1.2** CLI and gateway with a working compute driver. Follow
+  the [local OpenShell setup](docs/local-openshell-testing.md); on Apple Silicon
+  this is the native VM driver. `openshell status` must show the gateway
+  connected at version 0.1.2.
+- The OpenShell 0.1.2 Python SDK (installed below; the `openshell` package on
+  PyPI is a different, incompatible release).
+- Docker, to build the example images.
 
-- OpenEnv compatibility is verified and pinned to 0.6.0; other versions remain
-  unverified. The reusable E2E fixture is implemented; the wider EchoEnv
-  acceptance suite remains pending.
-- The validated image is a locally built arm64 EchoEnv image on the native VM
-  lane. Its checked-in Docker image ID is not a pullable registry digest;
-  arbitrary images and compute drivers are unverified.
-- Remote gateways, service authentication, long idle sessions, and reconnects
-  are unverified. No remote compatibility claim follows from local tests.
-- Startup requires caller-supplied command argv, environment, and directory
-  handling. Automatic OCI ENTRYPOINT/CMD, ENV, and WORKDIR resolution is outside
-  the MVP contract.
-- Policy parsing and atomic request validation are tested, but the release's
-  filesystem and network denial acceptance tests remain pending. Trusted
-  external verification is a later milestone.
+## Install
 
-## Development
-
-Python 3.11 or newer and [uv](https://docs.astral.sh/uv/) are required.
+From a checkout (recommended while pre-alpha; includes the SDK and dev tools):
 
 ```bash
 git clone https://github.com/rodrigosetti/openenv-openshell.git
 cd openenv-openshell
 uv sync --locked --all-groups
-make check
 ```
 
-Unit tests use typed fakes and do not need an OpenShell installation or gateway.
-The default check excludes the opt-in runtime integration tests.
-`tests/unit/test_successful_lifecycle.py` follows startup and mocked HTTP health
-through identity-aware deletion, client closure, cleared ownership, and retained
-non-secret metadata. It also checks cleanup through the production SDK adapter
-using an offline SDK double; runtime evidence is recorded separately in the
-[integration guide](tests/integration/README.md).
+Into an existing virtual environment:
 
-Offline failure acceptance tests cover create/readiness timeouts, missing or
-malformed service URLs, persistent HTTP errors and redirects, transport failures,
-and the OpenEnv health deadline. They verify startup rollback and caller-driven
-cleanup after a health timeout, including original sandbox identity and retained
-metadata with no successful readiness timestamp. See
-[startup failures](tests/unit/test_startup_failures.py),
-[startup rollback](tests/unit/test_start_container.py), and
-[HTTP deadlines](tests/unit/test_readiness.py).
+```bash
+pip install "openenv-openshell @ git+https://github.com/rodrigosetti/openenv-openshell"
+pip install 'openshell @ https://github.com/NVIDIA/OpenShell/releases/download/v0.1.2/openshell-0.1.2-py3-none-any.whl#sha256=8c409da4f176d42418d92366fe201f47cceef2c0fa432bfbce2bf938649d59cf'
+```
 
-The shared [Codex local environment](.codex/environments/environment.toml)
-runs `uv sync --locked --all-groups` when a new worktree is created, using
-Python 3.11 from `.python-version`. Install uv on the host first. Its actions
-provide quality checks, unit tests, formatting, loopback HTTP integration tests,
-and opt-in OpenShell prerequisite, smoke, and integration checks. Runtime actions
-require the [local OpenShell setup](docs/local-openshell-testing.md); setup only
-installs Python dependencies. Integration actions use `--no-cov` because they
-run separately from the unit coverage gate enforced by `make check`. The EchoEnv
-probe also needs `OPENENV_OPENSHELL_ECHO_IMAGE_ID` as described in the
-[integration guide](tests/integration/README.md).
+The provider rejects any SDK version other than 0.1.2 before contacting a
+gateway. See [SDK installation](docs/releases.md#sdk-and-gateway-prerequisites).
 
-The SDK is pinned to the official OpenShell 0.1.2 release wheel by URL and
-SHA-256. Use a matching 0.1.2 gateway for future runtime work; see the
-[distribution and model-boundary decision](docs/openshell-sdk-contract.md).
-The local 0.1.2 runtime and pinned EchoEnv image have been revalidated (S2a/S3a).
-The separate [S4 lifecycle spike](docs/lifecycle-spike.md) exercises SDK creation,
-atomic routing, readiness, and deletion without using the production provider.
-[S5](docs/protocol-spike.md) verified the local routed protocol;
-[S6 decisions](docs/spike-decisions.md) define port/service/policy behavior and
-record the remaining image-startup and remote-validation prerequisites.
-The [M0 acceptance rerun](docs/protocol-spike.md#m0-acceptance-verification-2026-09-30)
-verified local routed EchoEnv reset/step and sandbox deletion, completing the
-spike milestone. The [M1 acceptance review](docs/provider-acceptance.md) records
-the production provider lifecycle, client compatibility, and cleanup evidence.
+## Quickstart
 
-The checks enforce formatting and linting with Ruff, strict static typing with
-Pyright, and unit-test branch coverage of at least 95%.
-The [Quality workflow](.github/workflows/quality.yml) runs those same checks on
-Ubuntu with Python 3.11, 3.12, 3.13, and 3.14 for pull requests, pushes to `main`,
-and manual runs. Each matrix job validates `uv.lock`, installs locked development
-dependencies, and builds both the source distribution and wheel with the locked
-Hatchling backend. Its uv setup follows the
-[official GitHub Actions guide](https://docs.astral.sh/uv/guides/integration/github/).
-To reproduce a job locally (choose any supported version):
+Run the upstream EchoEnv server in an OpenShell sandbox and talk to it with the
+unmodified OpenEnv client. From the repository root, with the gateway running:
+
+```bash
+# 1. Build the pinned EchoEnv image (native arm64 for the local VM driver).
+docker build -t openenv-openshell-echo:quickstart \
+  -f tests/integration/images/echo/Dockerfile tests/integration/images/echo
+export OPENENV_OPENSHELL_ECHO_IMAGE_ID="$(docker image inspect --format '{{.Id}}' openenv-openshell-echo:quickstart)"
+
+# 2. Run the quickstart.
+uv run python examples/quickstart.py
+```
+
+Expected output (the sandbox name is random):
+
+```text
+echo: hello from OpenShell
+steps: 1
+sandbox: oe-quick-d91afc87
+deleted: True
+```
+
+[`examples/quickstart.py`](examples/quickstart.py) is the whole program:
+
+```python
+import os
+from secrets import token_hex
+
+from openenv.core.generic_client import GenericEnvClient
+
+from openenv_openshell import OpenShellProvider
+
+provider = OpenShellProvider(
+    # The 0.1.2 gateway limits names to 19 characters.
+    sandbox_name=f"oe-quick-{token_hex(4)}",
+    # Exact server argv; OpenShell 0.1.2 does not run the image CMD for you.
+    command=[
+        "sh",
+        "-c",
+        "cd /app/env && uvicorn server.app:app --host 0.0.0.0 --port 8000",
+    ],
+    service_port=8000,
+    policy="examples/policies/image-compatible.yaml",
+    labels={"openenv.environment": "echo"},
+)
+image = os.environ["OPENENV_OPENSHELL_ECHO_IMAGE_ID"]
+env = GenericEnvClient.from_docker_image(image, provider=provider).sync()
+with env:
+    env.reset()
+    result = env.step(
+        {
+            "type": "call_tool",
+            "tool_name": "echo_message",
+            "arguments": {"message": "hello from OpenShell"},
+        }
+    )
+    print("echo:", result.observation["result"]["data"])
+    print("steps:", env.state()["step_count"])
+    print("sandbox:", provider.metadata and provider.metadata.sandbox_name)
+print("deleted:", provider.state.deleted)
+```
+
+What happens: the provider validates the command and policy offline, creates
+the sandbox with the policy and service route in one request, waits for
+OpenShell and then `/health`, and hands OpenEnv the routed URL. The client
+connects over WebSocket. Leaving the `with` block deletes the sandbox and waits
+until it is gone; a failed start is rolled back the same way.
+
+To adapt it to your own environment image, change `command`, `service_port`,
+`policy`, and any `env_vars` the server needs. OpenShell 0.1.2 does not use
+the image's `CMD`, `WORKDIR`, or `ENV`. Read the
+[image guide](docs/images.md) and pin the image by digest.
+
+Something wrong? See [troubleshooting](docs/troubleshooting.md).
+
+## Coding-agent demo
+
+The canonical demo runs the upstream OpenEnv coding environment under a strict
+policy: it solves a task over the OpenEnv WebSocket, writes to `/workspace`,
+reaches `pypi.org`, is denied `~/.ssh`, `/host`, and `example.com`, keeps the
+session working, and deletes the sandbox.
+
+```bash
+docker build -t openenv-openshell-coding:i8 examples/coding-agent
+export OPENENV_OPENSHELL_CODING_IMAGE_ID="$(docker image inspect --format '{{.Id}}' openenv-openshell-coding:i8)"
+make demo
+```
+
+```text
+✓ OpenShell sandbox created (oe-demo-e531c976, policy 5104817a61fe)
+✓ OpenEnv server healthy
+✓ WebSocket connected
+✓ task executed (fizzbuzz via OpenEnv coding_env)
+✓ approved filesystem access succeeded (/workspace)
+✓ forbidden filesystem access denied (~/.ssh, /host)
+✓ approved package index request succeeded (pypi.org)
+✓ forbidden network request denied (example.com)
+✓ OpenEnv session still healthy after denials
+✓ sandbox deleted
+```
+
+The gateway needs internet access to `pypi.org` and `example.com`. The
+[demo guide](docs/coding-agent-demo.md) explains each check and its limits.
+
+## Documentation
+
+| Guide | Contents |
+| --- | --- |
+| [Configuration reference](docs/configuration.md) | Every provider option, start arguments, policy, credentials, resources, metadata, errors, logging |
+| [Images](docs/images.md) | Preparing images for OpenShell and pinning them immutably |
+| [Troubleshooting](docs/troubleshooting.md) | Errors by symptom, diagnostics, cleanup |
+| [Policy examples](examples/policies/README.md) | Strict, Hugging Face read-only, and image-compatible policies |
+| [Architecture](docs/architecture.md) | Lifecycle, routing, failure recovery, metadata |
+| [Security](docs/security.md) | Policy precedence, credentials, enforcement evidence, residual risks |
+| [Compatibility matrix](docs/compatibility-matrix.md) | Supported OpenEnv, SDK, and gateway versions |
+| [Local OpenShell setup](docs/local-openshell-testing.md) | Installing and checking the gateway and VM driver |
+
+[SPEC.md](SPEC.md) holds the requirements and milestones.
+
+## Known limitations
+
+- Only OpenEnv 0.6.0 and OpenShell SDK/gateway 0.1.2 are supported.
+- Validated on the local native arm64 VM driver with locally built images. Their
+  image IDs are not pullable registry digests; other images and compute drivers
+  are unverified.
+- Generated default sandbox names exceed the 0.1.2 gateway's 19-character
+  limit; pass a short `sandbox_name` (tracked as `openenv-openshell-zf3`).
+- Remote gateways using the standard mTLS configuration are **not supported**
+  for unmodified OpenEnv clients: service routes require a TLS client
+  certificate the client cannot present. The provider fails with
+  `ServiceAccessError` instead of timing out. OIDC or edge-authenticated
+  gateways, long idle sessions, and reconnects are unverified. See
+  [S5a remote evidence](docs/protocol-spike.md#remote-gateway-validation-s5a-2026-09-30).
+- You must supply the server command, environment, and working directory; OCI
+  `ENTRYPOINT`/`CMD`, `ENV`, and `WORKDIR` are not resolved.
+- Security milestones are incomplete: name-based cleanup can affect a sandbox
+  that reuses the name (SEC8a), and the local VM lane offers no process-capacity
+  isolation against hostile workloads. See the [security guide](docs/security.md).
+
+## Development
+
+```bash
+uv sync --locked --all-groups
+make check        # Ruff format/lint, strict Pyright, unit tests with ≥95% branch coverage
+```
+
+Unit tests use typed fakes and need no OpenShell installation or gateway. Tests
+that need a real gateway are marked `integration`, live in `tests/integration`,
+and are opt-in:
+
+```bash
+make openshell-prereqs   # CLI/gateway versions and workspace access
+make openshell-smoke     # disposable sandbox with an HTTP service route
+OPENENV_OPENSHELL_ECHO_IMAGE_ID=... uv run pytest -m integration --no-cov tests/integration/test_quickstart.py
+make integration         # every opt-in runtime test
+make security-e2e        # filesystem and network denial jobs
+```
+
+The [integration guide](tests/integration/README.md) lists each suite and its
+image inputs; [integration CI](docs/integration-ci.md) covers the gated runner.
+
+The [Quality workflow](.github/workflows/quality.yml) runs `make check` and
+builds the sdist and wheel on Python 3.11 through 3.14. To reproduce one job:
 
 ```bash
 export UV_PYTHON=3.12 UV_LOCKED=true
@@ -112,185 +220,18 @@ make check
 uv build --no-build-isolation
 ```
 
-Tests that require a real OpenShell gateway belong in `tests/integration` and are
-opt-in:
+Release preparation is described in [releases](docs/releases.md). Acceptance
+evidence for each milestone is recorded in
+[M0](docs/protocol-spike.md#m0-acceptance-verification-2026-09-30),
+[M1](docs/provider-acceptance.md), the
+[OpenEnv client check](docs/openenv-compatibility.md), and the
+[security review](docs/security-review.md). The
+[Codex local environment](.codex/environments/environment.toml) runs
+`uv sync --locked --all-groups` for new worktrees.
 
-```bash
-uv run pytest -m integration
-```
-
-See [Local OpenShell integration setup](docs/local-openshell-testing.md) for
-the CLI, gateway, workspace, compute-driver, and service-routing prerequisites.
-
-## Status
-
-The public import is available in a development checkout:
-
-```python
-from openenv_openshell import OpenShellProvider
-```
-
-`start_container` creates an atomic policy/workload/service request, captures
-the configured create-time service URL, waits for OpenShell readiness, and
-populates `provider.state`. It rejects a second start while it owns a sandbox.
-Startup failures use public cleanup and preserve the sanitized creation/readiness
-error. If rollback fails, an exception note instructs callers to retry
-`stop_container()`; ownership and recovered identity remain available for retry.
-`keep_sandbox=True` retains failed sandboxes for inspection and releases local
-ownership after the client closes.
-`stop_container()` deletes the owned sandbox, waits for its original identity to
-disappear, and releases client resources. Repeated calls are harmless. With
-`keep_sandbox=True`, it closes the client and clears local ownership while leaving
-the sandbox running. Deletion, wait, or client-close failures raise a sanitized
-`SandboxDeletionError` and retain enough state for another stop call to retry.
-`close()` performs the same cleanup, and `with OpenShellProvider(...) as provider:`
-calls it on exit, including when the body raises. Context entry returns the provider
-without starting a sandbox. Cleanup before startup or after a successful stop/close
-is harmless. If context cleanup fails, it raises `SandboxDeletionError` with the
-exception chain suppressed to keep SDK secrets out of tracebacks. Call
-`provider.close()` again to retry. `keep_sandbox=True` also applies to close and
-context exit.
-After a health timeout, OpenEnv invokes `stop_container()`; callers using the
-provider directly must also stop it after readiness or connection failures.
-
-Lifecycle events use standard Python logging under `openenv_openshell` (INFO for
-successful transitions, WARNING for cleanup failures). Event messages contain
-only fixed names; they omit workload arguments, environment, policy contents,
-route data, and raw SDK exceptions. Configure handlers in the calling application.
-
-`provider.metadata` is `None` before creation yields a validated service route,
-then exposes an immutable `OpenShellRunMetadata` snapshot with sandbox name/ID,
-workspace, image, service URL, UTC creation/health-ready/deletion timestamps, and
-installed provider, OpenShell SDK, and OpenEnv versions (missing distributions
-are `None`). The SDK version is not a claim about the gateway version.
-The snapshot survives cleanup, including `keep_sandbox=True` (which leaves
-`deleted_at` unset), and is replaced when the next sandbox creation is attempted.
-A rejected start leaves the previous snapshot intact. Deletion time records
-confirmed sandbox absence even if client closure subsequently fails. Command,
-environment, credentials, and policy contents are never copied into metadata;
-caller-supplied image and operational identifiers must be non-secret. The service
-URL is validated to exclude credentials, queries, and fragments. `policy_digest`
-is the lowercase SHA-256 of the explicit policy's normalized SDK fields encoded
-as UTF-8 JSON with sorted mapping keys and compact separators. YAML formatting,
-mapping order, accepted field aliases, and enum spellings do not affect it;
-list order is preserved. The digest records the policy submitted at creation,
-not evidence of runtime enforcement. It remains `None` when no explicit policy
-is supplied because the provider cannot attest to the resolved image or gateway
-default policy.
-See [SPEC.md](SPEC.md) for the design and milestones.
-
-Provider configuration is accepted directly as keyword arguments and validated
-without contacting an OpenShell gateway:
-
-```python
-from openenv_openshell import OpenShellProvider, OpenShellResources
-
-provider = OpenShellProvider(
-    workspace="default",
-    command=["/path/in/image/to/server-launcher"],
-    service_port=8000,
-    startup_timeout_s=120,
-    labels={"openenv.run_id": "example-run"},
-    providers=["github"],
-    resources=OpenShellResources(cpu=2, memory="4Gi"),
-)
-```
-
-The startup contract requires explicit `command` argv for the selected
-image. The path above illustrates configuration; choose the actual image server
-launcher, supply required environment through `env_vars`, and establish any
-required directory in that command. The adapter preserves argv exactly and
-rejects missing/invalid command before gateway access. It does not resolve OCI
-ENTRYPOINT/CMD, WORKDIR, or ENV. Omission remains valid for configuration-only
-and HTTP readiness use. See the [S6b decision](docs/image-startup.md).
-
-Ports, timeouts, and requested resources must be positive. Explicit sandbox and
-service names use lowercase letters, digits, and hyphens; otherwise the provider
-generates a bounded `openenv-<image>-<suffix>` sandbox name. Labels are copied
-defensively and must contain only non-secret operational metadata—never tokens,
-credentials, prompts, or private task/user content.
-
-## HTTP readiness
-
-`wait_for_ready(base_url, timeout_s=30.0)` polls `<base_url>/health` and sets
-`provider.state.ready` when HTTP 200 arrives before the monotonic deadline.
-Non-200 responses and transport errors are retried; redirects are not followed.
-The response body is not downloaded. The URL must use HTTP or HTTPS and must
-exclude embedded credentials, query parameters, and fragments. Service path
-prefixes are preserved.
-
-```python
-from openenv_openshell import OpenEnvReadinessTimeout, OpenShellProvider
-
-provider = OpenShellProvider(
-    health_poll_interval_s=0.5,
-    health_request_timeout_s=2.0,
-)
-try:
-    provider.wait_for_ready("http://my-service.openshell.localhost", timeout_s=30)
-except OpenEnvReadinessTimeout:
-    # The environment did not become healthy within the polling budget.
-    pass
-```
-
-Both polling settings and `timeout_s` must be positive and finite. Each request
-uses the smaller of `health_request_timeout_s` and the remaining budget for its
-HTTPX connection, read, write, and pool timeouts. Sleeps also use the remaining
-budget. HTTP transport timeouts apply per operation, so an in-flight request or
-DNS lookup can finish after the deadline; no further probes are started, and a
-late HTTP 200 is rejected. Timeout errors omit the URL and raw transport details.
-HTTP health alone does not verify WebSocket connectivity or sandbox cleanup.
-
-## Explicit policy loading
-
-`openenv_openshell.policy.load_policy()` accepts a YAML file path (`str` or
-`Path`) or a mapping and returns a detached mapping of normalized OpenShell
-0.1.2 protobuf fields. It runs offline, without a gateway:
-
-```python
-from openenv_openshell.policy import load_policy
-
-policy = load_policy("policy.yaml")
-```
-
-Policies must explicitly specify integer `version: 1`. The authored
-`filesystem_policy` key becomes `filesystem`; supplying both is rejected.
-Nested fields use exact snake_case SDK names. Network endpoint `tls`,
-`enforcement`, and `access` accept the short YAML spellings (such as `terminate`,
-`enforce`, and `read_only`) or canonical protobuf enum names. List order is
-preserved; mapping keys are sorted. No filesystem or network grants are added.
-
-Unknown fields, incorrect types, unsupported versions, nulls, duplicate or merge
-keys, YAML anchors/aliases, unsafe tags, and multiple YAML documents raise
-`PolicyConfigurationError`. File paths and policy contents are omitted from
-errors. Files are limited to 1 MiB and mappings to 64 nesting levels. Authored
-convenience forms requiring additional conversion (for example nested MCP or
-JSON-RPC stanzas, query shorthand, and arbitrary middleware Struct config) are
-currently unsupported and rejected; use the supported SDK field representation.
-The loader validates field shape and strict SDK conversion; gateway semantic
-validation and real enforcement remain separate checks.
-
-`None` is rejected by this explicit loader. Image/default policy selection must
-be a deliberate caller choice and cannot recover from an explicit-policy error.
-Provider startup calls this loader before gateway connection for explicit
-policies. Offline validation does not establish runtime policy enforcement.
-
-See the [policy examples and selection guide](examples/policies/README.md) for
-strict deny-all egress, minimal Hugging Face reads, and an image compatibility
-policy. Their schema and create-request serialization are checked against the
-pinned 0.1.2 wheel. The guide explains image-policy selection, the proposed
-`policy_mode` API, and the difference between compatibility and least privilege.
-
-## Credentials
-
-Prefer OpenShell provider-backed credentials for secrets; use `env_vars` for
-ordinary configuration. Raw environment values are readable by sandbox
-processes even when request representations and errors redact them. The
-`providers` option selects existing provider instance names in the configured
-workspace and maps them to the sandbox spec; it does not provision credentials
-or infer providers. See the [credential and provider guide](docs/security.md)
-for setup, permission scope, and the SEC7 runtime visibility check. Public
-sandbox startup and public cleanup are implemented.
+The public repository is
+[rodrigosetti/openenv-openshell](https://github.com/rodrigosetti/openenv-openshell);
+see the [publication guide](docs/repository-publication.md).
 
 ## License
 

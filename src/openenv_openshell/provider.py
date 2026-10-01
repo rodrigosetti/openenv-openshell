@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import re
 import secrets
+import ssl
 from copy import deepcopy
 from dataclasses import replace
 from datetime import UTC, datetime
@@ -35,6 +36,7 @@ from openenv_openshell.errors import (
     SandboxCreationError,
     SandboxDeletionError,
     SandboxReadinessError,
+    ServiceAccessError,
 )
 from openenv_openshell.metadata import (
     OpenShellRunMetadata,
@@ -48,6 +50,24 @@ if TYPE_CHECKING:
 
 _MAX_PORT = 65535
 _LOGGER = logging.getLogger("openenv_openshell")
+# TLS alerts for a route that demands a client certificate (TLS 1.3 and 1.2).
+_CLIENT_CERT_ALERTS = frozenset(
+    {"TLSV13_ALERT_CERTIFICATE_REQUIRED", "SSLV3_ALERT_HANDSHAKE_FAILURE"}
+)
+
+
+def _service_access_failure(error: BaseException) -> str | None:
+    """Describe a non-retryable TLS rejection without echoing transport text."""
+    seen: set[int] = set()
+    current: BaseException | None = error
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        if isinstance(current, ssl.SSLCertVerificationError):
+            return "OpenShell service route certificate is not trusted"
+        if isinstance(current, ssl.SSLError) and current.reason in _CLIENT_CERT_ALERTS:
+            return "OpenShell service route requires a TLS client certificate"
+        current = current.__cause__ or current.__context__
+    return None
 
 
 class OpenShellProvider(ContainerProvider):
@@ -367,7 +387,13 @@ class OpenShellProvider(ContainerProvider):
         self.stop_container()
 
     def wait_for_ready(self, base_url: str, timeout_s: float = 30.0) -> None:
-        """Wait until the OpenEnv server's health endpoint is ready."""
+        """Wait until the OpenEnv server's health endpoint is ready.
+
+        Raises ServiceAccessError without retrying when TLS rejects the route's
+        certificate or requires a client certificate, since an unmodified
+        OpenEnv client cannot satisfy either. HTTP statuses, including 401 and
+        403, keep polling until the deadline.
+        """
         if isinstance(timeout_s, bool) or not isfinite(timeout_s) or timeout_s <= 0:
             msg = "timeout_s must be a positive finite number"
             raise ValueError(msg)
@@ -394,9 +420,14 @@ class OpenShellProvider(ContainerProvider):
                             )
                         _LOGGER.info("openenv.health.ready")
                         return
-                except httpx.RequestError:
+                    denied = None
+                except httpx.RequestError as error:
                     # Transport messages may contain credentials or URL data.
-                    pass
+                    denied = _service_access_failure(error)
+                if denied is not None:
+                    # Raised outside the handler so no transport error is chained.
+                    _LOGGER.warning("openenv.health.access_denied")
+                    raise ServiceAccessError(denied)
                 remaining = deadline - monotonic()
                 if remaining > 0:
                     sleep(min(self.config.health_poll_interval_s, remaining))

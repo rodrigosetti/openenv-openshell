@@ -1,5 +1,6 @@
 """Deterministic HTTP readiness tests without sockets or an OpenShell runtime."""
 
+import ssl
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
@@ -7,7 +8,11 @@ import httpx
 import pytest
 
 from openenv_openshell import OpenShellProvider
-from openenv_openshell.errors import OpenEnvReadinessTimeout, SandboxDeletionError
+from openenv_openshell.errors import (
+    OpenEnvReadinessTimeout,
+    SandboxDeletionError,
+    ServiceAccessError,
+)
 from tests.fakes import DeleteCall, FakeSandboxAdapter
 
 
@@ -258,3 +263,67 @@ def test_owned_health_timeout_public_cleanup(
     assert provider.state.sandbox_name is None
     assert provider.state.deleted == (not keep)
     assert any(isinstance(call, DeleteCall) for call in adapter.calls) == (not keep)
+
+
+def _tls_error(reason: str) -> ssl.SSLError:
+    error = ssl.SSLError(1, "secret tls detail")
+    error.reason = reason
+    return error
+
+
+@pytest.mark.parametrize(
+    ("failure", "message"),
+    [
+        (_tls_error("TLSV13_ALERT_CERTIFICATE_REQUIRED"), "client certificate"),
+        (_tls_error("SSLV3_ALERT_HANDSHAKE_FAILURE"), "client certificate"),
+        (ssl.SSLCertVerificationError(1, "secret verify detail"), "not trusted"),
+    ],
+)
+@pytest.mark.parametrize("wrapper", [httpx.ConnectError, httpx.ReadError])
+def test_tls_rejection_fails_fast(
+    monkeypatch: pytest.MonkeyPatch,
+    clock: Clock,
+    failure: ssl.SSLError,
+    message: str,
+    wrapper: type[httpx.TransportError],
+) -> None:
+    """Client-certificate and trust failures surface without raw TLS details."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        # httpx chains the transport's original exception as the cause.
+        msg = "secret transport detail"
+        raise wrapper(msg, request=request) from failure
+
+    client = install_client(monkeypatch, handler)
+    provider = OpenShellProvider()
+    with pytest.raises(ServiceAccessError, match=message) as caught:
+        provider.wait_for_ready("https://env.example/private-secret", timeout_s=60)
+
+    assert clock.sleeps == []
+    assert "secret" not in str(caught.value)
+    assert caught.value.__context__ is None
+    assert caught.value.__cause__ is None
+    assert client.is_closed
+
+
+def test_unrelated_tls_errors_retry(
+    monkeypatch: pytest.MonkeyPatch, clock: Clock
+) -> None:
+    """Other TLS failures may be transient and keep the normal polling path."""
+    calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            msg = "secret transport detail"
+            raise httpx.ConnectError(msg, request=request) from _tls_error(
+                "UNEXPECTED_EOF_WHILE_READING"
+            )
+        return httpx.Response(200)
+
+    install_client(monkeypatch, handler)
+    provider = OpenShellProvider(health_poll_interval_s=0.25)
+    provider.wait_for_ready("https://env.example", timeout_s=5)
+    assert provider.state.ready
+    assert clock.sleeps == [0.25]

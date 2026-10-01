@@ -538,7 +538,9 @@ def start_container(
 OpenShell 0.1.2's official Python wheel supports creating, waiting for
 readiness, executing commands, deleting, and identity-aware deletion waiting.
 It also supports atomic service exposures and returned service URLs. The
-repository pins that wheel by release URL and SHA-256. S1a selects a confined,
+repository pins that wheel in the development group by release URL and SHA-256.
+Published distributions require installing the same wheel separately as a runtime
+prerequisite because package indexes reject direct URL dependencies. S1a selects a confined,
 contract-tested generated-model dependency for workload and policy inputs;
 public lifecycle calls remain the runtime boundary. See
 [`docs/openshell-sdk-contract.md`](docs/openshell-sdk-contract.md) for the exact
@@ -611,10 +613,12 @@ Image compatibility is compute-driver-specific. The tested VM image includes
 `iproute2`, `nftables`, a discoverable uvicorn executable, and a policy granting
 read-only `/app` access. The inspected upstream amd64-only image is not approved
 for the native Apple Silicon VM lane. The checked-in `sha256:` image ID is a
-local Docker configuration ID, not a pullable registry manifest digest. Remote
-validation requires a pullable immutable image compatible with that gateway's
-driver (**S5a**). These are tested-image constraints, not universal requirements
-for every OpenShell driver. See [image evidence](docs/echo-env-image.md).
+local Docker configuration ID, not a pullable registry manifest digest. S5a's
+remote Docker-driver lane used a digest-pinned amd64 GHCR image. That driver
+rejects images resolving to UID 0 and requires a workdir the workload identity
+can write, so the remote image adds a non-root `sandbox` account. These are
+tested-image constraints, not universal requirements for every OpenShell
+driver. See [image evidence](docs/echo-env-image.md).
 
 ---
 
@@ -689,11 +693,21 @@ MUST NOT imply that a remote service is anonymous or accepts the SDK credentials
 The returned URL must be directly usable by an unmodified OpenEnv client for
 both HTTP and WebSocket traffic. The provider MUST NOT embed credentials in the
 URL, copy gateway credentials into the workload, disable TLS verification, or
-silently bypass a service authentication requirement. Remote service
-credentials, certificate trust, and unmodified-client compatibility remain
-unverified and are tracked by **S5a**, a prerequisite of the M3 release gate.
-Deployments requiring unsupported service authentication must fail explicitly;
-remote support MUST NOT be advertised until validated.
+silently bypass a service authentication requirement. Deployments requiring
+unsupported service authentication must fail explicitly. Remote support MUST NOT
+be advertised until validated.
+
+S5a tested a remote 0.1.2 gateway in the standard mTLS configuration (client CA
+set, no OIDC). The service route shares the gateway listener and demands a TLS
+client certificate before any HTTP exchange. The unmodified OpenEnv client
+cannot present one, so **remote mTLS gateways are unsupported**. `wait_for_ready()`
+raises `ServiceAccessError` without retrying when TLS requires a client
+certificate or rejects the route certificate. It does not wait for the
+readiness timeout. HTTP 401/403 responses keep the normal retry path because
+none was observed. Private CAs are trusted through the standard
+`SSL_CERT_FILE` bundle with verification enabled. OIDC or edge-authenticated
+gateways, where bearer-only clients may connect, remain unverified. See
+[remote evidence](docs/protocol-spike.md#remote-gateway-validation-s5a-2026-09-30).
 
 ---
 
@@ -725,7 +739,9 @@ establishes short-session liveness. Long idle sessions, reconnect behavior, and
 remote keepalive remain unverified. The provider MUST preserve the OpenEnv
 client's transport and keepalive behavior and MUST NOT add a substitute protocol
 or infer arbitrary idle-duration guarantees. P10/I2 must exercise the unmodified
-client over the local route; S5a must repeat protocol and ping/pong checks remotely.
+client over the local route. S5a repeated the protocol and ping/pong checks over a
+remote HTTPS/WSS route with verified TLS. They passed when the probe presented
+the gateway's client certificate (see section 13.1).
 See [protocol evidence](docs/protocol-spike.md).
 
 ---
@@ -1092,6 +1108,30 @@ These values SHOULD map directly to OpenShell resource configuration.
 
 No additional scheduler abstraction should be invented.
 
+## 22.1 Process capacity: SEC8b scope decision
+
+The v0.1 provider contract on the supported local OpenShell 0.1.2 native VM
+lane excludes a guaranteed sandbox-specific process/thread limit and resistance
+to process-exhaustion denial of service. The provider exposes no PID-budget
+setting. Process policy selects user/group identity; Landlock controls filesystem
+access. Neither establishes process capacity. CPU/memory/GPU requests MUST NOT
+be presented as proof of PID enforcement or runtime resource enforcement.
+
+SEC8's read-only diagnostic found no visible `pids.max` in the workload's cgroup
+hierarchy and reported inherited soft/hard RLIMIT_NPROC of 7698. This does not
+establish a sandbox-specific bound or prove the absence of controls outside the
+guest. A workload may exhaust guest capacity, disrupt its server and other
+workloads sharing that capacity, or consume host resources. This lane MUST NOT
+be advertised as providing availability isolation for hostile workloads.
+
+Operators needing that guarantee must select and independently validate a
+runtime/compute driver with an enforced sandbox-specific budget. The provider
+MUST remain a thin adapter: no guest limiter, hidden permissive fallback, or
+private runtime fork is part of this decision. A future PID guarantee requires
+a supported upstream configuration contract and bounded runtime evidence that
+identifies the enforcement owner and covers initial workload and exec processes.
+See [process-capacity decision](docs/process-capacity.md) for evidence and limits.
+
 ---
 
 # 23. Sandbox Naming
@@ -1196,6 +1236,11 @@ class SandboxReadinessError(OpenShellProviderError):
 
 
 class OpenEnvReadinessTimeout(OpenShellProviderError):
+    pass
+
+
+class ServiceAccessError(OpenShellProviderError):
+    # TLS rejects the route certificate or requires a client certificate.
     pass
 
 
@@ -1399,9 +1444,14 @@ Because OpenEnv explicitly describes itself as experimental and subject to API c
 ## 31.3 OpenShell
 
 The selected compatibility target is exactly SDK/gateway `0.1.2`. The SDK
-dependency is the official GitHub wheel pinned by URL and SHA-256 in
-`pyproject.toml` and `uv.lock`; it replaces the incompatible PyPI `0.0.116`
-baseline. S1a permits generated workload/policy models only inside the private
+runtime prerequisite is the official GitHub wheel pinned by URL and SHA-256 in
+the `pyproject.toml` development group and `uv.lock`; it replaces the
+incompatible PyPI `0.0.116`
+baseline. I13 omits OpenShell from published Requires-Dist because package
+indexes reject direct references. Maintainers and users install the same
+hash-pinned wheel separately; the private adapter rejects absent or mismatched
+SDKs before gateway access. No PyPI SDK substitution or compatibility widening
+is permitted. S1a permits generated workload/policy models only inside the private
 adapter with offline contract tests. Do not widen the SDK range until its
 model and lifecycle contracts are reviewed and runtime compatibility is tested.
 
@@ -1746,6 +1796,13 @@ network denial tests
 policy digest metadata
 ```
 
+Acceptance requires fail-closed explicit policies, demonstrated filesystem and
+network denials with continued OpenEnv operation, and disposition of the security
+review findings. Under section 22.1, bounded process capacity is excluded on the
+local 0.1.2 native VM lane; M2 completion MUST retain that documented residual
+availability risk and MUST NOT imply process-exhaustion protection. Cleanup
+ownership safety remains a separate requirement (SEC8a).
+
 ---
 
 ## Milestone 3 — Upstream-quality integration
@@ -1939,7 +1996,8 @@ Questions 3 and 5 are resolved as requirements in sections 12.2 and 18. Question
 unqualified compatibility claims. The remaining questions still apply before v0.1:
 
 1. **Partially answered (S5):** local short-session ping/pong and repeated
-   reset/step/state succeed. Remote keepalive remains S5a; unmodified-client
+   reset/step/state succeed. S5a repeated this remotely over HTTPS/WSS with a
+   gateway client certificate; unmodified-client
    validation remains P10/I2. Long idle/reconnect behavior is unverified.
 
 2. What is the exact Python SDK API for specifying image, command, environment variables, resource requirements, policy, and `service_exposures` in the currently released OpenShell version?
@@ -1954,8 +2012,9 @@ unqualified compatibility claims. The remaining questions still apply before v0.
    S6a established that omitted command selects a shell, not image CMD, on the
    pinned VM lane. S6b resolves startup through explicit caller argv, environment,
    and directory handling;
-   automatic image metadata resolution is outside v0.1. Remote image validation
-   remains S5a.
+   automatic image metadata resolution is outside v0.1. S5a validated a
+   digest-pinned amd64 image on the remote Docker driver. That image needs a
+   non-root identity and a writable workdir.
    See section 12.3.
 
 5. **Resolved (S6):** embed the validated explicit policy in the initial
@@ -1964,12 +2023,15 @@ unqualified compatibility claims. The remaining questions still apply before v0.
    execution on the local runtime through the production adapter.
    See section 18.
 
-6. **Open (S5a):** local services required no extra application credentials,
-   independently of gateway mTLS. Remote service authentication is unverified;
-   validate it with an unmodified OpenEnv client before claiming support.
-   See section 13.1.
+6. **Answered for mTLS (S5a):** local services required no extra application
+   credentials. A remote mTLS gateway's service route requires a TLS client
+   certificate, which the unmodified client cannot present. The provider fails
+   explicitly with `ServiceAccessError`. OIDC/edge-authenticated gateways are
+   unverified. See section 13.1.
 
-7. Does `EnvClient` require any change for authenticated remote service URLs, or can OpenShell provide a directly usable endpoint?
+7. **Partially answered (S5a):** for mTLS gateways, OpenShell does not provide
+   a directly usable endpoint, and `EnvClient` would need client-certificate
+   support. Whether OIDC or edge-authenticated gateways do is unverified.
 
 8. Should provider-owned startup eventually be supported:
 

@@ -21,6 +21,9 @@ is attached to the GitHub release but was not published on PyPI at inspection
 time; PyPI still resolves 0.0.116. The repository must not combine the old
 0.0.116 SDK with a 0.1.x gateway and call that a supported pair.
 
+The [I6 compatibility matrix](compatibility-matrix.md) combines this exact
+SDK/gateway target with OpenEnv 0.6.0; its supported range endpoints coincide.
+
 [v0.1.2 release]: https://github.com/NVIDIA/OpenShell/releases/tag/v0.1.2
 [Python wheel]: https://github.com/NVIDIA/OpenShell/releases/download/v0.1.2/openshell-0.1.2-py3-none-any.whl
 [PyPI 0.0.116]: https://pypi.org/project/openshell/0.0.116/
@@ -207,12 +210,13 @@ Use the [official Python wheel][Python wheel], with SHA-256:
 8c409da4f176d42418d92366fe201f47cceef2c0fa432bfbce2bf938649d59cf
 ```
 
-The dependency metadata includes this hash, and the lock records the same
-artifact hash. `uv sync --locked --all-groups` installs it reproducibly. Hatch's
-`allow-direct-references` setting is required to build this dependency metadata.
-A future PyPI release must be reviewed before replacing the source; the current
-direct URL is a development distribution choice, not evidence of PyPI release
-readiness for this package.
+The development dependency and lock record the same artifact hash.
+`uv sync --locked --all-groups` installs it reproducibly. I13 removes the direct
+reference from published dependency metadata because PyPI rejects it. The SDK
+remains a separately installed runtime prerequisite with this exact hash; see
+[release and installation instructions](releases.md). The private adapter fails
+before gateway access if the SDK is absent or its version differs. A future
+index-hosted SDK must be reviewed before replacing this source.
 
 Select an explicitly tested generated-model dependency rather than waiting for
 a public builder or adding subprocess/CLI translation. P2 must confine

@@ -27,6 +27,11 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 SDK_VERSION = "0.1.2"
 IMAGE_PIN = Path(__file__).parent / "images" / "echo" / "local-image-id.txt"
+# A local configuration ID, or a registry repository pinned by manifest digest.
+IMMUTABLE_IMAGE = re.compile(
+    r"(?:[a-z0-9][a-z0-9._-]*(?::[0-9]+)?(?:/[a-z0-9][a-z0-9._-]*)+@)?"
+    r"sha256:[0-9a-f]{64}"
+)
 
 
 class SpikeError(RuntimeError):
@@ -35,8 +40,8 @@ class SpikeError(RuntimeError):
 
 def workload(image: str) -> SandboxSpec:
     """Embed the S3a image policy; leave CMD resolution to the runtime."""
-    if re.fullmatch(r"sha256:[0-9a-f]{64}", image) is None:
-        msg = "Use the validated immutable local EchoEnv image ID."
+    if IMMUTABLE_IMAGE.fullmatch(image) is None:
+        msg = "Use an immutable local image ID or digest-pinned registry reference."
         raise SpikeError(msg)
     # Fixed image-specific policy, equivalent to images/echo/policy.yaml.
     # This experiment does not implement the SEC1 general-purpose YAML loader.

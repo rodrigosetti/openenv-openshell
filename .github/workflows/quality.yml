@@ -14,6 +14,39 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  compatibility:
+    name: OpenEnv ${{ matrix.openenv }} / OpenShell ${{ matrix.openshell }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # Both range endpoints coincide until another pair passes review/E2E.
+        include:
+          - openenv: "0.6.0"
+            openshell: "0.1.2"
+    env:
+      UV_PYTHON: "3.11"
+      UV_LOCKED: "true"
+      COMPAT_OPENENV: ${{ matrix.openenv }}
+      COMPAT_OPENSHELL: ${{ matrix.openshell }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.11.20"
+          python-version: "3.11"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - name: Install reviewed locked pair
+        run: uv sync --locked --all-groups
+      - name: Verify dependency bounds, client, and SDK contracts
+        run: make compatibility
+
   quality:
     name: Python ${{ matrix.python-version }}
     runs-on: ubuntu-24.04
