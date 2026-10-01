@@ -1,5 +1,8 @@
 # Integration tests
 
+I9's `test_quickstart.py` runs the README quickstart script unchanged with
+`OPENENV_OPENSHELL_ECHO_IMAGE_ID` and confirms its sandbox is gone afterwards.
+
 P10's [public client compatibility check](../../docs/openenv-compatibility.md)
 uses the installed, unmodified OpenEnv 0.6.0 `GenericEnvClient` with the public
 provider. Run `test_openenv_client.py` with the same image opt-in shown below.
