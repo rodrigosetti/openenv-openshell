@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from importlib.metadata import PackageNotFoundError, version
 from typing import TYPE_CHECKING, Literal, Protocol
 
-from openenv_openshell.errors import OpenShellConnectionError
+from openenv_openshell.errors import OpenShellConnectionError, SandboxCreationError
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -15,6 +15,10 @@ if TYPE_CHECKING:
 
 SDK_VERSION = "0.1.2"
 _INSTALL_HINT = "Install the locked OpenShell 0.1.2 wheel with uv sync --locked."
+
+
+class CreateCollisionError(SandboxCreationError):
+    """The gateway rejected create because the name was already occupied."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,8 +74,13 @@ class SandboxAdapter(Protocol):
         """Read a route from the create result, before readiness replaces it."""
         ...
 
-    def delete(self, sandbox_name: str, *, workspace: str) -> Deletion:
-        """Request deletion, tolerating absence."""
+    def delete(
+        self, sandbox_name: str, *, workspace: str, expected_sandbox_id: str
+    ) -> Deletion:
+        """Check identity before requesting deletion, tolerating absence.
+
+        The pinned API cannot make this check atomic with deletion.
+        """
         ...
 
     def wait_deleted(

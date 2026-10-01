@@ -12,6 +12,7 @@ from openenv_openshell.errors import (
     OpenShellProviderError,
     PolicyConfigurationError,
     SandboxCreationError,
+    SandboxDeletionError,
     SandboxReadinessError,
 )
 from openenv_openshell.metadata import ProviderState
@@ -131,9 +132,9 @@ def test_unusable_route_rolls_back(url: str | None) -> None:
     assert adapter.closed
 
 
-@pytest.mark.parametrize("operation", ["create", "service_url", "wait_ready"])
+@pytest.mark.parametrize("operation", ["service_url", "wait_ready"])
 def test_runtime_failure_cleans_up_and_redacts(operation: FakeOperation) -> None:
-    """Lost create replies and later failures all request rollback."""
+    """Failures after a confirmed create request rollback."""
     adapter = FakeSandboxAdapter()
     adapter.failures[operation] = RuntimeError(SECRET)
     provider = OpenShellProvider(command=["server"], sandbox_name="chosen")
@@ -171,7 +172,7 @@ def test_cleanup_failure_preserves_startup_error(operation: FakeOperation) -> No
 def test_create_failure_without_identity(
     outcome: Literal["already_absent", "completed", "accepted", "unknown"],
 ) -> None:
-    """A missing identity only confirms cleanup for explicit terminal outcomes."""
+    """An uncertain create must never use delete to discover an identity."""
     adapter = FakeSandboxAdapter(failures={"create": RuntimeError(SECRET)})
     adapter.delete_result = FakeDeletion(None, outcome)
     provider = OpenShellProvider(command=["server"])
@@ -180,9 +181,9 @@ def test_create_failure_without_identity(
         pytest.raises(SandboxCreationError),
     ):
         provider.start_container("image")
-    confirmed = outcome in {"completed", "already_absent"}
-    assert provider.state.deleted == confirmed
-    assert adapter.closed == confirmed
+    assert not provider.state.deleted
+    assert not adapter.closed
+    assert [call.operation for call in adapter.calls] == ["create"]
 
 
 def test_keep_sandbox_retains_failure_for_inspection() -> None:
@@ -234,7 +235,7 @@ def test_confirmed_rollback_allows_fresh_start() -> None:
     assert create_calls[-1].request.policy is None
 
 
-@pytest.mark.parametrize("operation", ["create", "service_url", "wait_ready"])
+@pytest.mark.parametrize("operation", ["service_url", "wait_ready"])
 @pytest.mark.parametrize("cleanup", ["delete", "wait_deleted", "close"])
 def test_rollback_failure_reports_safe_note_and_public_retry(
     operation: FakeOperation,
@@ -272,25 +273,19 @@ def test_rollback_failure_reports_safe_note_and_public_retry(
         assert adapter.calls == calls
 
 
-def test_lost_create_reply_rollback_keeps_recovered_identity() -> None:
-    """A failed rollback wait must retain its recovered ID for the public retry."""
-    adapter = FakeSandboxAdapter(
-        failures={
-            "create": RuntimeError(SECRET),
-            "wait_deleted": TimeoutError(SECRET),
-        }
-    )
+def test_lost_create_reply_requires_operator_inspection() -> None:
+    """Create ambiguity survives retries without ever deleting an unowned name."""
+    adapter = FakeSandboxAdapter(failures={"create": RuntimeError(SECRET)})
     provider = OpenShellProvider(command=["server"], sandbox_name="chosen")
     with (
         patch.object(provider, "_connect_adapter", return_value=adapter),
         pytest.raises(SandboxCreationError),
     ):
         provider.start_container("image")
-    assert provider.state.sandbox_id == "sandbox-123"
     adapter.failures.clear()
-    adapter.delete_result = FakeDeletion("replacement")
-    provider.stop_container()
-    assert adapter.calls[-1] == WaitDeletedCall("chosen", "default", "sandbox-123", 60)
+    with pytest.raises(SandboxDeletionError, match="operator"):
+        provider.stop_container()
+    assert [call.operation for call in adapter.calls] == ["create"]
 
 
 @pytest.mark.parametrize("field", ["sandbox_id", "created", "base_url"])

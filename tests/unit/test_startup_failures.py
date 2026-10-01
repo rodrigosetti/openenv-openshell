@@ -22,9 +22,9 @@ from tests.fakes import (
 from tests.unit.test_readiness import Clock, install_client
 
 
-@pytest.mark.parametrize("operation", ["create", "wait_ready"])
+@pytest.mark.parametrize("operation", ["wait_ready"])
 def test_sandbox_timeout_rolls_back(operation: FakeOperation) -> None:
-    """A timed-out create or readiness wait deletes by the original identity."""
+    """A timed-out readiness wait deletes by the confirmed create identity."""
     adapter = FakeSandboxAdapter(failures={operation: TimeoutError("upstream timeout")})
     provider = OpenShellProvider(
         command=["server"],

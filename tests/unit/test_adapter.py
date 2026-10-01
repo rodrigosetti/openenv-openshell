@@ -19,6 +19,7 @@ from openshell._proto.openshell_pb2 import HealthResponse
 
 from openenv_openshell import OpenShellResources
 from openenv_openshell._adapter import (
+    CreateCollisionError,
     CreateRequest,
     SandboxAdapter,
     connect,
@@ -64,7 +65,9 @@ def test_lifecycle(sdk: MagicMock, create_request: CreateRequest) -> None:
     sdk.wait_ready.assert_called_once_with(
         "sandbox", workspace="default", timeout_seconds=12
     )
-    deleted = adapter.delete("sandbox", workspace="default")
+    deleted = adapter.delete(
+        "sandbox", workspace="default", expected_sandbox_id="identity"
+    )
     assert deleted.sandbox_id == "identity"
     assert deleted.outcome == "accepted"
     adapter.wait_deleted(
@@ -122,7 +125,9 @@ def test_deletion_outcomes(
 ) -> None:
     """No unspecified/future outcome is mistaken for completed deletion."""
     sdk.delete.return_value = DeletionResult(outcome, None)
-    result = connect().delete("sandbox", workspace="default")
+    result = connect().delete(
+        "sandbox", workspace="default", expected_sandbox_id="identity"
+    )
     assert result.outcome == expected
     assert result.sandbox_id is None
 
@@ -250,7 +255,7 @@ def _invoke(
     elif operation == "wait_ready":
         adapter.wait_ready("sandbox", workspace="default", timeout_s=1)
     elif operation == "delete":
-        adapter.delete("sandbox", workspace="default")
+        adapter.delete("sandbox", workspace="default", expected_sandbox_id="identity")
     elif operation == "wait_deleted":
         adapter.wait_deleted(
             "sandbox", workspace="default", expected_sandbox_id="identity", timeout_s=1
@@ -329,3 +334,69 @@ def test_adapter_rejects_invalid_command(
     assert SECRET not in "".join(format_exception(error.value))
     sdk.health.assert_not_called()
     sdk.create.assert_not_called()
+
+
+def test_collision_has_distinct_safe_error(
+    sdk: MagicMock, create_request: CreateRequest
+) -> None:
+    """A collision cannot be treated as a partially created owned sandbox."""
+    sdk.create.side_effect = TransportError(grpc.StatusCode.ALREADY_EXISTS)
+    with pytest.raises(CreateCollisionError) as caught:
+        connect().create(create_request)
+    assert SECRET not in "".join(format_exception(caught.value))
+    sdk.delete.assert_not_called()
+
+
+@pytest.mark.parametrize("identity", ["replacement", ""])
+def test_observed_replacement_is_never_deleted(sdk: MagicMock, identity: str) -> None:
+    """A mismatched or missing current identity is not the owned sandbox."""
+    sdk.get.return_value = replace(sdk.create.return_value, id=identity)
+    deletion = connect().delete(
+        "sandbox", workspace="default", expected_sandbox_id="identity"
+    )
+    assert deletion.outcome == "already_absent"
+    assert deletion.sandbox_id == "identity"
+    sdk.delete.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        TransportError(grpc.StatusCode.NOT_FOUND),
+        TransportError(grpc.StatusCode.UNAVAILABLE),
+        SandboxError(SECRET),
+        OSError(SECRET),
+        ValueError(SECRET),
+    ],
+)
+def test_identity_preflight_errors_fail_safely(
+    sdk: MagicMock, failure: Exception
+) -> None:
+    """Only confirmed absence completes cleanup; lookup failures cannot delete."""
+    sdk.get.side_effect = failure
+    adapter = connect()
+    if (
+        isinstance(failure, TransportError)
+        and failure.code() == grpc.StatusCode.NOT_FOUND
+    ):
+        assert (
+            adapter.delete(
+                "sandbox", workspace="default", expected_sandbox_id="identity"
+            ).outcome
+            == "already_absent"
+        )
+    else:
+        with pytest.raises(SandboxDeletionError) as caught:
+            adapter.delete(
+                "sandbox", workspace="default", expected_sandbox_id="identity"
+            )
+        assert SECRET not in "".join(format_exception(caught.value))
+    sdk.delete.assert_not_called()
+
+
+def test_missing_expected_identity_never_queries_or_deletes(sdk: MagicMock) -> None:
+    """The private adapter cannot be called with an unknown ownership identity."""
+    with pytest.raises(SandboxDeletionError, match="ownership"):
+        connect().delete("sandbox", workspace="default", expected_sandbox_id="")
+    sdk.get.assert_not_called()
+    sdk.delete.assert_not_called()

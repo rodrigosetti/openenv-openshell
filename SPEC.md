@@ -840,6 +840,17 @@ The pinned official 0.1.2 wheel implements this contract. The previous
 `expected_sandbox_id` in `wait_deleted()`. The adapter MUST reject that older
 contract before creating a sandbox.
 
+The expected identity above applies to deletion **waiting**, not to the
+name-based delete RPC. OpenShell 0.1.2 has no public atomic conditional-delete
+input. SEC8a requires ownership verification before any deletion, no deletion
+after an ambiguous create, and confirmation-only retries after a delete attempt.
+The client-side identity preflight remains vulnerable to concurrent name reuse
+between lookup and delete. Full fail-closed deletion remains blocked on a public
+immutable-ID or expected-ID deletion contract, tracked separately as SEC8c.
+The user approved merging the SEC8a mitigations on 2026-09-30 while retaining
+that unresolved guarantee in SEC8c; see
+[cleanup guarantees and limitation](docs/cleanup-tests.md#sec8a-mitigation-and-remaining-blocker).
+
 ---
 
 # 17. Cleanup Guarantees

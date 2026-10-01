@@ -104,8 +104,8 @@ def test_context_cleanup_failure_retains_ownership_for_close_retry(
         assert adapter.calls == previous_calls
 
 
-def test_close_recovers_uncertain_failed_start() -> None:
-    """Close retries a sandbox whose startup rollback could not delete it."""
+def test_close_preserves_unknown_failed_start() -> None:
+    """Close refuses to delete after startup returned no owned identity."""
     adapter = FakeSandboxAdapter(
         failures={"create": RuntimeError(), "delete": RuntimeError()}
     )
@@ -116,7 +116,8 @@ def test_close_recovers_uncertain_failed_start() -> None:
     ):
         provider.start_container("image")
     adapter.failures.clear()
-    provider.close()
-    assert adapter.closed
-    assert provider.state == ProviderState(deleted=True)
-    assert adapter.calls[-1] == WaitDeletedCall("partial", "default", "sandbox-123", 60)
+    with pytest.raises(SandboxDeletionError, match="operator"):
+        provider.close()
+    assert not adapter.closed
+    assert provider.state.sandbox_id is None
+    assert not any(isinstance(call, DeleteCall) for call in adapter.calls)

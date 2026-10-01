@@ -31,6 +31,7 @@ def sdk() -> Iterator[MagicMock]:
         client.wait_ready.return_value = replace(
             client.create.return_value, service_urls={}
         )
+        client.get.return_value = client.create.return_value
         client.delete.return_value = DeletionResult(
             DeletionOutcome.ACCEPTED, "identity"
         )

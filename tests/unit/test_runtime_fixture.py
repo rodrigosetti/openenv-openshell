@@ -65,7 +65,9 @@ def test_cleanup_failure_attempts_other_providers_and_preserves_primary(
     """Cleanup failure remains visible without masking a test or exposing secrets."""
     runtime = Runtime("image")
     good = FakeSandboxAdapter()
-    bad = FakeSandboxAdapter(failures={"delete": RuntimeError("private-sdk-token")})
+    bad = FakeSandboxAdapter(
+        failures={"wait_deleted": RuntimeError("private-sdk-token")}
+    )
     expected = ValueError if primary else RuntimeCleanupError
 
     def run() -> None:
@@ -99,7 +101,7 @@ def test_setup_failure_before_start_is_safe() -> None:
 
 @pytest.mark.parametrize("stage", ["create", "wait_ready"])
 def test_interruption_during_startup_is_cleaned(stage: FakeOperation) -> None:
-    """A BaseException at the RPC boundary cannot bypass fixture ownership."""
+    """Interruption before create confirms identity requires operator inspection."""
     runtime = Runtime("image")
     adapter = FakeSandboxAdapter(failures={stage: KeyboardInterrupt()})
 
@@ -111,27 +113,22 @@ def test_interruption_during_startup_is_cleaned(stage: FakeOperation) -> None:
 
     with pytest.raises(KeyboardInterrupt):
         run()
-    assert adapter.closed
-    assert runtime.providers[0].state.deleted
+    assert adapter.closed == (stage == "wait_ready")
+    assert runtime.providers[0].state.deleted == (stage == "wait_ready")
+    if stage == "create":
+        assert [call.operation for call in adapter.calls] == ["create"]
 
 
 def test_transient_cleanup_failure_is_retried() -> None:
-    """Retry a failed delete while retaining the original provider identity."""
+    """Retry deletion confirmation without sending a second name-based delete."""
     runtime = Runtime("image")
     adapter = FakeSandboxAdapter()
     provider = runtime.provider()
     with patch.object(provider, "_connect_adapter", return_value=adapter):
         provider.start_container(runtime.image)
-    original = adapter.delete
-    with patch.object(
-        adapter,
-        "delete",
-        side_effect=[
-            RuntimeError(),
-            original(provider.config.sandbox_name or "", workspace=runtime.workspace),
-        ],
-    ):
+    with patch.object(adapter, "delete", side_effect=RuntimeError()) as delete:
         runtime.close()
+    delete.assert_called_once()
     assert provider.state.deleted
     assert adapter.closed
     assert "provider cleanup attempt failed" in runtime.diagnostics

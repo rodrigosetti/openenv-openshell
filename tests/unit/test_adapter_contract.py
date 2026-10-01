@@ -48,6 +48,7 @@ def contract() -> Contract:
         "health",
         "create",
         "wait_ready",
+        "get",
         "delete",
         "wait_deleted",
         "close",
@@ -94,7 +95,9 @@ def test_adapter_call_contract(
     factory.assert_called_once_with(**contract["connection"])
     created = adapter.create(create_request)
     ready = adapter.wait_ready("sandbox", workspace="default", timeout_s=12)
-    deleted = adapter.delete("sandbox", workspace="default")
+    deleted = adapter.delete(
+        "sandbox", workspace="default", expected_sandbox_id="identity"
+    )
     adapter.wait_deleted(
         "sandbox", workspace="default", expected_sandbox_id="identity", timeout_s=5
     )

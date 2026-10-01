@@ -19,7 +19,13 @@ from openshell import (
 from openshell._proto.openshell_pb2 import SandboxSpec, SandboxTemplate
 from openshell._proto.sandbox_pb2 import SandboxPolicy
 
-from openenv_openshell._adapter import SDK_VERSION, CreateRequest, Deletion, Sandbox
+from openenv_openshell._adapter import (
+    SDK_VERSION,
+    CreateCollisionError,
+    CreateRequest,
+    Deletion,
+    Sandbox,
+)
 from openenv_openshell.config import validate_command
 from openenv_openshell.errors import (
     OpenShellConnectionError,
@@ -128,6 +134,12 @@ def _call(
         return operation()
     except grpc.RpcError as failure:
         # GatewayError is a public RpcError subtype. Never copy details/metadata.
+        if (
+            error is SandboxCreationError
+            and failure.code() == grpc.StatusCode.ALREADY_EXISTS
+        ):
+            msg = "OpenShell sandbox name is already in use; choose another name."
+            raise CreateCollisionError(msg) from None
         if failure.code() in _CONNECTION_CODES:
             msg = (
                 "Cannot reach or authenticate to OpenShell; "
@@ -248,8 +260,29 @@ class SDKAdapter:
         """Use only the captured create-time route; never query get()."""
         return sandbox.service_urls.get(service_name)
 
-    def delete(self, sandbox_name: str, *, workspace: str) -> Deletion:
-        """Retain both outcome and identity; unknown outcomes stay uncertain."""
+    def delete(
+        self, sandbox_name: str, *, workspace: str, expected_sandbox_id: str
+    ) -> Deletion:
+        """Reject observed replacements before issuing the name-based delete.
+
+        This preflight is not an atomic identity condition: OpenShell 0.1.2
+        has no public conditional delete. See docs/cleanup-tests.md.
+        """
+        if not expected_sandbox_id:
+            msg = "Sandbox ownership is unconfirmed; inspect gateway diagnostics."
+            raise SandboxDeletionError(msg)
+        try:
+            current = self._client.get(sandbox_name, workspace=workspace)
+        except grpc.RpcError as failure:
+            if failure.code() == grpc.StatusCode.NOT_FOUND:
+                return Deletion(expected_sandbox_id, "already_absent")
+            msg = "Cannot verify sandbox ownership; retry cleanup."
+            raise SandboxDeletionError(msg) from None
+        except (SandboxError, OSError, ValueError):
+            msg = "Cannot verify sandbox ownership; retry cleanup."
+            raise SandboxDeletionError(msg) from None
+        if current.id != expected_sandbox_id:
+            return Deletion(expected_sandbox_id, "already_absent")
         result = _call(
             lambda: self._client.delete(
                 sandbox_name, workspace=workspace, allow_missing=True
