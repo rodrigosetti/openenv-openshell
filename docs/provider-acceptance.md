@@ -53,5 +53,6 @@ establish a pullable registry digest, arbitrary image or driver compatibility,
 remote service authentication, long idle sessions, or reconnect behavior.
 
 M2 retains filesystem/network denial acceptance (SEC5/SEC6). I2 retains the wider
-EchoEnv suite using the reusable I1 fixture; S5a retains remote validation. M3
+EchoEnv suite using the reusable I1 fixture. S5a recorded remote results in
+[protocol evidence](protocol-spike.md#remote-gateway-validation-s5a-2026-09-30). M3
 public release acceptance is separate from this local provider milestone.

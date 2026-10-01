@@ -21,6 +21,14 @@ class OpenEnvReadinessTimeout(OpenShellProviderError):  # noqa: N818
     """Raised when the OpenEnv health endpoint does not become ready."""
 
 
+class ServiceAccessError(OpenShellProviderError):
+    """Raised when TLS rejects access the OpenEnv client cannot provide.
+
+    Examples are an untrusted route certificate or a required TLS client
+    certificate. Retrying cannot help.
+    """
+
+
 class SandboxDeletionError(OpenShellProviderError):
     """Raised when an owned sandbox cannot be deleted."""
 

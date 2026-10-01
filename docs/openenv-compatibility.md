@@ -82,4 +82,7 @@ This local check does not validate remote authentication, long idle sessions,
 reconnects, other OpenEnv releases, arbitrary images, or other compute drivers.
 The image ID is local Docker configuration identity, not a pullable registry
 digest. I2 extends this check with the I1 runtime fixture and broader EchoEnv
-assertions; S5a retains remote validation. Security denial acceptance remains SEC5/SEC6.
+assertions. S5a ran this test against a remote mTLS gateway. Both modes failed
+explicitly with `ServiceAccessError`, because the route requires a TLS client
+certificate. See [remote evidence](protocol-spike.md#remote-gateway-validation-s5a-2026-09-30).
+Security denial acceptance remains SEC5/SEC6.

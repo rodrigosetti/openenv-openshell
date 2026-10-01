@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 from openshell import DeletionOutcome, DeletionResult, ServiceExposure
 
-from tests.integration._lifecycle_spike import SpikeError, run_spike
+from tests.integration._lifecycle_spike import SpikeError, run_spike, workload
 
 MAX_NAME_LENGTH = 19
 IMAGE = "sha256:" + "a" * 64
@@ -98,6 +98,36 @@ def test_preflight(sdk: MagicMock) -> None:
     with pytest.raises(SpikeError, match="gateway"):
         run_spike(sdk, image=IMAGE, workspace="default")
     sdk.create.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "image",
+    [
+        IMAGE,
+        f"ghcr.io/owner/echo@{IMAGE}",
+        f"registry.test:5000/team/echo-env@{IMAGE}",
+    ],
+)
+def test_immutable_images(image: str) -> None:
+    """Local IDs and digest-pinned registry references are both accepted."""
+    assert workload(image).template.image == image
+
+
+@pytest.mark.parametrize(
+    "image",
+    [
+        "ghcr.io/owner/echo:latest",
+        f"ghcr.io/owner/echo:s5a@{IMAGE}",
+        f"echo@{IMAGE}",
+        f"ghcr.io/owner/echo@sha256:{'a' * 63}",
+        f"https://ghcr.io/owner/echo@{IMAGE}",
+        f"ghcr.io/Owner/echo@{IMAGE}",
+    ],
+)
+def test_mutable_or_ambiguous_images(image: str) -> None:
+    """Tags, short digests, bare names, and URLs cannot identify the image."""
+    with pytest.raises(SpikeError, match="immutable"):
+        workload(image)
 
 
 def test_ready_identity(sdk: MagicMock) -> None:

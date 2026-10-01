@@ -5,9 +5,12 @@ import json
 import logging
 import os
 import socket
+import ssl
 import time
 from contextlib import ExitStack
+from functools import partial
 from http import HTTPStatus
+from pathlib import Path
 from typing import cast
 from urllib.parse import urlsplit
 
@@ -23,6 +26,11 @@ COMMAND = (
     "-c",
     "cd /app/env && uvicorn server.app:app --host 0.0.0.0 --port 8000",
 )
+# TLS alerts for a route that demands a client certificate (TLS 1.3 and 1.2).
+CLIENT_CERT_ALERTS = {
+    "TLSV13_ALERT_CERTIFICATE_REQUIRED",
+    "SSLV3_ALERT_HANDSHAKE_FAILURE",
+}
 
 
 def _object(value: object) -> dict[str, object]:
@@ -80,29 +88,50 @@ def _probe_session(ws: ClientConnection) -> None:
     ws.send(json.dumps({"type": "close"}))
 
 
-def probe_protocol(url: str, *, health_timeout_s: float = 60) -> None:
-    """Assert health and two episodes over one gateway-routed WebSocket."""
+def probe_protocol(
+    url: str, *, health_timeout_s: float = 60, client_cert: Path | None = None
+) -> None:
+    """Assert health and two episodes over one gateway-routed WebSocket.
+
+    Remote routes must use HTTPS with default certificate verification; supply
+    a private gateway CA through SSL_CERT_FILE rather than disabling checks.
+    ``client_cert`` names a directory holding ``tls.crt`` and ``tls.key`` to
+    present to routes that require a TLS client certificate. An unmodified
+    OpenEnv client cannot do this, so such runs validate transport only.
+    """
     parsed = urlsplit(url)
     assert parsed.hostname is not None
     local = parsed.hostname.endswith(".openshell.localhost")
     assert not local or parsed.scheme == "http", "Use the local HTTP service route"
+    assert local or parsed.scheme == "https", "Remote service routes require HTTPS"
     host = "127.0.0.1" if local else parsed.hostname
     port = parsed.port or (443 if parsed.scheme == "https" else 80)
-    connection_type = (
-        http.client.HTTPSConnection
-        if parsed.scheme == "https"
-        else http.client.HTTPConnection
-    )
+    context = None
+    if not local:
+        context = ssl.create_default_context()
+        if client_cert is not None:
+            context.load_cert_chain(client_cert / "tls.crt", client_cert / "tls.key")
     path = parsed.path.rstrip("/")
     deadline = time.monotonic() + health_timeout_s
     while True:
-        connection = connection_type(host, port, timeout=2)
+        connection = (
+            http.client.HTTPConnection(host, port, timeout=2)
+            if context is None
+            else http.client.HTTPSConnection(host, port, timeout=2, context=context)
+        )
         try:
             connection.request("GET", path + "/health", headers={"Host": parsed.netloc})
             response = connection.getresponse()
             if response.status == HTTPStatus.OK:
                 assert _object(json.loads(response.read()))["status"] == "healthy"
                 break
+        except ssl.SSLCertVerificationError:
+            pytest.fail("Service route certificate is not trusted", pytrace=False)
+        except ssl.SSLError as error:
+            if error.reason in CLIENT_CERT_ALERTS:
+                pytest.fail(
+                    "Service route requires a TLS client certificate", pytrace=False
+                )
         except (OSError, http.client.HTTPException):
             pass
         finally:
@@ -120,7 +149,14 @@ def probe_protocol(url: str, *, health_timeout_s: float = 60) -> None:
             else None
         )
         ws = stack.enter_context(
-            connect(ws_url, sock=sock, open_timeout=5, close_timeout=5, proxy=None)
+            connect(
+                ws_url,
+                sock=sock,
+                ssl=context,
+                open_timeout=5,
+                close_timeout=5,
+                proxy=None,
+            )
         )
         _probe_session(ws)
     logger.info("Routed /ws passed two reset/step/state episodes and four echo steps")
@@ -132,11 +168,13 @@ def test_protocol_spike() -> None:
     image = os.environ.get("OPENENV_OPENSHELL_ECHO_IMAGE_ID")
     if image is None:
         pytest.skip("Set OPENENV_OPENSHELL_ECHO_IMAGE_ID to the validated image ID")
+    cert_dir = os.environ.get("OPENENV_OPENSHELL_PROBE_CLIENT_CERT_DIR")
+    client_cert = Path(cert_dir) if cert_dir else None
     with SandboxClient.from_active_cluster(timeout=30) as client:
         run_spike(
             client,
             image=image,
             workspace=os.environ.get("OPENSHELL_WORKSPACE", "default"),
             command=COMMAND,
-            probe=probe_protocol,
+            probe=partial(probe_protocol, client_cert=client_cert),
         )
