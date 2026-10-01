@@ -66,7 +66,7 @@ Expected output (the sandbox name is random):
 ```text
 echo: hello from OpenShell
 steps: 1
-sandbox: oe-quick-d91afc87
+sandbox: openenv-sha2-d91afc
 deleted: True
 ```
 
@@ -74,15 +74,12 @@ deleted: True
 
 ```python
 import os
-from secrets import token_hex
 
 from openenv.core.generic_client import GenericEnvClient
 
 from openenv_openshell import OpenShellProvider
 
 provider = OpenShellProvider(
-    # The 0.1.2 gateway limits names to 19 characters.
-    sandbox_name=f"oe-quick-{token_hex(4)}",
     # Exact server argv; OpenShell 0.1.2 does not run the image CMD for you.
     command=[
         "sh",
@@ -173,8 +170,6 @@ The gateway needs internet access to `pypi.org` and `example.com`. The
 - Validated on the local native arm64 VM driver with locally built images. Their
   image IDs are not pullable registry digests; other images and compute drivers
   are unverified.
-- Generated default sandbox names exceed the 0.1.2 gateway's 19-character
-  limit; pass a short `sandbox_name` (tracked as `openenv-openshell-zf3`).
 - Remote gateways using the standard mTLS configuration are **not supported**
   for unmodified OpenEnv clients: service routes require a TLS client
   certificate the client cannot present. The provider fails with

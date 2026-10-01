@@ -44,6 +44,9 @@ if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
 
 _MAX_PORT = 65535
+# OpenShell 0.1.2 gateway limit; reserve "openenv-" and a six-hex suffix.
+_MAX_GENERATED_NAME_LENGTH = 19
+_GENERATED_IMAGE_PREFIX_LENGTH = _MAX_GENERATED_NAME_LENGTH - len("openenv--") - 6
 _LOGGER = logging.getLogger("openenv_openshell")
 # TLS alerts for a route that demands a client certificate (TLS 1.3 and 1.2).
 _CLIENT_CERT_ALERTS = frozenset(
@@ -122,7 +125,7 @@ class OpenShellProvider(ContainerProvider):
         image_basename = image_without_digest.rsplit("/", maxsplit=1)[-1]
         image_basename = image_basename.split(":", maxsplit=1)[0]
         prefix = re.sub(r"[^a-z0-9]+", "-", image_basename.casefold()).strip("-")
-        prefix = prefix[:48].rstrip("-") or "environment"
+        prefix = prefix[:_GENERATED_IMAGE_PREFIX_LENGTH].rstrip("-") or "env"
         return f"openenv-{prefix}-{secrets.token_hex(3)}"
 
     def _connect_adapter(self) -> SandboxAdapter:

@@ -168,7 +168,7 @@ def test_generated_sandbox_name_is_safe_and_human_readable(
         "registry.example/team/My.Coding_ENV:latest@sha256:deadbeef"
     )
 
-    assert generated == "openenv-my-coding-env-a7f213"
+    assert generated == "openenv-my-c-a7f213"
 
 
 def test_generated_name_is_bounded_and_has_a_fallback(
@@ -185,8 +185,36 @@ def test_generated_name_is_bounded_and_has_a_fallback(
     long_name = provider._sandbox_name_for_image("x" * 100)  # noqa: SLF001
     fallback = provider._sandbox_name_for_image("registry.example/!!!:latest")  # noqa: SLF001
 
-    assert len(long_name) == len("openenv-") + 48 + len("-abcdef")
-    assert fallback == "openenv-environment-abcdef"
+    assert len(long_name) == 19  # noqa: PLR2004 - Gateway name limit.
+    assert fallback == "openenv-env-abcdef"
+
+
+@pytest.mark.parametrize(
+    ("image", "prefix"),
+    [
+        ("sha256:" + "a" * 64, "sha2"),
+        ("registry.example/echo-env:latest@sha256:deadbeef", "echo"),
+        ("registry.example/abcd-ef:latest", "abcd"),
+        ("registry.example/a:latest", "a"),
+        ("registry.example/!!!:latest", "env"),
+        ("registry.example/環境:latest", "env"),
+    ],
+)
+def test_generated_name_fits_gateway_limit(
+    image: str, prefix: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """IDs, digest references, and sanitized basenames fit the gateway limit."""
+
+    def token_hex(byte_count: int) -> str:
+        assert byte_count == 3  # noqa: PLR2004 - Preserve the random suffix entropy.
+        return "abcdef"
+
+    monkeypatch.setattr("openenv_openshell.provider.secrets.token_hex", token_hex)
+    provider = OpenShellProvider()
+    name = provider._sandbox_name_for_image(image)  # noqa: SLF001
+
+    assert name == f"openenv-{prefix}-abcdef"
+    assert len(name) <= 19  # noqa: PLR2004 - Gateway name limit.
 
 
 def test_explicit_sandbox_name_wins_over_generated_name() -> None:
