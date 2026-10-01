@@ -1801,7 +1801,8 @@ network denials with continued OpenEnv operation, and disposition of the securit
 review findings. Under section 22.1, bounded process capacity is excluded on the
 local 0.1.2 native VM lane; M2 completion MUST retain that documented residual
 availability risk and MUST NOT imply process-exhaustion protection. Cleanup
-ownership safety remains a separate requirement (SEC8a).
+ownership safety remains a separate requirement: SEC8a supplies the approved
+mitigations; SEC8c retains atomic deletion as an unresolved M2 dependency.
 
 ---
 

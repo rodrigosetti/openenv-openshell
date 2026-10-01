@@ -1,10 +1,11 @@
 # Security boundaries and credentials
 
 The [SEC8 security review](security-review.md) records the checked boundaries,
-runtime evidence, and unresolved acceptance findings. Name-based cleanup can
-delete an unowned same-name sandbox (SEC8a), and the local VM lane has no
-established sandbox PID bound. SEC8b resolves the capacity contract through the
-scope exclusion below; SEC8a remains a required repair. Completion
+runtime evidence, and unresolved acceptance findings. SEC8a mitigates name
+collisions and repeated deletion requests. A replacement between identity lookup
+and deletion remains possible (SEC8c), and the local VM lane has no established
+sandbox PID bound. SEC8b resolves the capacity contract through the scope
+exclusion below; SEC8c retains the atomic-deletion requirement. Completion
 of the review is not security milestone approval. Resource request mapping
 does not prove runtime resource enforcement.
 
@@ -68,13 +69,17 @@ rejects recognizable sensitive label keys; it cannot identify a secret hidden
 under an innocuous key. Keep labels, names, image references, and metadata public
 and free of prompts, credentials, or private task contents.
 
-SEC8a remains an unresolved ownership repair: rollback after a name collision
-can delete an unowned sandbox, and a reused name can target a replacement.
-Identity-aware deletion waiting checks absence after deletion; it does not
-condition the delete request on ownership. Reserve unique names and avoid reuse
-while this repair is pending, without treating that practice as a guarantee.
-See [the concrete finding](security-review.md#cleanup-blast-radius).
-Cleanup failures retain retry state and sanitized diagnostics.
+SEC8a rejects collision rollback, refuses deletion without a confirmed create
+identity, and checks the current identity before the first delete. Cleanup
+retries only confirm deletion of the original ID. Ambiguous creates require
+operator inspection; failed deletion attempts may also require operator action
+if confirmation keeps timing out. Errors and retry state remain sanitized.
+
+The pinned API still deletes by name. A replacement after identity lookup can
+be deleted before the identity-aware waiter runs; SEC8c tracks the required
+atomic upstream operation. Reserve unique names and avoid reuse while this
+limitation remains, without treating that practice as a guarantee. See
+[cleanup behavior and limits](cleanup-tests.md#sec8a-mitigation-and-remaining-blocker).
 `keep_sandbox=True` intentionally leaves workloads running, including after
 failed startup, and releases local ownership; operators must remove retained
 sandboxes. It does not retain or own operator-created credential providers.
@@ -162,8 +167,8 @@ Provider resolution and authorization belong to the gateway. Existing
 non-empty-string validation remains in effect.
 
 Configuration and create-request mapping are implemented and tested offline.
-Public startup and cleanup are implemented, subject to the SEC8a cleanup
-finding above. Provider provisioning is an operator action, separate from sandbox
+Public startup and cleanup are implemented, subject to the SEC8c atomic-deletion
+limitation above. Provider provisioning is an operator action, separate from sandbox
 cleanup; this package does not own or delete an operator's provider.
 
 ## SEC7 credential visibility check

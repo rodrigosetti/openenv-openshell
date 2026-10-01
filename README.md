@@ -184,7 +184,8 @@ The gateway needs internet access to `pypi.org` and `example.com`. The
 - You must supply the server command, environment, and working directory; OCI
   `ENTRYPOINT`/`CMD`, `ENV`, and `WORKDIR` are not resolved.
 - Security milestones are incomplete: name-based cleanup can affect a sandbox
-  that reuses the name (SEC8a), and the local VM lane offers no process-capacity
+  that replaces it between identity lookup and deletion (SEC8c), and the local VM
+  lane offers no process-capacity
   isolation against hostile workloads. See the [security guide](docs/security.md).
 
 ## Development

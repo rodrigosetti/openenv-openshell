@@ -1,5 +1,6 @@
 """Public cleanup ownership, identity, and retry contracts."""
 
+from typing import Literal
 from unittest.mock import patch
 
 import pytest
@@ -174,9 +175,11 @@ def test_cleanup_failure_is_safe_and_retryable(operation: FakeOperation) -> None
 
 
 @pytest.mark.parametrize("outcome", ["completed", "already_absent"])
-def test_partial_create_absence_without_identity(outcome: str) -> None:
+def test_partial_create_absence_without_identity(
+    outcome: Literal["completed", "already_absent"],
+) -> None:
     """No deletion outcome can prove ownership before a delete is authorized."""
-    adapter = FakeSandboxAdapter(delete_result=FakeDeletion(None, outcome))  # pyright: ignore[reportArgumentType] - Parametrized terminal outcomes.
+    adapter = FakeSandboxAdapter(delete_result=FakeDeletion(None, outcome))
     provider = OpenShellProvider()
     provider.state = ProviderState(sandbox_name="partial")
     with (
@@ -189,9 +192,11 @@ def test_partial_create_absence_without_identity(outcome: str) -> None:
 
 
 @pytest.mark.parametrize("outcome", ["accepted", "unknown"])
-def test_uncertain_deletion_without_identity_retains_ownership(outcome: str) -> None:
+def test_uncertain_deletion_without_identity_retains_ownership(
+    outcome: Literal["accepted", "unknown"],
+) -> None:
     """Unknown ownership cannot be recovered from a deletion acknowledgement."""
-    adapter = FakeSandboxAdapter(delete_result=FakeDeletion(None, outcome))  # pyright: ignore[reportArgumentType] - Parametrized uncertain outcomes.
+    adapter = FakeSandboxAdapter(delete_result=FakeDeletion(None, outcome))
     provider = OpenShellProvider()
     provider.state = ProviderState(sandbox_name="partial")
     with patch.object(provider, "_connect_adapter", return_value=adapter):

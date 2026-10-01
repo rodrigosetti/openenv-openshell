@@ -19,7 +19,8 @@ Test files are in [tests/unit](../tests/unit). A known sandbox identity remains
 the deletion-wait target even when the delete acknowledgement reports absence
 or omits its identity. With no create identity, cleanup refuses to delete and
 retains the attempted name for operator inspection. Failed cleanup retains
-state for confirmation retry; a client-close failure after confirmed deletion must not repeat deletion. In keep mode, even
+state for confirmation retry; a client-close failure after confirmed deletion
+must not repeat deletion. In keep mode, even
 failed-start rollback and retries must avoid both delete and deletion-wait calls.
 
 The separate [runtime checks](../tests/integration/README.md#p7-failed-start-cleanup)
@@ -75,3 +76,11 @@ passed; the lost-create-response control passed after its expectation was
 updated to refuse automatic cleanup and use its test-captured identity for
 explicit cleanup. The sandbox left by the old expectation was identified by
 its exact test name/ID and removed with absence independently confirmed.
+
+After integration with the advanced local `main`, `make check` passed 462
+offline tests, lint, and strict typing with 99.54% coverage. All 14 affected
+local SDK/gateway 0.1.2 runtime controls passed together in 157.02 seconds:
+collision and replacement ownership, provider startup and failure cleanup,
+unmodified async/sync OpenEnv clients, policy-before-execution, and managed
+credential cleanup. SEC8a is complete under the approved mitigation scope;
+SEC8c remains blocked on the upstream atomic-deletion capability.

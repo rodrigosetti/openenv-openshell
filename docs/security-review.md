@@ -3,8 +3,9 @@
 Reviewed 2026-09-30 against SPEC.md sections 5, 8, 12–24, 26–27, and 34.
 The review covers the production provider/private adapter at local main
 `85fa66b`, OpenEnv 0.6.0, and OpenShell SDK/gateway 0.1.2 on the native arm64 VM
-lane. It records evidence and unresolved findings; it does **not** approve the
-M2 security milestone or establish remote/runtime-independent enforcement.
+lane. The SEC8a update below records subsequent mitigation. This review does
+**not** approve the M2 security milestone or establish remote/runtime-independent
+enforcement.
 
 ## Findings and disposition
 
@@ -20,15 +21,16 @@ M2 security milestone or establish remote/runtime-independent enforcement.
 | Credentials/errors/logs | SEC7, `test_secret_safety.py` | Synthetic managed material is absent from tested environment prints; ordinary environment values remain readable. Public lifecycle messages, formatted tracebacks, retry notes and package logs omit synthetic secrets. Third-party/application logs and intentional inspection of raw exception objects are outside that evidence. |
 | CPU/memory/GPU | `_sdk.SDKAdapter.create`, `test_adapter.py`, `test_openshell_contract.py` | Requested values reach the pinned wire fields. No runtime capacity/enforcement guarantee follows from serialization; different drivers may interpret these requests differently. |
 | PID capacity | `test_security_review.py`, S3a console evidence | No visible `pids.max` file was found in the process's cgroup hierarchy. Both probes reported soft/hard RLIMIT_NPROC 7698. That per-user limit is not proof of a sandbox-specific process budget. SEC8b adopts the explicit SPEC section 22.1 scope decision excluding that guarantee on the local VM lane; see [residual risk](process-capacity.md). |
-| Cleanup | `provider.start_container`, `provider.stop_container`, `_sdk.SDKAdapter.delete`, pinned SDK `DeleteSandboxRequest` | **High severity: name-based rollback can delete an unowned sandbox.** Identity-aware waiting verifies disappearance after a destructive request; it does not constrain the delete. SEC8a is required before M2 acceptance. |
+| Cleanup | `provider.start_container`, `provider.stop_container`, `_sdk.SDKAdapter.delete`, pinned SDK `DeleteSandboxRequest` | SEC8a prevents collision rollback, refuses unknown ownership, checks identity before first deletion, and limits retries to confirmation. **Residual high severity: replacement between lookup and delete remains possible.** SEC8c retains the atomic-deletion requirement and directly blocks M2. |
 
 ## Cleanup blast radius
 
-Before calling create, the provider records the selected name as owned. Every
-create exception then enters `stop_container()`. An SDK `ALREADY_EXISTS`
-response therefore triggers `delete(name, workspace=..., allow_missing=True)`
-against the pre-existing sandbox. If the provider has no recorded ID, it adopts
-the deletion acknowledgement's ID and waits for that sandbox to disappear.
+In the original reviewed baseline, the provider recorded the selected name as
+owned before calling create. Every create exception then entered
+`stop_container()`. An SDK `ALREADY_EXISTS`
+response therefore triggered `delete(name, workspace=..., allow_missing=True)`
+against the pre-existing sandbox. Without a recorded ID, it adopted
+the deletion acknowledgement's ID and waited for that sandbox to disappear.
 A sanitized error and successful cleanup can mask deletion of another workload.
 
 The offline reproduction used a signature-constrained `SandboxClient` double
@@ -37,15 +39,25 @@ ALREADY_EXISTS error, and delete acknowledged `pre-existing-id`. Assertions
 confirmed exactly one name-based delete followed by a deletion wait for
 `pre-existing-id`. No real operator sandbox was used for this reproduction.
 
-The same risk applies when an owned sandbox disappears and its name is reused
-before a cleanup retry. The current tests preserve the original **wait** ID
-even when delete acknowledges a replacement; that does not prevent deleting
-the replacement. The pinned public delete call and generated request have no
-expected-ID condition. A separate lookup before delete alone would leave a
-race. SEC8a must establish a fail-closed ownership/deletion contract, test
-collision and replacement safety, and retain partial-start cleanup where
-ownership can be proved. Until repaired, reserve unique names and avoid name
-reuse; this reduces collision risk but is not a security guarantee.
+The same baseline risk applied when a name was reused before a cleanup retry.
+Preserving the original **wait** ID did not prevent the preceding delete from
+removing a replacement.
+
+SEC8a now treats `ALREADY_EXISTS` as a rejected create and closes the client
+without deleting the existing sandbox. Ambiguous create failures retain the
+attempted name for inspection and refuse automatic deletion. For a successful
+create, the adapter checks the current ID before its first delete, skips observed
+replacements, and retries only deletion confirmation using the original ID.
+The disposable collision/replacement controls and startup failure tests are in
+`test_cleanup_ownership.py` and `test_provider_startup.py`; see the
+[validation evidence](cleanup-tests.md).
+
+On 2026-09-30 the user approved merging these mitigations separately from the
+full atomic guarantee. The pinned public delete call still has no expected-ID
+condition: replacement between lookup and delete can remove another workload.
+**SEC8c** tracks the upstream API capability and reviewed compatibility update
+needed to close that race. It directly blocks M2. Unique names and avoiding
+reuse reduce collision risk but do not establish atomic ownership safety.
 
 ## Resource gap and milestone decision
 
@@ -61,7 +73,7 @@ SEC8b resolves this finding through SPEC.md section 22.1 and M2 acceptance,
 excluding guaranteed sandbox-specific process capacity and process-exhaustion
 protection on the local 0.1.2 VM lane. See [the decision](process-capacity.md).
 No guest-side limiter, private runtime fork, or weakened policy is introduced.
-M2 has direct dependencies on **SEC8a** and **SEC8b**, in addition to this review,
+M2 directly depends on **SEC8a**, **SEC8b**, and **SEC8c**, as well as this review,
 so completing SEC8 cannot be mistaken for security acceptance. Architecture
 documentation and audit exports must retain the excluded availability guarantee;
 this decision does not establish PID enforcement or close M2.
@@ -94,5 +106,6 @@ cases). Each sandbox's deletion was independently confirmed. Both SEC8 probes
 reported UID/GID 1000, `pids_max: []`, and `rlimit_nproc: [7698, 7698]`.
 `make check` passed Ruff, strict Pyright, and 416 unit tests with 99.50%
 branch-inclusive coverage. The offline collision reproduction confirmed the
-cleanup finding above. SEC8a remains a required repair; SEC8b is dispositioned
-by the documented scope decision, with the runtime limitation retained.
+original cleanup finding above. SEC8a supplies the subsequent mitigations;
+SEC8c retains the atomic-deletion blocker. SEC8b is dispositioned by the
+documented scope decision, with the runtime limitation retained.
