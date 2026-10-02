@@ -104,7 +104,7 @@ load_policy("policy.yaml")  # offline validation, same as the provider uses
   change it. It records what was submitted, not that it was enforced. It is
   `None` when no explicit policy was given.
 
-Start from [the policy examples](../examples/policies/README.md): a strict
+Start from [the policy examples](https://github.com/rodrigosetti/openenv-openshell/blob/main/examples/policies/README.md): a strict
 deny-all, a minimal Hugging Face read rule, and the image-compatible policy the
 quickstart uses. The [security guide](security.md) explains precedence and what
 is enforced.

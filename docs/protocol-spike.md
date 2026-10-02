@@ -1,6 +1,6 @@
 # Routed protocol spike (S5)
 
-The opt-in [protocol test](../tests/integration/test_protocol_spike.py) extends
+The opt-in [protocol test](https://github.com/rodrigosetti/openenv-openshell/blob/main/tests/integration/test_protocol_spike.py) extends
 the [S4 lifecycle experiment](lifecycle-spike.md) with a probe that runs while
 the sandbox is alive. It uses the pinned SDK's atomic unnamed service exposure,
 the S3a policy and image, and the image's explicit canonical command. It does
@@ -102,10 +102,10 @@ The image was pulled anonymously from GHCR by manifest digest:
 ghcr.io/rodrigosetti/openenv-openshell-echo@sha256:02ea3505fc0b0a451778442ca2994c6be94a45ae4572358899b41b98c1df60a0
 ```
 
-It is the pinned [Dockerfile](../tests/integration/images/echo/Dockerfile)
+It is the pinned [Dockerfile](https://github.com/rodrigosetti/openenv-openshell/blob/main/tests/integration/images/echo/Dockerfile)
 built for linux/amd64
 (`sha256:f7bac7ca74ba3950b98508e838a3fe2ee5a90fd46334cea13875dfb83030f1c8`),
-plus the [Docker-driver layer](../tests/integration/images/echo/Dockerfile.docker-driver).
+plus the [Docker-driver layer](https://github.com/rodrigosetti/openenv-openshell/blob/main/tests/integration/images/echo/Dockerfile.docker-driver).
 See [image evidence](echo-env-image.md#docker-driver-variant-s5a).
 
 The client trusted the gateway's private CA through `SSL_CERT_FILE`, set to a
@@ -119,7 +119,7 @@ stayed enabled throughout.
 |---|---|---|
 | Raw probe, this test | none | Fails in 2.7 s: `Service route requires a TLS client certificate` |
 | Raw probe, this test | gateway client certificate | Passes: health, two episodes, four echo steps, state, ping/pong |
-| Unmodified OpenEnv client, async and sync ([P10 test](../tests/integration/test_openenv_client.py)) | none (cannot present one) | Fails: `ServiceAccessError: OpenShell service route requires a TLS client certificate` |
+| Unmodified OpenEnv client, async and sync ([P10 test](https://github.com/rodrigosetti/openenv-openshell/blob/main/tests/integration/test_openenv_client.py)) | none (cannot present one) | Fails: `ServiceAccessError: OpenShell service route requires a TLS client certificate` |
 
 Every run deleted its sandbox and verified absence by the original ID, and the
 gateway listed no sandboxes afterwards.

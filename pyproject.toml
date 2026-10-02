@@ -45,6 +45,9 @@ dev = [
   "ruff>=0.13,<0.15",
   "types-pyyaml>=6,<7",
 ]
+docs = [
+  "mkdocs>=1.6.1,<1.7",
+]
 
 # The official SDK is a separately installed runtime prerequisite (I13).
 # Index metadata cannot contain direct references; dev retains the exact pin.
@@ -70,7 +73,7 @@ include = [
 packages = ["src/openenv_openshell"]
 
 [tool.pyright]
-include = ["src", "tests", "scripts", "examples"]
+include = ["src", "tests", "scripts", "examples", "docs/_hooks"]
 pythonVersion = "3.11"
 typeCheckingMode = "strict"
 venvPath = "."

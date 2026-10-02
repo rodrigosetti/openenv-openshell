@@ -14,7 +14,7 @@ experiments. S6 changes requirements and documentation, not runtime behavior.
 | WebSocket keepalive | Preserve OpenEnv's client transport behavior. S5 proved two episodes, four echo steps, state transitions, and ping/pong on one local connection. That evidence covers short active sessions. | P10/I2 must validate the unmodified local client. **S5a:** the remote HTTPS/WSS route passed two episodes, four echo steps, and ping/pong when the client presented the gateway certificate. Long idle and reconnect behavior remain unverified. |
 | Initial policy | Load and strictly convert an explicit policy before create; embed it in the same request as workload and service exposure. Never create first and install static policy afterward or replace an invalid explicit policy with a default. S3a/S4/S5 supplied initial policy; P2/T6 verify strict conversion offline. | SEC1 owns general loading/normalization; SEC4 must prove invalid policy prevents execution. SEC5/SEC6 own denial tests. |
 
-The normative requirements are in [SPEC.md](../SPEC.md), sections 12.2–14,
+The normative requirements are in [SPEC.md](https://github.com/rodrigosetti/openenv-openshell/blob/main/SPEC.md), sections 12.2–14,
 18, and 41. See the [SDK contract](openshell-sdk-contract.md) for the exact
 create-time service map and generated-model boundary.
 

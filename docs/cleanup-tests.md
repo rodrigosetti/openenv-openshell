@@ -15,13 +15,13 @@ with the rest of the unit suite, strict typing, linting, and coverage checks.
 | Unhealthy server followed by caller cleanup | `test_readiness.py`: `test_owned_health_timeout_public_cleanup` |
 | Public close and provider context exit | `test_close.py`: normal/error exits, keep mode, cleanup failures, and failed-start retry |
 
-Test files are in [tests/unit](../tests/unit). A known sandbox identity remains
+Test files are in [tests/unit](https://github.com/rodrigosetti/openenv-openshell/tree/main/tests/unit). A known sandbox identity remains
 the deletion-wait target even when the delete acknowledgement reports absence
 or omits its identity. With no identity, only an explicit terminal outcome
 confirms absence. Failed cleanup retains ownership for retry; a client-close
 failure after confirmed deletion must not repeat deletion. In keep mode, even
 failed-start rollback and retries must avoid both delete and deletion-wait calls.
 
-The separate [runtime checks](../tests/integration/README.md#p7-failed-start-cleanup)
+The separate [runtime checks](https://github.com/rodrigosetti/openenv-openshell/blob/main/tests/integration/README.md#p7-failed-start-cleanup)
 exercise local routed workloads and independently check sandbox absence. Offline
 coverage does not establish remote gateway behavior or policy enforcement.

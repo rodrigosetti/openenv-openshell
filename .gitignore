@@ -26,3 +26,6 @@ htmlcov/
 .beads-credential-key
 .beads/proxieddb/
 *.gate.lock*
+
+# MkDocs generated manual
+/site/

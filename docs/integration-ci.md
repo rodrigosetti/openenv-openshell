@@ -24,7 +24,7 @@ restart a gateway, create cloud infrastructure, or build/publish images.
    never put them in workflow variables or image environment. Use a dedicated
    gateway/workspace with no unrelated workloads or production credentials.
 2. Build the [validated EchoEnv image](echo-env-image.md) and the synthetic SEC5
-   canary image using [integration setup](../tests/integration/README.md).
+   canary image using [integration setup](https://github.com/rodrigosetti/openenv-openshell/blob/main/tests/integration/README.md).
    Confirm architecture, exact argv, policy paths, required utilities, and image
    availability for this compute driver. The checked-in local Docker image ID
    cannot be assumed present on a different host. SEC6 needs working gateway

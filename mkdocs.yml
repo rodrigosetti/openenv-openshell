@@ -1,0 +1,64 @@
+site_name: OpenEnv OpenShell
+site_description: Run OpenEnv environment servers under OpenShell policies.
+site_url: https://rodrigosetti.github.io/openenv-openshell/
+repo_url: https://github.com/rodrigosetti/openenv-openshell
+edit_uri: blob/main/docs/
+docs_dir: docs
+site_dir: site
+watch:
+  - README.md
+strict: true
+theme:
+  name: mkdocs
+  color_mode: auto
+  navigation_depth: 2
+plugins:
+  - search
+hooks:
+  - docs/_hooks/readme.py
+exclude_docs: |
+  /_hooks/
+validation:
+  nav:
+    omitted_files: warn
+    not_found: warn
+    absolute_links: warn
+  links:
+    not_found: warn
+    anchors: warn
+    unrecognized_links: warn
+    absolute_links: warn
+nav:
+  - Home: index.md
+  - Get started:
+      - Requirements, install and quickstart: getting-started.md
+      - Local gateway setup: local-openshell-testing.md
+      - Environment images: images.md
+  - User guide:
+      - Provider configuration: configuration.md
+      - Policies and security: security.md
+      - Coding-agent demo: coding-agent-demo.md
+      - Troubleshooting: troubleshooting.md
+      - Compatibility: compatibility-matrix.md
+  - Engineering reference:
+      - Architecture: architecture.md
+      - EchoEnv image evidence: echo-env-image.md
+      - Image startup contract: image-startup.md
+      - OpenEnv client compatibility: openenv-compatibility.md
+      - OpenShell SDK contract: openshell-sdk-contract.md
+      - Remote gateway testing: remote-gateway-testing.md
+      - Lifecycle spike: lifecycle-spike.md
+      - Protocol spike: protocol-spike.md
+      - Spike decisions: spike-decisions.md
+      - Provider acceptance: provider-acceptance.md
+      - Cleanup tests: cleanup-tests.md
+      - Security review: security-review.md
+      - Process capacity: process-capacity.md
+      - Integration CI: integration-ci.md
+      - Release notes (prepared alpha): release-notes/0.1.0.md
+      - Release procedure: releases.md
+      - Repository publication: repository-publication.md
+      - Beads worktrees: beads-worktrees.md
+      - Documentation contributions: documentation.md
+      - Specification: https://github.com/rodrigosetti/openenv-openshell/blob/main/SPEC.md
+      - Integration suites: https://github.com/rodrigosetti/openenv-openshell/blob/main/tests/integration/README.md

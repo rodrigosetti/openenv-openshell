@@ -28,7 +28,7 @@ that the VM runtime injects them.
 | `spec.command` omitted | `oe-s4-452d069446`, ID `edca7776-b470-45f0-8f56-4f2c0d794ac8`, reached Ready. Routed health never succeeded within the 10-second observation window; no protocol session was possible. | Original ID deletion/absence verified. |
 | Exact image CMD supplied | `oe-s4-2541c7f11b`, ID `c05650c8-13ad-4a7b-9d55-ef6c648e1ada`, reached Ready. Routed HTTP 200/healthy, two reset episodes, four echo steps, state transitions, and ping/pong passed. | Original ID deletion/absence verified. |
 
-The [comparison test](../tests/integration/test_image_startup.py) passed both
+The [comparison test](https://github.com/rodrigosetti/openenv-openshell/blob/main/tests/integration/test_image_startup.py) passed both
 cases in 32.61 seconds. The omitted-command case asserts the known limitation;
 it does **not** establish successful workload startup. The bounded observation
 alone would not prove CMD can never start; the source contract below explains
@@ -110,7 +110,7 @@ injecting it at the mocked SDK call.
 
 P4 now implements `start_container`, including local validation before connection,
 create-time route capture, readiness, and best-effort failed-start deletion.
-See the [P4 runtime control](../tests/integration/README.md#p4-provider-startup).
+See the [P4 runtime control](https://github.com/rodrigosetti/openenv-openshell/blob/main/tests/integration/README.md#p4-provider-startup).
 Public cleanup remains P6/P7 and release acceptance gates remain open.
 The S6a runtime evidence above covers the explicit fixture command on the local
 VM; remote images/drivers remain S5a.
