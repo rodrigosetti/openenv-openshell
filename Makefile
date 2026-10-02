@@ -1,4 +1,4 @@
-.PHONY: check compatibility demo format integration lint openshell-prereqs openshell-smoke security-e2e security-filesystem security-network test typecheck
+.PHONY: docs-build docs-serve check compatibility demo format integration lint openshell-prereqs openshell-smoke security-e2e security-filesystem security-network test typecheck
 
 export OPENENV_OPENSHELL_FILESYSTEM_IMAGE_ID OPENENV_OPENSHELL_NETWORK_IMAGE_ID OPENENV_OPENSHELL_CODING_IMAGE_ID
 
@@ -50,3 +50,10 @@ openshell-prereqs:
 
 openshell-smoke:
 	./scripts/check-openshell-local.sh --smoke
+
+# Docs-only commands do not install or execute the runtime dependencies.
+docs-build:
+	uv run --locked --only-group docs mkdocs build --strict
+
+docs-serve:
+	uv run --locked --only-group docs mkdocs serve

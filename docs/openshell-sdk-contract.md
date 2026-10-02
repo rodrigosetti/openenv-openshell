@@ -314,9 +314,9 @@ cover the adapter boundary but do not establish runtime enforcement.
 
 ## T6 adapter contract fixtures
 
-[`tests/fixtures/openshell-0.1.2.json`](../tests/fixtures/openshell-0.1.2.json)
+[`tests/fixtures/openshell-0.1.2.json`](https://github.com/rodrigosetti/openenv-openshell/blob/main/tests/fixtures/openshell-0.1.2.json)
 is the reviewed release snapshot. The offline
-[`adapter contract tests`](../tests/unit/test_adapter_contract.py) compare it
+[`adapter contract tests`](https://github.com/rodrigosetti/openenv-openshell/blob/main/tests/unit/test_adapter_contract.py) compare it
 with the installed wheel's exact public signatures (including parameter kinds,
 defaults, and response annotations), response dataclass fields, health wire
 fields, and deletion enum names/values. A method or model mismatch identifies

@@ -87,9 +87,9 @@ port, action model, or architecture; inspect the digest before changing it.
 
 ## Selected local arm64 image
 
-The [Dockerfile](../tests/integration/images/echo/Dockerfile) builds the native
+The [Dockerfile](https://github.com/rodrigosetti/openenv-openshell/blob/main/tests/integration/images/echo/Dockerfile) builds the native
 VM test image from upstream EchoEnv source. Its immutable local Docker image ID
-is recorded in [local-image-id.txt](../tests/integration/images/echo/local-image-id.txt):
+is recorded in [local-image-id.txt](https://github.com/rodrigosetti/openenv-openshell/blob/main/tests/integration/images/echo/local-image-id.txt):
 
 ```text
 sha256:21f3855dde019fb73eccc853f0d14308fbca702b30357add0bbb0cbc898a18f6
@@ -143,9 +143,9 @@ OPENENV_OPENSHELL_ECHO_IMAGE_ID="$(cat tests/integration/images/echo/local-image
   uv run pytest -m integration --no-cov tests/integration/test_echo_image.py -v --log-cli-level=INFO
 ```
 
-The opt-in [image integration test](../tests/integration/test_echo_image.py)
+The opt-in [image integration test](https://github.com/rodrigosetti/openenv-openshell/blob/main/tests/integration/test_echo_image.py)
 requires CLI/gateway 0.1.2, checks architecture and CMD, creates a unique labeled
-sandbox with the [image policy fixture](../tests/integration/images/echo/policy.yaml),
+sandbox with the [image policy fixture](https://github.com/rodrigosetti/openenv-openshell/blob/main/tests/integration/images/echo/policy.yaml),
 exposes port 8000 through OpenShell, polls routed `/health`, verifies `/ws` upgrade,
 logs runtime diagnostics, and deletes the
 sandbox in `finally`, including after a failed create or probe. It checks that
@@ -241,18 +241,18 @@ write the workdir. The pinned image runs as root in root-owned `/app/env`. The
 sandbox therefore entered the error phase with `ControlSupervisorStartFailed`:
 `image workspace validation failed ... identity in the image: Permission denied`.
 
-S5a first built the unchanged [Dockerfile](../tests/integration/images/echo/Dockerfile)
+S5a first built the unchanged [Dockerfile](https://github.com/rodrigosetti/openenv-openshell/blob/main/tests/integration/images/echo/Dockerfile)
 for linux/amd64 and pushed it to a public GHCR package:
 
 ```text
 ghcr.io/rodrigosetti/openenv-openshell-echo@sha256:f7bac7ca74ba3950b98508e838a3fe2ee5a90fd46334cea13875dfb83030f1c8
 ```
 
-[`Dockerfile.docker-driver`](../tests/integration/images/echo/Dockerfile.docker-driver)
+[`Dockerfile.docker-driver`](https://github.com/rodrigosetti/openenv-openshell/blob/main/tests/integration/images/echo/Dockerfile.docker-driver)
 adds a UID 1000 `sandbox` account on top of that digest, with `WORKDIR /sandbox`
 and `USER sandbox`. The EchoEnv code and venv stay root-owned and readable. The
 canonical command still changes into `/app/env`. The result, recorded in
-[`remote-image-ref.txt`](../tests/integration/images/echo/remote-image-ref.txt),
+[`remote-image-ref.txt`](https://github.com/rodrigosetti/openenv-openshell/blob/main/tests/integration/images/echo/remote-image-ref.txt),
 passed remote readiness and the full protocol probe:
 
 ```text

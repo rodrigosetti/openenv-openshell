@@ -53,7 +53,7 @@ argument, and confirm workspace access with `openshell sandbox list
 Homebrew gateway.
 
 The provider also refuses to run with an OpenShell SDK other than 0.1.2. Install
-the pinned wheel; see [installation](../README.md#install).
+the pinned wheel; see [installation](https://github.com/rodrigosetti/openenv-openshell/blob/main/README.md#install).
 
 ### `SandboxCreationError` on every start
 
@@ -134,11 +134,11 @@ you add `network_policies` rules for the exact binary, host, and port. Inbound
 service routing does not need an egress rule.
 
 **`make demo` or the quickstart says to set an image variable.** Build the image
-and export its ID as shown in the [README](../README.md#quickstart).
+and export its ID as shown in the [README](https://github.com/rodrigosetti/openenv-openshell/blob/main/README.md#quickstart).
 
 **`uv sync` cannot install `openshell`.** The SDK is installed from its official
 release wheel, not PyPI's unrelated `openshell` package; see
-[installation](../README.md#install).
+[installation](https://github.com/rodrigosetti/openenv-openshell/blob/main/README.md#install).
 
 ## Reporting issues
 

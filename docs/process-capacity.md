@@ -5,7 +5,7 @@ acceptance criteria. For v0.1 on the local OpenShell SDK/gateway 0.1.2 native
 arm64 VM lane, a guaranteed sandbox-specific process/thread budget and protection
 against process-exhaustion denial of service are excluded. This resolves the
 contract question; it does not fix or demonstrate runtime PID enforcement.
-[SPEC section 22.1](../SPEC.md#221-process-capacity-sec8b-scope-decision) governs
+[SPEC section 22.1](https://github.com/rodrigosetti/openenv-openshell/blob/main/SPEC.md#221-process-capacity-sec8b-scope-decision) governs
 this decision and M2 acceptance must preserve the limitation.
 
 ## Evidence and interpretation

@@ -153,6 +153,11 @@ The gateway needs internet access to `pypi.org` and `example.com`. The
 
 ## Documentation
 
+The searchable manual can be previewed locally with `make docs-serve` at
+`http://127.0.0.1:8000/openenv-openshell/`. See
+[documentation contributions](docs/documentation.md) for the locked docs-only
+installation and strict build. GitHub Pages publication is tracked separately.
+
 | Guide | Contents |
 | --- | --- |
 | [Configuration reference](docs/configuration.md) | Every provider option, start arguments, policy, credentials, resources, metadata, errors, logging |
