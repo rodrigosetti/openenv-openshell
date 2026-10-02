@@ -153,10 +153,11 @@ The gateway needs internet access to `pypi.org` and `example.com`. The
 
 ## Documentation
 
-The searchable manual can be previewed locally with `make docs-serve` at
+Read the [searchable user manual](https://rodrigosetti.github.io/openenv-openshell/)
+or browse the [source guides](docs/index.md). Preview locally with `make docs-serve` at
 `http://127.0.0.1:8000/openenv-openshell/`. See
 [documentation contributions](docs/documentation.md) for the locked docs-only
-installation and strict build. GitHub Pages publication is tracked separately.
+installation, strict build, and GitHub Pages deployment procedure.
 
 | Guide | Contents |
 | --- | --- |

@@ -57,9 +57,85 @@ anchors; it does not fetch external links.
 See the official [MkDocs configuration guide](https://www.mkdocs.org/user-guide/configuration/)
 for link validation and project-subpath preview behavior.
 
-## Publication boundary
+## GitHub Pages setup
 
-This change prepares the manual for GitHub Pages. Enabling Pages, adding the
-publishing workflow, and verifying the live URL belong to the dependent deployment
-issue `openenv-openshell-ikw`. Hosted documentation is additional work, not a new
-M3 release requirement.
+The publication URL is <https://rodrigosetti.github.io/openenv-openshell/>.
+The [User manual workflow](https://github.com/rodrigosetti/openenv-openshell/blob/main/.github/workflows/pages.yml)
+builds the locked docs group, uploads `site/` with the official Pages artifact
+action, and deploys it through the official Pages deployment action. Every action
+is pinned to a full commit SHA. The build has only `contents: read`; only the
+deployment job has `pages: write` and `id-token: write`. Checkout does not retain
+credentials, and deployment uses the `github-pages` environment with concurrency
+that lets an in-flight deployment finish.
+
+After explicit authority to commit, push, and publish the reviewed changes,
+a repository administrator must enable Pages:
+
+1. Open repository **Settings → Pages** and select **GitHub Actions** as the
+   build and deployment source. Do not select a branch publishing source.
+2. In **Settings → Environments → github-pages**, restrict deployment branches
+   to `main`. Retain any required reviewers; approve the deployment when prompted.
+3. Merge the reviewed workflow and documentation changes into `main`. The push
+   starts publication. Pages must be enabled before that deployment runs.
+
+The equivalent Pages source API setup, using an administrator's authenticated
+GitHub CLI, is:
+
+```bash
+# Create the Pages configuration when none exists.
+gh api --method POST repos/rodrigosetti/openenv-openshell/pages -f build_type=workflow
+# For an existing site, change its source instead.
+gh api --method PUT repos/rodrigosetti/openenv-openshell/pages -f build_type=workflow
+gh api repos/rodrigosetti/openenv-openshell/pages --jq '{build_type,html_url}'
+```
+
+Run the appropriate create or update command, not both. The workflow reads this
+configuration with automatic enablement disabled; it does not receive an admin
+token or modify repository settings. See GitHub's
+[custom Pages workflow requirements](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages).
+
+## Publication and recovery
+
+The site tracks `main`, including unreleased documentation; it is not a
+release-version archive. A push to `main` or an explicit manual dispatch on
+`main` builds and deploys the checked-out revision. Dispatch on any other ref
+skips publication. Pull requests run the Quality workflow's strict docs build
+without Pages permissions or deployment. Forks cannot publish to the canonical
+site. Hosted documentation is additional work, not a new M3 release requirement.
+
+To redeploy the current `main` after correcting setup or a transient failure:
+
+```bash
+gh workflow run pages.yml --ref main
+gh run list --workflow pages.yml --branch main --limit 5
+gh run view RUN_ID --json headSha,event,conclusion,url
+gh run watch RUN_ID --exit-status
+```
+
+Use the numeric run ID from the list. Inspect failed logs with
+`gh run view RUN_ID --log-failed`. For a build failure, reproduce `make docs-build`
+locally and fix the source on `main`. For deployment failures, confirm the Pages
+source is `workflow`, the environment allows `main`, required approvals are
+satisfied, and Actions may run the pinned official actions. A failed build cannot
+deploy; check the last successful deployment before assuming the site changed.
+To restore older content, revert the offending source change through review on
+`main` and deploy that revision. Re-running an older successful workflow can
+publish stale content; dispatch on current `main` for routine recovery.
+
+## Verify publication
+
+Local build success is not live-site evidence. After the deployment succeeds:
+
+1. Record the workflow run URL, its `headSha`, and the successful deployment in
+   `openenv-openshell-ikw`.
+2. Fetch the landing page over HTTPS without a GitHub login, cookies, or tokens:
+   `curl --fail --location https://rodrigosetti.github.io/openenv-openshell/`.
+3. In an anonymous browser, follow navigation to getting started, configuration,
+   security, and troubleshooting. Search for `service_port` and `policy`, open
+   result links, and verify styles and scripts load under `/openenv-openshell/`.
+4. Follow repository and example source links and verify the README manual link
+   and package `Documentation` URL resolve to the working site. The README guide
+   table and package `Source documentation` URL retain access to source guides.
+
+Close the deployment issue only after recording this evidence. If publication
+authority or administrator access is missing, record that concrete blocker.

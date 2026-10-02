@@ -30,7 +30,8 @@ dependencies = [
 [project.urls]
 Repository = "https://github.com/rodrigosetti/openenv-openshell"
 Issues = "https://github.com/rodrigosetti/openenv-openshell/issues"
-Documentation = "https://github.com/rodrigosetti/openenv-openshell#readme"
+Documentation = "https://rodrigosetti.github.io/openenv-openshell/"
+"Source documentation" = "https://github.com/rodrigosetti/openenv-openshell/tree/main/docs"
 Changelog = "https://github.com/rodrigosetti/openenv-openshell/blob/main/docs/release-notes/0.1.0.md"
 
 [dependency-groups]
