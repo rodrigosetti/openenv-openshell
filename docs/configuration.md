@@ -84,6 +84,13 @@ Errors and `repr()` never include argv. See the
 It is loaded and validated before any gateway call and submitted atomically in
 the create request, so the workload never runs without it.
 
+Mapping inputs are captured at construction. Reads through `provider.config.policy`
+return detached nested dictionaries and lists: editing them cannot change the
+stored policy or a later run's submitted policy and digest. Top-level assignment
+is rejected. Authored list types and strict validation remain unchanged.
+YAML paths retain load-at-start semantics: file contents are read and validated
+for every start, so changing the file between runs changes the submitted policy.
+
 ```python
 from openenv_openshell.policy import load_policy
 

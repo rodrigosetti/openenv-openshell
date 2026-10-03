@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass, field
 from math import isfinite
@@ -34,6 +34,26 @@ _SENSITIVE_LABEL_TERMS = frozenset(
     }
 )
 _SENSITIVE_LABEL_PHRASES = ("api-key", "task-content", "user-data")
+
+
+class _PolicySnapshot(Mapping[str, object]):
+    """Read-only mapping whose nested values are detached on every read."""
+
+    def __init__(self, source: Mapping[str, object]) -> None:
+        """Capture caller input without changing its authored types."""
+        self._values = deepcopy(dict(source))
+
+    def __getitem__(self, key: str) -> object:
+        """Return a detached value so nested edits cannot change the snapshot."""
+        return deepcopy(self._values[key])
+
+    def __iter__(self) -> Iterator[str]:
+        """Iterate the captured keys."""
+        return iter(self._values)
+
+    def __len__(self) -> int:
+        """Return the number of captured fields."""
+        return len(self._values)
 
 
 def _validate_name(value: str, *, field_name: str, allow_empty: bool = False) -> None:
@@ -198,5 +218,4 @@ class OpenShellProviderConfig:
         object.__setattr__(self, "providers", providers)
 
         if isinstance(self.policy, Mapping):
-            policy = MappingProxyType(deepcopy(dict(self.policy)))
-            object.__setattr__(self, "policy", policy)
+            object.__setattr__(self, "policy", _PolicySnapshot(self.policy))
