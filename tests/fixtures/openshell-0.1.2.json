@@ -7,7 +7,8 @@
     "wait_ready": "(self, name: 'str', *, workspace: 'str', timeout_seconds: 'float' = 300.0) -> 'SandboxRef'",
     "delete": "(self, name: 'str', *, workspace: 'str', allow_missing: 'bool' = False) -> 'DeletionResult'",
     "wait_deleted": "(self, name: 'str', *, workspace: 'str', timeout_seconds: 'float' = 60.0, expected_sandbox_id: 'str | None' = None) -> 'None'",
-    "close": "(self) -> 'None'"
+    "close": "(self) -> 'None'",
+    "get": "(self, name: 'str', *, workspace: 'str') -> 'SandboxRef'"
   },
   "response_fields": {
     "SandboxRef": [
@@ -111,6 +112,15 @@
       "kwargs": {
         "workspace": "default",
         "timeout_seconds": 12
+      }
+    },
+    {
+      "method": "get",
+      "args": [
+        "sandbox"
+      ],
+      "kwargs": {
+        "workspace": "default"
       }
     },
     {

@@ -232,3 +232,22 @@ installing the hash-pinned SDK, the private adapter imported and reported SDK
 This is local package evidence only. No tag, upload, production acceptance, or
 new runtime compatibility result is asserted. M3, I13, and I14 remain separate
 release gates.
+
+## 9zt release-branch reconciliation evidence — October 3, 2026
+
+Merged saved `origin/main` (7cb5c39) into local `main` (2fcf11d) as commit
+`8d878a1` on `codex/openenv-openshell-9zt`. The tree contains the SEC8a ownership
+safeguards, the S5b remote-OIDC validation, the ZF3 generated-name fix, I10
+packaging, and the user manual. The only textual conflict was `README.md`.
+Source code at this revision is exactly the merge result; this evidence entry
+is documentation only.
+
+With `uv sync --locked --all-groups`, `make check` passed 468 unit tests (29
+integration tests deselected), Ruff, strict Pyright, and 99.54% coverage. Against
+the local OpenShell 0.1.2 gateway (`vm` driver, Docker running for image
+resolution) and the pinned native arm64 EchoEnv image, 15 integration tests
+passed in 198.83 seconds: collision and replacement ownership, provider startup
+and failure cleanup, the quickstart with its default-generated name, unmodified
+OpenEnv clients, policy-before-execution, and managed credentials. No sandboxes
+remained afterwards. SEC8c (atomic deletion) remains a separate release blocker;
+this branch-local result is not M3 acceptance evidence.

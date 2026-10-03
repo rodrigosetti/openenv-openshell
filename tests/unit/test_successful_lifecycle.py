@@ -111,7 +111,7 @@ def test_configured_startup_mapping(service_name: str, port: int | None) -> None
     ) == (request.name, created.sandbox_id, request.workspace, request.image, url)
     provider.stop_container()
     assert adapter.calls[-2:] == [
-        DeleteCall("chosen", "research"),
+        DeleteCall("chosen", "research", "original-id"),
         WaitDeletedCall("chosen", "research", "original-id", 19),
     ]
     assert adapter.closed
@@ -257,6 +257,7 @@ def test_public_startup_selects_exact_sdk_route(
         "health",
         "create",
         "wait_ready",
+        "get",
         "delete",
         "wait_deleted",
         "close",

@@ -294,7 +294,9 @@ cleanup itself fails. No sandbox mutation is retried automatically.
 The adapter constructs generated workload inputs privately, retains the
 create-time routes as a detached immutable mapping, and uses `timeout_seconds`
 and `expected_sandbox_id` for public lifecycle waits. Delete requests use
-`allow_missing=True`. Deletion results preserve `completed`, `accepted`,
+`allow_missing=True` after a public `get()` identity check (SEC8a). This check
+cannot make deletion atomic; SEC8c tracks the missing upstream expected-ID
+condition. Deletion results preserve `completed`, `accepted`,
 `already_absent`, or `unknown`, plus the optional sandbox ID. Unknown outcomes
 never imply successful cleanup. `close()` releases the client idempotently;
 it does not delete a sandbox. Provider ownership and deletion decisions remain

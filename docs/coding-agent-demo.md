@@ -109,4 +109,4 @@ also deleted.
   network probes therefore run through SDK `exec`; the denials shown are
   OpenShell's, not the executor's.
 - The residual risks in the [security guide](security.md) apply, including the
-  SEC8a cleanup-ownership finding and the process-capacity exclusion.
+  SEC8c atomic-deletion limitation and the process-capacity exclusion.

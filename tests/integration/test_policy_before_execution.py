@@ -117,17 +117,16 @@ def test_policy_prevents_execution(tmp_path: Path) -> None:
                     "Valid initial policy control executed EchoEnv successfully"
                 )
         finally:
-            # Also covers a create whose response was lost and failed assertions.
-            deletion = adapter.delete(name, workspace=workspace)
-            expected_id = sandbox_id or deletion.sandbox_id
-            if expected_id is not None:
+            # Never guess ownership after an ambiguous create response.
+            if sandbox_id is not None:
+                adapter.delete(
+                    name, workspace=workspace, expected_sandbox_id=sandbox_id
+                )
                 adapter.wait_deleted(
                     name,
                     workspace=workspace,
-                    expected_sandbox_id=expected_id,
+                    expected_sandbox_id=sandbox_id,
                     timeout_s=60,
                 )
-            else:
-                assert deletion.outcome in {"completed", "already_absent"}
             assert not client.list(workspace=workspace, label_selector=label).all()
             logger.info("SEC4 sandbox %s deletion verified", name)

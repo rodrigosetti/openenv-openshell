@@ -98,26 +98,27 @@ policy enforcement.
 | --- | --- |
 | Configuration/request validation | `ValueError`/`TypeError`, or `PolicyConfigurationError` for explicit policy failures; no sandbox create |
 | SDK/gateway connection or compatibility | Sanitized `OpenShellConnectionError`; no workload create |
-| Create or service selection | Sanitized `SandboxCreationError`; startup attempts public cleanup |
+| Create collision | Sanitized `SandboxCreationError`; closes the client without deleting the existing sandbox |
+| Ambiguous create response | Sanitized `SandboxCreationError`; retains the attempted name and requires operator inspection before deletion |
+| Service selection after successful create | Sanitized `SandboxCreationError`; startup attempts public cleanup |
 | Sandbox readiness or identity mismatch | Sanitized `SandboxReadinessError`; startup attempts public cleanup |
 | OpenEnv health deadline | `OpenEnvReadinessTimeout`; OpenEnv's startup path invokes cleanup, while direct provider callers must invoke it |
 | Delete, deletion wait, or client close | Sanitized `SandboxDeletionError`; retained state permits an explicit retry |
 
-Startup rollback preserves the primary startup error. If cleanup fails, an
-exception note tells the caller to retry `stop_container()`. Cleanup normally
-requests deletion, waits for the original sandbox ID to disappear, closes the
-SDK client, and clears active state. Successful repeat stop/close calls are
-harmless. Client-close failure after confirmed deletion retains the deletion
-state, so a retry can release the client without deleting again.
+Startup rollback preserves the primary startup error. Exception notes distinguish
+retryable confirmation from unknown ownership requiring operator inspection.
+For a confirmed create ID, cleanup checks the current identity, sends at most
+one name-based deletion attempt, and waits for the original ID to disappear.
+Retries repeat confirmation only; if the first request was never applied, an
+operator must inspect the sandbox. After confirmed deletion the SDK client is
+closed and active state is cleared. Repeated stop/close calls are harmless.
 
-**Current cleanup limitation (SEC8a):** recording the selected name before
-create can authorize rollback against a pre-existing same-name sandbox.
-Deletion is name-based; identity-aware waiting happens after the destructive
-call and does not prevent deletion of a replacement. Thus partial-start
-cleanup is implemented but ownership safety is unresolved in this baseline.
-The active repair is separate from I7. See the
-[security review](security-review.md#cleanup-blast-radius); unique names reduce
-collision risk but do not establish a safe deletion contract.
+**Remaining cleanup limitation (SEC8c):** the identity lookup and name-based
+delete are separate operations. A replacement between them can still be deleted.
+SEC8a mitigates collisions, observed replacements, and unsafe deletion retries;
+SEC8c requires an upstream atomic deletion condition. See the
+[security review](security-review.md#cleanup-blast-radius) and
+[cleanup contract](cleanup-tests.md#sec8a-mitigation-and-remaining-blocker).
 
 `close()` delegates to `stop_container()`. The inherited context manager returns
 the provider without starting a workload and closes it on exit, including when

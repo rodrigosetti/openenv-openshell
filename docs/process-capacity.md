@@ -48,5 +48,5 @@ positive/negative controls with cleanup. Remote gateways and other compute
 drivers require their own evidence; neither support nor lack of enforcement
 is inferred from this local decision.
 
-M2 remains gated on its other dependencies, including SEC8a cleanup ownership
+M2 remains gated on its other dependencies, including SEC8c atomic deletion
 safety. Closing SEC8b records this scope decision only and does not close M2.

@@ -1,10 +1,12 @@
 """Public cleanup ownership, identity, and retry contracts."""
 
+from typing import Literal
 from unittest.mock import patch
 
 import pytest
 
 from openenv_openshell import OpenShellProvider
+from openenv_openshell._adapter import CreateCollisionError
 from openenv_openshell.errors import SandboxCreationError, SandboxDeletionError
 from openenv_openshell.metadata import ProviderState
 from tests.fakes import (
@@ -173,46 +175,41 @@ def test_cleanup_failure_is_safe_and_retryable(operation: FakeOperation) -> None
 
 
 @pytest.mark.parametrize("outcome", ["completed", "already_absent"])
-def test_partial_create_absence_without_identity(outcome: str) -> None:
-    """Confirmed absence clears pre-create ownership without an invented ID."""
-    deletion = FakeDeletion(
-        None, "completed" if outcome == "completed" else "already_absent"
-    )
-    adapter = FakeSandboxAdapter(delete_result=deletion)
-    provider = OpenShellProvider()
-    provider.state = ProviderState(sandbox_name="partial")
-    with patch.object(provider, "_connect_adapter", return_value=adapter):
-        provider.stop_container()
-    assert adapter.calls == [DeleteCall("partial", "default")]
-    assert provider.state == ProviderState(deleted=True)
-    assert adapter.closed
-
-
-@pytest.mark.parametrize("outcome", ["accepted", "unknown"])
-def test_uncertain_deletion_without_identity_retains_ownership(outcome: str) -> None:
-    """An acknowledgement alone cannot establish that the runtime is absent."""
-    deletion = FakeDeletion(None, "accepted" if outcome == "accepted" else "unknown")
-    adapter = FakeSandboxAdapter(delete_result=deletion)
+def test_partial_create_absence_without_identity(
+    outcome: Literal["completed", "already_absent"],
+) -> None:
+    """No deletion outcome can prove ownership before a delete is authorized."""
+    adapter = FakeSandboxAdapter(delete_result=FakeDeletion(None, outcome))
     provider = OpenShellProvider()
     provider.state = ProviderState(sandbox_name="partial")
     with (
         patch.object(provider, "_connect_adapter", return_value=adapter),
-        pytest.raises(SandboxDeletionError),
+        pytest.raises(SandboxDeletionError, match="operator"),
     ):
         provider.stop_container()
+    assert adapter.calls == []
     assert not provider.state.deleted
-    assert not adapter.closed
-    adapter.delete_result = FakeDeletion("recovered")
-    provider.stop_container()
-    assert adapter.calls[-1] == WaitDeletedCall("partial", "default", "recovered", 60)
-    assert provider.state == ProviderState(deleted=True)
 
 
-def test_recovered_identity_survives_timeout_and_changed_acknowledgement() -> None:
-    """Lost create responses recover an ID once and keep it across retries."""
-    adapter = FakeSandboxAdapter(
-        failures={"create": RuntimeError(), "delete": RuntimeError()}
-    )
+@pytest.mark.parametrize("outcome", ["accepted", "unknown"])
+def test_uncertain_deletion_without_identity_retains_ownership(
+    outcome: Literal["accepted", "unknown"],
+) -> None:
+    """Unknown ownership cannot be recovered from a deletion acknowledgement."""
+    adapter = FakeSandboxAdapter(delete_result=FakeDeletion(None, outcome))
+    provider = OpenShellProvider()
+    provider.state = ProviderState(sandbox_name="partial")
+    with patch.object(provider, "_connect_adapter", return_value=adapter):
+        for _ in range(2):
+            with pytest.raises(SandboxDeletionError, match="operator"):
+                provider.stop_container()
+    assert adapter.calls == []
+    assert not provider.state.deleted
+
+
+def test_unknown_create_never_deletes_by_name() -> None:
+    """A lost create response retains diagnosis without guessing ownership."""
+    adapter = FakeSandboxAdapter(failures={"create": RuntimeError()})
     provider = OpenShellProvider(command=["server"], sandbox_name="partial")
     with (
         patch.object(provider, "_connect_adapter", return_value=adapter),
@@ -220,14 +217,10 @@ def test_recovered_identity_survives_timeout_and_changed_acknowledgement() -> No
     ):
         provider.start_container("image")
     adapter.failures.clear()
-    adapter.failures["wait_deleted"] = TimeoutError()
-    with pytest.raises(SandboxDeletionError):
+    with pytest.raises(SandboxDeletionError, match="operator"):
         provider.stop_container()
-    assert provider.state.sandbox_id == "sandbox-123"
-    adapter.failures.clear()
-    adapter.delete_result = FakeDeletion("replacement")
-    provider.stop_container()
-    assert adapter.calls[-1] == WaitDeletedCall("partial", "default", "sandbox-123", 60)
+    assert provider.state.sandbox_id is None
+    assert not any(isinstance(call, DeleteCall) for call in adapter.calls)
 
 
 def test_cleanup_connection_failure_retains_partial_state() -> None:
@@ -282,3 +275,36 @@ def test_confirmed_deletion_without_client_needs_no_connection() -> None:
     with patch.object(provider, "_connect_adapter", side_effect=AssertionError):
         provider.stop_container()
     assert provider.state == ProviderState(deleted=True)
+
+
+def test_collision_closes_client_without_deleting_existing_sandbox() -> None:
+    """Repeated rollback/cleanup after ALREADY_EXISTS stays entirely local."""
+    adapter = FakeSandboxAdapter(failures={"create": CreateCollisionError("secret")})
+    provider = OpenShellProvider(command=["server"], sandbox_name="existing")
+    with (
+        patch.object(provider, "_connect_adapter", return_value=adapter),
+        pytest.raises(SandboxCreationError, match="already in use"),
+    ):
+        provider.start_container("image")
+    provider.stop_container()
+    assert [call.operation for call in adapter.calls] == ["create"]
+    assert adapter.closed
+    assert provider.state == ProviderState()
+
+
+@pytest.mark.parametrize("failure", ["delete", "wait_deleted"])
+def test_retry_only_waits_for_original_identity(failure: FakeOperation) -> None:
+    """Even a lost delete acknowledgement must not trigger another delete RPC."""
+    adapter = FakeSandboxAdapter()
+    provider = owned_provider(adapter)
+    adapter.failures[failure] = TimeoutError("secret")
+    with pytest.raises(SandboxDeletionError):
+        provider.stop_container()
+    calls = list(adapter.calls)
+    adapter.failures.clear()
+    adapter.delete_result = FakeDeletion("replacement")
+    provider.stop_container()
+    assert adapter.calls[len(calls) :] == [
+        WaitDeletedCall("owned", "training", "sandbox-123", 19)
+    ]
+    assert sum(isinstance(call, DeleteCall) for call in adapter.calls) == 1

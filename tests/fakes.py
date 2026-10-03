@@ -62,6 +62,7 @@ class DeleteCall:
 
     sandbox_name: str
     workspace: str
+    expected_sandbox_id: str = "sandbox-123"
     operation: Literal["delete"] = field(default="delete", init=False)
 
 
@@ -146,9 +147,11 @@ class FakeSandboxAdapter:
         self._raise_failure("service_url")
         return self.service_url_result
 
-    def delete(self, sandbox_name: str, *, workspace: str) -> FakeDeletion:
+    def delete(
+        self, sandbox_name: str, *, workspace: str, expected_sandbox_id: str
+    ) -> FakeDeletion:
         """Capture a delete request and return its acknowledgement."""
-        self.calls.append(DeleteCall(sandbox_name, workspace))
+        self.calls.append(DeleteCall(sandbox_name, workspace, expected_sandbox_id))
         self._raise_failure("delete")
         return self.delete_result
 
