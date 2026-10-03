@@ -12,6 +12,7 @@ with the rest of the unit suite, strict typing, linting, and coverage checks.
 | Partial state and lost create response | `test_cleanup.py`: `test_uncertain_deletion_without_identity_retains_ownership`, `test_unknown_create_never_deletes_by_name`, `test_cleanup_client_without_sandbox` |
 | Delete, deletion-wait, or client-close failure | `test_cleanup.py`: `test_cleanup_failure_is_safe_and_retryable`, `test_cleanup_connection_failure_retains_partial_state` |
 | Failed startup rollback and cleanup retry | `test_start_container.py`: `test_rollback_failure_reports_safe_note_and_public_retry`, `test_state_update_failure_rolls_back`; `test_cleanup.py`: `test_keep_mode_close_failure_is_retryable_without_deleting` |
+| Catchable startup interruptions | `test_startup_failures.py`: direct service/readiness interruptions, original exception propagation, failed/interrupted cleanup retry, keep mode, and unknown-create refusal |
 | Unhealthy server followed by caller cleanup | `test_readiness.py`: `test_owned_health_timeout_public_cleanup` |
 | Public close and provider context exit | `test_close.py`: normal/error exits, keep mode, cleanup failures, and failed-start retry |
 
@@ -26,6 +27,28 @@ failed-start rollback and retries must avoid both delete and deletion-wait calls
 The separate [runtime checks](https://github.com/rodrigosetti/openenv-openshell/blob/main/tests/integration/README.md#p7-failed-start-cleanup)
 exercise local routed workloads and independently check sandbox absence. Offline
 coverage does not establish remote gateway behavior or policy enforcement.
+
+Catchable interruptions in `start_container()` run best-effort rollback before
+re-raising the original exception. Cleanup uses the configured deletion timeout;
+another cleanup failure or interruption adds a fixed retry note and retains
+ownership. With `keep_sandbox`, rollback releases local ownership and the client
+without deletion. If create was interrupted before returning an identity,
+automatic cleanup refuses deletion and retains the attempted name for inspection.
+Uncatchable process termination cannot run Python cleanup. Cancellation after
+startup returns, while OpenEnv connects its WebSocket, remains a separate client
+lifecycle issue (`openenv-openshell-iru`).
+
+`test_provider_startup.py::test_interrupted_start_cleanup` injects an interruption
+at service lookup or readiness after a real create. It checks provider deletion
+and independently lists the runtime before the test's safety teardown, so teardown
+cannot supply the behavior being tested.
+
+Validated on 2026-10-03 against the local OpenShell SDK/gateway 0.1.2 and pinned
+native arm64 EchoEnv image: all ten `test_provider_startup.py` controls passed,
+including both direct interruption cases and independent absence checks (74.07
+seconds). `make check` passed 478 offline tests, Ruff, strict Pyright, and 99.54%
+branch-inclusive coverage. This evidence covers startup interruptions; it does
+not resolve the separate OpenEnv factory cancellation gap or SEC8c atomic deletion.
 
 ## SEC8a mitigation and remaining blocker
 
