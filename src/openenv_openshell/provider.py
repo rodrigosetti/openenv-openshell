@@ -20,6 +20,7 @@ import httpx
 from openenv_openshell._adapter import (
     CreateCollisionError,
     CreateRequest,
+    DeleteNotSentError,
     SandboxAdapter,
     connect,
 )
@@ -354,11 +355,17 @@ class OpenShellProvider(ContainerProvider):
                     # A lost delete reply may still have been applied. Never send
                     # a second name-based delete; it could target a replacement.
                     self._deletion_attempted = True
-                    self._adapter.delete(
-                        name,
-                        workspace=self.config.workspace,
-                        expected_sandbox_id=identity,
-                    )
+                    try:
+                        self._adapter.delete(
+                            name,
+                            workspace=self.config.workspace,
+                            expected_sandbox_id=identity,
+                        )
+                    except DeleteNotSentError:
+                        # Only a proven preflight failure permits the first
+                        # delete to be retried after checking ownership again.
+                        self._deletion_attempted = False
+                        raise
                 self._adapter.wait_deleted(
                     name,
                     workspace=self.config.workspace,
