@@ -118,6 +118,6 @@ def test_close_preserves_unknown_failed_start() -> None:
     adapter.failures.clear()
     with pytest.raises(SandboxDeletionError, match="operator"):
         provider.close()
-    assert not adapter.closed
+    assert adapter.closed
     assert provider.state.sandbox_id is None
     assert not any(isinstance(call, DeleteCall) for call in adapter.calls)

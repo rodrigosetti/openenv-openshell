@@ -1,6 +1,7 @@
 """P4 production provider startup through the local routed EchoEnv runtime."""
 
 import os
+from contextlib import closing
 from pathlib import Path
 from unittest.mock import patch
 from uuid import uuid4
@@ -159,15 +160,16 @@ def test_failed_start_cleanup(stage: str) -> None:
         if stage == "create" and captured_identity is not None:
             # Test-only operator control: the fake transport captured a successful
             # response. Production cannot infer this identity from a lost reply.
-            adapter.delete(
-                name, workspace=workspace, expected_sandbox_id=captured_identity
-            )
-            adapter.wait_deleted(
-                name,
-                workspace=workspace,
-                expected_sandbox_id=captured_identity,
-                timeout_s=60,
-            )
+            with closing(connect(gateway=provider.config.gateway)) as operator:
+                operator.delete(
+                    name, workspace=workspace, expected_sandbox_id=captured_identity
+                )
+                operator.wait_deleted(
+                    name,
+                    workspace=workspace,
+                    expected_sandbox_id=captured_identity,
+                    timeout_s=60,
+                )
             provider.state.deleted = True
         provider.stop_container()
         provider.stop_container()

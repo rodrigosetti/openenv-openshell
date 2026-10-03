@@ -916,6 +916,15 @@ sandbox must be deleted
 - duplicate calls;
 - partially initialized provider state.
 
+After an ambiguous create without a returned identity, cleanup MUST best-effort
+close the SDK client while retaining the attempted name, configured workspace,
+and unconfirmed state for operator inspection. Client release MUST NOT imply
+sandbox absence, authorize name-based deletion, or permit normal provider reuse.
+Repeated cleanup MUST NOT reconnect merely to refuse unknown ownership. A failed
+client close MUST remain retryable without replacing the primary startup error
+or exposing raw SDK details. Explicit `keep_sandbox` retains its local-state
+relinquishment semantics.
+
 ---
 
 # 18. Policy Configuration

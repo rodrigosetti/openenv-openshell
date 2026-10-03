@@ -184,7 +184,6 @@ def test_uncertain_rollback_logs_warning(caplog: pytest.LogCaptureFixture) -> No
         provider.start_container("image")
     assert events(caplog) == [
         "sandbox.create.started",
-        "sandbox.delete.started",
         "provider.cleanup.failed",
     ]
     assert provider.metadata is None

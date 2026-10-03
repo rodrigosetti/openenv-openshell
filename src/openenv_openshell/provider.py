@@ -351,15 +351,20 @@ class OpenShellProvider(ContainerProvider):
                 and not self.state.deleted
                 and not self.config.keep_sandbox
             ):
-                if self._adapter is None:
-                    self._adapter = self._connect_adapter()
-                _LOGGER.info("sandbox.delete.started")
                 identity = self.state.sandbox_id
                 if not identity:
+                    # Local resources do not establish runtime ownership. Release
+                    # them without reconnecting or discarding inspection state.
+                    if self._adapter is not None:
+                        self._adapter.close()
+                        self._adapter = None
                     msg = (
                         "Sandbox ownership is unconfirmed; operator inspection required"
                     )
                     raise SandboxDeletionError(msg)  # noqa: TRY301 - Sanitize all cleanup failures below.
+                if self._adapter is None:
+                    self._adapter = self._connect_adapter()
+                _LOGGER.info("sandbox.delete.started")
                 if not self._deletion_attempted:
                     # A lost delete reply may still have been applied. Never send
                     # a second name-based delete; it could target a replacement.
