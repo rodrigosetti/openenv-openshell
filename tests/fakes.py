@@ -106,6 +106,7 @@ class FakeSandboxAdapter:
         self.failures = dict(failures or {})
         self.calls: list[AdapterCall] = []
         self.closed = False
+        self.close_attempts = 0
 
     def create(self, request: CreateRequest) -> FakeSandbox:
         """Capture a create request and return its configured sandbox."""
@@ -176,6 +177,7 @@ class FakeSandboxAdapter:
 
     def close(self) -> None:
         """Release fake resources without contacting a gateway."""
+        self.close_attempts += 1
         self._raise_failure("close")
         self.closed = True
 

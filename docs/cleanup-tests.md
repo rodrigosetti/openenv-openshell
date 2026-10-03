@@ -37,6 +37,18 @@ name, managed labels, or a delete response. Inspect the attempted name in
 Unknown ownership is retained and automatic deletion is refused. `keep_sandbox`
 still explicitly relinquishes local state and closes the client.
 
+Unknown ownership does not require retaining an SDK connection. Startup rollback
+best-effort closes the client and retains the attempted name, image, configured
+workspace, and unconfirmed state. Subsequent `close()`/`stop_container()` calls
+continue to raise a sanitized operator-inspection error without reconnecting,
+deleting, waiting for deletion, marking absence, or enabling ordinary reuse.
+If client closure fails, the next cleanup call retries it; a successful closure
+is not repeated. `test_unknown_create_releases_client_with_retry` covers these
+paths, including `keep_sandbox`, and
+`test_disconnected_unknown_state_never_reconnects` covers disconnected state.
+The runtime lost-create-response control uses a separate operator client with
+its test-captured identity for explicit cleanup after provider client release.
+
 For a successful create, the adapter checks the current ID with public `get()`
 before its first name-based delete. Absence or a different ID means the owned
 identity has gone; the replacement is left untouched. Lookup failures prevent
