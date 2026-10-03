@@ -4,6 +4,7 @@
 
 from pathlib import Path
 from typing import Any, cast
+from unittest.mock import patch
 
 import pytest
 
@@ -105,6 +106,41 @@ def test_names_and_locations_are_validated(argument: str, value: str) -> None:
     kwargs: Any = {argument: value}
     with pytest.raises(ValueError, match=argument):
         OpenShellProvider(**kwargs)
+
+
+@pytest.mark.parametrize("name", ["", "a", "0", "a-b", "a" * 19, "openenv-12345678901"])
+def test_service_names_follow_the_pinned_routing_contract(name: str) -> None:
+    """Unnamed and boundary-length endpoint names are preserved verbatim."""
+    assert OpenShellProvider(service_name=name).config.service_name == name
+    assert OpenShellProviderConfig(service_name=name).service_name == name
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "a" * 20,
+        "a" * 63,
+        "a--b",
+        "a---b",
+        "-a",
+        "a-",
+        "Upper",
+        "a_b",
+        "a.b",
+        "é",
+        "a\n",
+    ],
+)
+def test_invalid_service_names_never_connect_or_create(name: str) -> None:
+    """Gateway-invalid endpoints fail before startup can acquire a client."""
+    with patch.object(OpenShellProvider, "_connect_adapter") as connect:
+        with pytest.raises(ValueError, match="service_name"):
+            OpenShellProvider(service_name=name, command=["server"]).start_container(
+                "image"
+            )
+        connect.assert_not_called()
+    with pytest.raises(ValueError, match="service_name"):
+        OpenShellProviderConfig(service_name=name)
 
 
 def test_mutable_configuration_inputs_are_defensively_copied() -> None:

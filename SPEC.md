@@ -674,6 +674,12 @@ An explicitly configured `service_name` MUST select the named exposure:
 service = "openenv"
 ```
 
+Named services MUST follow the pinned OpenShell 0.1.2 endpoint rules: at most
+19 lowercase ASCII letters, digits, or hyphens, starting and ending with a
+letter or digit, with no consecutive hyphens. Invalid `service_name` values
+MUST fail locally before gateway connection or sandbox creation. The empty
+name remains valid and selects the unnamed service.
+
 OpenShell uses gateway-managed URLs for these services, including local `openshell.localhost` addresses for loopback gateways and HTTPS URLs for appropriately configured remote gateways.
 
 The provider MUST select the create response's `service_urls[service_name]`

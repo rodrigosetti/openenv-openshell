@@ -28,7 +28,7 @@ from tests.fakes import (
 SECRET = "private-startup-sentinel"  # noqa: S105 - Redaction sentinel.
 
 
-@pytest.mark.parametrize("service", ["", "openenv"])
+@pytest.mark.parametrize("service", ["", "openenv", "openenv-12345678901"])
 def test_start_preserves_request_and_create_route(service: str) -> None:
     """Readiness discards URLs; exact argv/environment and selected route survive."""
     created = Sandbox("chosen", "identity", {service: "https://route.test/prefix/"})
