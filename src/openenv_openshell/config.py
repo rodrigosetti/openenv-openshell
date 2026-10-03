@@ -15,8 +15,7 @@ from openenv_openshell._naming import MAX_SANDBOX_NAME_LENGTH
 
 Policy: TypeAlias = str | Path | Mapping[str, object] | None
 
-# Existing local service cap; upstream endpoint alignment is tracked in m1w.
-_MAX_SERVICE_NAME_LENGTH = 63
+_MAX_SERVICE_NAME_LENGTH = 19
 _MAX_LABEL_KEY_LENGTH = 128
 _MAX_LABEL_VALUE_LENGTH = 256
 _MAX_PORT = 65535
@@ -59,11 +58,7 @@ class _PolicySnapshot(Mapping[str, object]):
         return len(self._values)
 
 
-def _validate_name(
-    value: str, *, field_name: str, max_length: int, allow_empty: bool = False
-) -> None:
-    if allow_empty and not value:
-        return
+def _validate_name(value: str, *, field_name: str, max_length: int) -> None:
     if not value:
         msg = f"{field_name} must not be empty"
         raise ValueError(msg)
@@ -71,6 +66,24 @@ def _validate_name(
         msg = (
             f"{field_name} must be at most {max_length} lowercase letters, "
             "digits, or hyphens, and must start and end with a letter or digit"
+        )
+        raise ValueError(msg)
+
+
+def _validate_service_name(value: str) -> None:
+    # OpenShell 0.1.2 grpc/service.rs permits the unnamed exposure, otherwise
+    # applies MAX_ROUTABLE_NAME_LEN, forbids '--', and requires is_dns_label.
+    if value == "":
+        return
+    if (
+        len(value) > _MAX_SERVICE_NAME_LENGTH
+        or _NAME_PATTERN.fullmatch(value) is None
+        or "--" in value
+    ):
+        msg = (
+            f"service_name must be empty or at most {_MAX_SERVICE_NAME_LENGTH} "
+            "lowercase letters, digits, or hyphens, start and end with a letter "
+            "or digit, and contain no consecutive hyphens"
         )
         raise ValueError(msg)
 
@@ -184,12 +197,7 @@ class OpenShellProviderConfig:
                 field_name="sandbox_name",
                 max_length=MAX_SANDBOX_NAME_LENGTH,
             )
-        _validate_name(
-            self.service_name,
-            field_name="service_name",
-            max_length=_MAX_SERVICE_NAME_LENGTH,
-            allow_empty=True,
-        )
+        _validate_service_name(self.service_name)
         if (
             isinstance(self.service_port, bool)
             or not isinstance(self.service_port, int)  # pyright: ignore[reportUnnecessaryIsInstance]

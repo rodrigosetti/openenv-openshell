@@ -25,7 +25,7 @@ provider = OpenShellProvider(
 | `command` | `None` | **Required to start.** Exact workload argv for the image's server. See [command](#command). |
 | `policy` | `None` | Explicit OpenShell policy: YAML path (`str`/`Path`) or mapping. `None` lets OpenShell choose the image or gateway default policy. See [policy](#policy). |
 | `service_port` | `8000` | Guest port the server listens on; OpenShell exposes it as a managed service route. |
-| `service_name` | `""` | Optional service name (lowercase letters, digits, hyphens). Empty uses the sandbox's unnamed service. |
+| `service_name` | `""` | Empty uses the sandbox's unnamed service. Named services accept at most 19 lowercase letters, digits, or hyphens, start and end with a letter or digit, and forbid consecutive hyphens (OpenShell 0.1.2 routing rules). Invalid names fail before gateway access. |
 | `sandbox_name` | generated | Generated and explicit names fit the 19-character OpenShell 0.1.2 gateway limit. Explicit names must use lowercase letters, digits, or hyphens and start/end with a letter or digit; longer names fail during construction before gateway access. |
 | `workspace` | `"default"` | OpenShell workspace that owns the sandbox. Not read from `OPENSHELL_WORKSPACE`; pass it explicitly. |
 | `gateway` | `None` | Registered gateway name. `None` uses `$OPENSHELL_GATEWAY`, then the CLI's active gateway. |
@@ -40,6 +40,12 @@ provider = OpenShellProvider(
 
 Ports, timeouts, and resource values must be positive and finite. Invalid values
 raise `ValueError` or `TypeError` at construction.
+
+Service-name validation follows the pinned gateway's
+[`grpc/service.rs`](https://github.com/NVIDIA/OpenShell/blob/v0.1.2/crates/openshell-server/src/grpc/service.rs)
+endpoint validator and its 19-character `MAX_ROUTABLE_NAME_LEN` from
+[`grpc/mod.rs`](https://github.com/NVIDIA/OpenShell/blob/v0.1.2/crates/openshell-server/src/grpc/mod.rs).
+Valid names are sent unchanged; the empty name remains the default.
 
 ## `start_container` arguments
 

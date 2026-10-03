@@ -21,8 +21,9 @@ from tests.integration.test_protocol_spike import COMMAND, probe_protocol
 
 
 @pytest.mark.integration
+@pytest.mark.parametrize("service_name", ["", "openenv-12345678901"])
 @pytest.mark.parametrize("cleanup", ["stop", "close", "context", "context_error"])
-def test_provider_startup(cleanup: str) -> None:
+def test_provider_startup(cleanup: str, service_name: str) -> None:
     """Provider returns the create route and the actual workload serves OpenEnv."""
     image = os.environ.get("OPENENV_OPENSHELL_ECHO_IMAGE_ID")
     if image is None:
@@ -32,6 +33,7 @@ def test_provider_startup(cleanup: str) -> None:
     provider = OpenShellProvider(
         workspace=workspace,
         sandbox_name=name,
+        service_name=service_name,
         command=COMMAND,
         policy=Path(__file__).parent / "images/echo/policy.yaml",
         labels={"openenv-p4": name},
