@@ -29,3 +29,7 @@ htmlcov/
 
 # MkDocs generated manual
 /site/
+
+# Local agent worktrees and plugins
+.claude/worktrees/
+plugins/
