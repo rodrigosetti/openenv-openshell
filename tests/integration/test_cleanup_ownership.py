@@ -3,10 +3,11 @@
 from unittest.mock import patch
 
 import pytest
+from openshell import SandboxClient
 
 from openenv_openshell import OpenShellProvider
 from openenv_openshell._adapter import connect
-from openenv_openshell.errors import SandboxCreationError
+from openenv_openshell.errors import SandboxCreationError, SandboxDeletionError
 from tests.integration._runtime import Runtime
 
 pytestmark = pytest.mark.integration
@@ -72,3 +73,43 @@ def test_observed_replacement_preserves_disposable_owner(
     finally:
         adapter.close()
     replacement.wait_for_ready(url, timeout_s=15)
+
+
+def test_preflight_failure_recovers_and_deletes_owned_sandbox(
+    openshell_runtime: Runtime,
+) -> None:
+    """A failed read-only lookup permits a later first delete on the real gateway."""
+    owner = openshell_runtime.provider()
+    url = owner.start_container(openshell_runtime.image)
+    owner.wait_for_ready(url, timeout_s=60)
+    identity = owner.state.sandbox_id
+    name = owner.state.sandbox_name
+    assert identity
+    assert name
+    with (
+        patch(
+            "openenv_openshell._sdk.SandboxClient.get",
+            autospec=True,
+            side_effect=OSError("Simulated transient lookup failure"),
+        ),
+        patch("openenv_openshell._sdk.SandboxClient.delete", autospec=True) as delete,
+        patch(
+            "openenv_openshell._sdk.SandboxClient.wait_deleted", autospec=True
+        ) as wait,
+        pytest.raises(SandboxDeletionError),
+    ):
+        owner.stop_container()
+    delete.assert_not_called()
+    wait.assert_not_called()
+    assert owner.state.sandbox_id == identity
+    owner.wait_for_ready(url, timeout_s=15)
+    owner.stop_container()
+    owner.stop_container()
+    assert owner.state.deleted
+    with SandboxClient.from_active_cluster(
+        cluster=openshell_runtime.gateway, timeout=30
+    ) as client:
+        assert not any(
+            sandbox.id == identity or sandbox.name == name
+            for sandbox in client.list(workspace=openshell_runtime.workspace).all()
+        )
