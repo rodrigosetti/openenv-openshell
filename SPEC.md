@@ -501,6 +501,12 @@ DELETED
 ```
 
 Failure from any intermediate state MUST trigger best-effort cleanup.
+Catchable interruptions during `start_container()` (including `KeyboardInterrupt`
+and `SystemExit`) MUST attempt rollback of confirmed ownership using the configured
+deletion timeout and then re-raise the original interruption. Cleanup failure MUST
+retain retryable state and add only secret-safe diagnostics; `keep_sandbox` still
+applies. An interrupted create without a returned identity MUST NOT trigger
+name-based deletion and MUST retain operator inspection information.
 
 ---
 

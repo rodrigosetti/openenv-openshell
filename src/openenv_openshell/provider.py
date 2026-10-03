@@ -265,28 +265,37 @@ class OpenShellProvider(ContainerProvider):
                 msg = "OpenShell readiness returned a different sandbox identity"
                 raise SandboxReadinessError(msg)  # noqa: TRY301 - Stage-specific failure enters rollback.
         except CreateCollisionError:
-            # The existing sandbox belongs to someone else; close only the client.
-            self.state = ProviderState()
-            failure = SandboxCreationError(
-                "OpenShell sandbox name is already in use; choose another name"
-            )
-            self._cleanup_failed_start(failure)
+            failure = self._rollback_create_collision()
             raise failure from None
-        except Exception:  # noqa: BLE001 - Sanitize runtime failures and always roll back.
+        except BaseException as startup_failure:
             if created_identity is not None:
                 self.state.sandbox_id = created_identity
-            # Do not expose upstream exception text, workload argv, or route data.
-            failure = error("OpenShell sandbox startup failed")
-            self._cleanup_failed_start(failure)
-            raise failure from None
+            if isinstance(startup_failure, Exception):
+                # Do not expose runtime text, workload argv, or route data.
+                failure = error("OpenShell sandbox startup failed")
+                self._cleanup_failed_start(failure)
+                raise failure from None
+            # Preserve cancellation/exit semantics; interrupted create does not
+            # prove ownership, so public cleanup still refuses deletion by name.
+            self._cleanup_failed_start(startup_failure)
+            raise
         _LOGGER.info("sandbox.ready")
         return base_url
 
-    def _cleanup_failed_start(self, failure: OpenShellProviderError) -> None:
+    def _rollback_create_collision(self) -> SandboxCreationError:
+        """Release only the client when the attempted name belongs to another owner."""
+        self.state = ProviderState()
+        failure = SandboxCreationError(
+            "OpenShell sandbox name is already in use; choose another name"
+        )
+        self._cleanup_failed_start(failure)
+        return failure
+
+    def _cleanup_failed_start(self, failure: BaseException) -> None:
         """Use public cleanup without replacing the primary startup failure."""
         try:
             self.stop_container()
-        except SandboxDeletionError:
+        except BaseException:  # noqa: BLE001 - Cleanup must not replace the primary failure.
             # Notes appear in tracebacks without exposing runtime errors or inputs.
             if self.state.sandbox_name is not None and not self.state.sandbox_id:
                 failure.add_note(
