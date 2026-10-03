@@ -20,10 +20,12 @@ import httpx
 from openenv_openshell._adapter import (
     CreateCollisionError,
     CreateRequest,
+    DeleteNotSentError,
     SandboxAdapter,
     connect,
 )
 from openenv_openshell._compat import ContainerProvider
+from openenv_openshell._naming import MAX_SANDBOX_NAME_LENGTH
 from openenv_openshell.config import (
     OpenShellProviderConfig,
     OpenShellResources,
@@ -49,9 +51,8 @@ if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
 
 _MAX_PORT = 65535
-# OpenShell 0.1.2 gateway limit; reserve "openenv-" and a six-hex suffix.
-_MAX_GENERATED_NAME_LENGTH = 19
-_GENERATED_IMAGE_PREFIX_LENGTH = _MAX_GENERATED_NAME_LENGTH - len("openenv--") - 6
+# Reserve "openenv-" and a six-hex suffix within the configured name limit.
+_GENERATED_IMAGE_PREFIX_LENGTH = MAX_SANDBOX_NAME_LENGTH - len("openenv--") - 6
 _LOGGER = logging.getLogger("openenv_openshell")
 # TLS alerts for a route that demands a client certificate (TLS 1.3 and 1.2).
 _CLIENT_CERT_ALERTS = frozenset(
@@ -264,28 +265,37 @@ class OpenShellProvider(ContainerProvider):
                 msg = "OpenShell readiness returned a different sandbox identity"
                 raise SandboxReadinessError(msg)  # noqa: TRY301 - Stage-specific failure enters rollback.
         except CreateCollisionError:
-            # The existing sandbox belongs to someone else; close only the client.
-            self.state = ProviderState()
-            failure = SandboxCreationError(
-                "OpenShell sandbox name is already in use; choose another name"
-            )
-            self._cleanup_failed_start(failure)
+            failure = self._rollback_create_collision()
             raise failure from None
-        except Exception:  # noqa: BLE001 - Sanitize runtime failures and always roll back.
+        except BaseException as startup_failure:
             if created_identity is not None:
                 self.state.sandbox_id = created_identity
-            # Do not expose upstream exception text, workload argv, or route data.
-            failure = error("OpenShell sandbox startup failed")
-            self._cleanup_failed_start(failure)
-            raise failure from None
+            if isinstance(startup_failure, Exception):
+                # Do not expose runtime text, workload argv, or route data.
+                failure = error("OpenShell sandbox startup failed")
+                self._cleanup_failed_start(failure)
+                raise failure from None
+            # Preserve cancellation/exit semantics; interrupted create does not
+            # prove ownership, so public cleanup still refuses deletion by name.
+            self._cleanup_failed_start(startup_failure)
+            raise
         _LOGGER.info("sandbox.ready")
         return base_url
 
-    def _cleanup_failed_start(self, failure: OpenShellProviderError) -> None:
+    def _rollback_create_collision(self) -> SandboxCreationError:
+        """Release only the client when the attempted name belongs to another owner."""
+        self.state = ProviderState()
+        failure = SandboxCreationError(
+            "OpenShell sandbox name is already in use; choose another name"
+        )
+        self._cleanup_failed_start(failure)
+        return failure
+
+    def _cleanup_failed_start(self, failure: BaseException) -> None:
         """Use public cleanup without replacing the primary startup failure."""
         try:
             self.stop_container()
-        except SandboxDeletionError:
+        except BaseException:  # noqa: BLE001 - Cleanup must not replace the primary failure.
             # Notes appear in tracebacks without exposing runtime errors or inputs.
             if self.state.sandbox_name is not None and not self.state.sandbox_id:
                 failure.add_note(
@@ -359,11 +369,17 @@ class OpenShellProvider(ContainerProvider):
                     # A lost delete reply may still have been applied. Never send
                     # a second name-based delete; it could target a replacement.
                     self._deletion_attempted = True
-                    self._adapter.delete(
-                        name,
-                        workspace=self.config.workspace,
-                        expected_sandbox_id=identity,
-                    )
+                    try:
+                        self._adapter.delete(
+                            name,
+                            workspace=self.config.workspace,
+                            expected_sandbox_id=identity,
+                        )
+                    except DeleteNotSentError:
+                        # Only a proven preflight failure permits the first
+                        # delete to be retried after checking ownership again.
+                        self._deletion_attempted = False
+                        raise
                 self._adapter.wait_deleted(
                     name,
                     workspace=self.config.workspace,

@@ -3,10 +3,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from importlib import import_module
 from importlib.metadata import PackageNotFoundError, version
 from typing import TYPE_CHECKING, Literal, Protocol
 
-from openenv_openshell.errors import OpenShellConnectionError, SandboxCreationError
+from openenv_openshell.errors import (
+    OpenShellConnectionError,
+    SandboxCreationError,
+    SandboxDeletionError,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -23,6 +28,10 @@ _INSTALL_HINT = (
 
 class CreateCollisionError(SandboxCreationError):
     """The gateway rejected create because the name was already occupied."""
+
+
+class DeleteNotSentError(SandboxDeletionError):
+    """The adapter proves no delete RPC was sent; ownership preflight may retry."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,6 +93,8 @@ class SandboxAdapter(Protocol):
         """Check identity before requesting deletion, tolerating absence.
 
         The pinned API cannot make this check atomic with deletion.
+        Raise DeleteNotSentError only when no delete RPC was dispatched. All
+        other failures must be treated as potentially applied deletion.
         """
         ...
 
@@ -103,8 +114,8 @@ class SandboxAdapter(Protocol):
         ...
 
 
-def connect(*, gateway: str | None = None) -> SandboxAdapter:
-    """Load the pinned SDK lazily and connect to a registered gateway."""
+def ensure_sdk() -> None:
+    """Validate and load the pinned model boundary without gateway access."""
     try:
         installed = version("openshell")
     except PackageNotFoundError:
@@ -112,9 +123,17 @@ def connect(*, gateway: str | None = None) -> SandboxAdapter:
     if installed != SDK_VERSION:
         raise OpenShellConnectionError(_INSTALL_HINT)
     try:
-        from openenv_openshell._sdk import (  # noqa: PLC0415 - Lazy SDK boundary.
-            SDKAdapter,
-        )
-    except ImportError:
+        import_module("openenv_openshell._sdk")
+    except Exception:  # noqa: BLE001 - Translate arbitrary SDK import initialization failures.
+        # SDK initialization can fail beyond ImportError (e.g. protobuf errors).
         raise OpenShellConnectionError(_INSTALL_HINT) from None
+
+
+def connect(*, gateway: str | None = None) -> SandboxAdapter:
+    """Load the pinned SDK lazily and connect to a registered gateway."""
+    ensure_sdk()
+    from openenv_openshell._sdk import (  # noqa: PLC0415 - Guarded lazy SDK boundary.
+        SDKAdapter,
+    )
+
     return SDKAdapter.connect(gateway=gateway)
