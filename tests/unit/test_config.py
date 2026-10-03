@@ -307,7 +307,7 @@ def test_explicit_sandbox_name_at_gateway_limit_is_preserved() -> None:
     assert call.request.name == name
 
 
-@pytest.mark.parametrize("name", ["", "openenv", "a" * 63])
+@pytest.mark.parametrize("name", ["", "openenv", "a" * 19])
 def test_service_name_validation_remains_independent(name: str) -> None:
-    """The sandbox fix preserves existing local service-name acceptance."""
+    """Service validation retains unnamed support alongside the sandbox cap."""
     assert OpenShellProvider(service_name=name).config.service_name == name

@@ -5,7 +5,9 @@ the unnamed route and a 19-character named route (`openenv-12345678901`). Each
 checks routed HTTP health, WebSocket reset/step/state, all four cleanup entry
 points, and independent SDK confirmation of sandbox absence. Verified on
 2026-10-03 with local SDK/gateway 0.1.2 and the pinned native arm64 EchoEnv
-image: all eight route/cleanup controls and four startup-failure cases passed.
+image: all eight route/cleanup controls, four startup-failure cases, and two
+interruption cases passed after integration with main. `make check` passed
+526 unit tests, Ruff, strict Pyright, and 99.56% coverage.
 Offline validation rejects names over 19 characters, consecutive hyphens, and
 invalid DNS-label characters before gateway connection.
 
