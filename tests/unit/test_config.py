@@ -2,6 +2,7 @@
 
 # pyright: reportPrivateUsage=false
 
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, cast
 
@@ -123,6 +124,27 @@ def test_mutable_configuration_inputs_are_defensively_copied() -> None:
     assert provider.config.policy == {"filesystem": {"read": ["/workspace"]}}
     with pytest.raises(TypeError):
         provider.config.labels["other"] = "value"  # pyright: ignore[reportIndexIssue]
+
+
+def test_config_policy_reads_cannot_mutate_nested_snapshot() -> None:
+    """Nested edits affect only the inspected copy, including mapping views."""
+    source = {"version": 1, "filesystem": {"read_write": ["/workspace"]}}
+    config = OpenShellProviderConfig(policy=source)
+    policy = config.policy
+    assert isinstance(policy, Mapping)
+    filesystem = cast("dict[str, object]", policy["filesystem"])
+    cast("list[str]", filesystem["read_write"]).append("/")
+    filesystem["include_workdir"] = True
+    for value in policy.values():
+        if isinstance(value, dict):
+            value.clear()  # pyright: ignore[reportUnknownMemberType]
+
+    assert dict(policy) == source
+    assert len(policy) == len(source)
+    with pytest.raises(KeyError):
+        _ = policy["missing"]
+    with pytest.raises(TypeError):
+        policy["version"] = 2  # pyright: ignore[reportIndexIssue]
 
 
 @pytest.mark.parametrize(

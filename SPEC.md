@@ -955,6 +955,12 @@ filesystem/network denial acceptance (SEC5/SEC6).
 
 The provider MUST NOT silently broaden permissions when a supplied policy fails.
 
+Mapping policies MUST be captured defensively at configuration construction.
+Public configuration inspection MUST NOT permit nested edits to change that
+snapshot or later submitted policy/digest. Accepted authored types and strict
+offline validation MUST remain unchanged. Path policies are loaded and validated
+at each start; their file contents are not frozen at construction.
+
 Invalid policy:
 
 ```text
