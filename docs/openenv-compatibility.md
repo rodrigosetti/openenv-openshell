@@ -62,6 +62,66 @@ connecting `/ws`; client context exit calls provider cleanup. Factory keyword
 arguments such as `port` and `env_vars` are forwarded to `start_container`.
 The port chooses routing and must match the workload's actual listener.
 
+## Async factory cancellation
+
+`openenv-openshell-iru` remains an upstream lifecycle blocker. In the locked
+OpenEnv 0.6.0 wheel, `_BootstrapResult._resolve_async()` consumes the provider
+bootstrap before awaiting `client.connect()`. `_connect_async()` catches
+`Exception` around `ws_connect`, while `asyncio.CancelledError` derives from
+`BaseException`. Cancellation at that await therefore leaves an owned sandbox
+without returning a client to the caller. Normal HTTP and WebSocket exceptions
+still trigger cleanup; they do not establish cancellation safety.
+
+Use an outer synchronous provider context, entered **before** awaiting the
+factory, and retain it through client use:
+
+```python
+with provider:
+    env = await GenericEnvClient.from_docker_image(image, provider=provider)
+    async with env:
+        await env.reset()
+        # Await step/state and other application work here.
+```
+
+Alternatively, keep the provider reference and close it in `finally`:
+
+```python
+try:
+    env = await GenericEnvClient.from_docker_image(image, provider=provider)
+    async with env:
+        await env.reset()
+finally:
+    provider.close()
+```
+
+Both patterns use the configured `provider` and `image` above. Cleanup runs
+synchronously as the cancelled task unwinds, so a second task cancellation does
+not interrupt it at an asyncio await. It can block the event loop for the
+deletion wait. Successful cleanup preserves the original cancellation and is
+idempotent after normal client close. A cleanup failure can supersede the
+cancellation; retain the provider and retry `stop_container()` for confirmation
+or inspect it with an operator. `keep_sandbox=True` intentionally retains the
+runtime. An ambiguous create still has no proven ownership: these patterns must
+not delete its attempted name. The existing identity preflight/name-reuse limit
+also remains; see [cleanup guarantees](cleanup-tests.md#sec8a-mitigation-and-remaining-blocker).
+
+Offline regression tests in `tests/unit/test_openenv_client.py` use real
+`Task.cancel()` after an event confirms WebSocket connection has begun. They
+record the unguarded factory leak and verify context/finally cleanup, the original
+cancellation message, one deletion of the original identity, adapter closure,
+and cancellation while the client's socket cleanup is awaiting completion.
+These replace only external I/O and use the installed, unmodified client.
+
+Verified October 3, 2026 on Python 3.11.8 using a fresh `uv sync --locked`
+environment: `make check` passed (473 tests, strict Pyright, Ruff, 99.54%
+coverage), and `make compatibility` passed (103 tests). No live gateway was
+contacted for this regression/workaround evidence.
+
+This workaround does **not** satisfy the automatic factory cancellation
+guarantee. Closing the issue requires a reviewed supported upstream fix and
+dependency pin, compatibility checks, and a disposable runtime cancellation
+control. Do not patch OpenEnv at import time or substitute its transport.
+
 ## Evidence and limits
 
 Verified September 30, 2026 with SDK/gateway 0.1.2 and the native Apple Silicon

@@ -122,6 +122,27 @@ the image's `CMD`, `WORKDIR`, or `ENV`. Read the
 
 Something wrong? See [troubleshooting](docs/troubleshooting.md).
 
+### Async cancellation and cleanup
+
+OpenEnv 0.6.0 can leave a sandbox running if the async factory task is cancelled
+while connecting its WebSocket, before it returns a client. Keep an outer
+provider context around both factory resolution and client use:
+
+```python
+with provider:
+    env = await GenericEnvClient.from_docker_image(image, provider=provider)
+    async with env:
+        await env.reset()
+        # Await your environment operations here.
+```
+
+This uses the same `provider` and `image` configuration as the quickstart.
+The synchronous provider context deletes the owned sandbox on stack unwinding,
+including task cancellation; cleanup can block the event loop until its deletion
+wait completes. Cleanup failures still propagate and require an explicit retry
+or operator inspection. See the [cancellation contract and limits](docs/openenv-compatibility.md#async-factory-cancellation)
+for the tested `finally` alternative and the unresolved upstream requirement.
+
 ## Coding-agent demo
 
 The canonical demo runs the upstream OpenEnv coding environment under a strict
@@ -175,6 +196,9 @@ installation, strict build, and GitHub Pages deployment procedure.
 ## Known limitations
 
 - Only OpenEnv 0.6.0 and OpenShell SDK/gateway 0.1.2 are supported.
+- Async factory cancellation during WebSocket connection requires the outer
+  provider cleanup pattern above. Automatic factory cleanup on cancellation is
+  an unresolved upstream lifecycle gap (`openenv-openshell-iru`).
 - Validated on the local native arm64 VM driver with locally built images. Their
   image IDs are not pullable registry digests. S5b also validated a digest-pinned
   amd64 EchoEnv image on a remote Docker driver with OIDC; arbitrary images and
