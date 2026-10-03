@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, cast
 
 import yaml
 
+from openenv_openshell._adapter import ensure_sdk
 from openenv_openshell.errors import PolicyConfigurationError
 
 _INVALID = "Invalid explicit policy; use supported OpenShell 0.1.2 policy fields."
@@ -97,7 +98,8 @@ def load_policy(source: object) -> dict[str, object]:
             if "filesystem" in policy:
                 raise PolicyConfigurationError(_INVALID)
             policy["filesystem"] = policy.pop("filesystem_policy")
-        from openenv_openshell._sdk import (  # noqa: PLC0415 - Private lazy model boundary.
+        ensure_sdk()
+        from openenv_openshell._sdk import (  # noqa: PLC0415 - Guarded lazy model boundary.
             normalize_policy,
         )
 

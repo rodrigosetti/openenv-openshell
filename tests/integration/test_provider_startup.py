@@ -175,3 +175,42 @@ def test_failed_start_cleanup(stage: str) -> None:
             assert not client.list(
                 workspace=workspace, label_selector=f"openenv-p7={name}"
             ).all()
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("stage", ["service_url", "wait_ready"])
+def test_interrupted_start_cleanup(stage: str) -> None:
+    """Production rollback confirms absence before any test safety teardown."""
+    image = os.environ.get("OPENENV_OPENSHELL_ECHO_IMAGE_ID")
+    if image is None:
+        pytest.skip("Set OPENENV_OPENSHELL_ECHO_IMAGE_ID to the validated image ID")
+    workspace = os.environ.get("OPENSHELL_WORKSPACE", "default")
+    gateway = os.environ.get("OPENSHELL_GATEWAY") or None
+    name = f"oe-aee-{uuid4().hex[:8]}"
+    provider = OpenShellProvider(
+        workspace=workspace,
+        gateway=gateway,
+        sandbox_name=name,
+        command=COMMAND,
+        policy=Path(__file__).parent / "images/echo/policy.yaml",
+        labels={"openenv-aee": name},
+    )
+    adapter = connect(gateway=gateway)
+    interruption = KeyboardInterrupt()
+    try:
+        with (
+            patch.object(provider, "_connect_adapter", return_value=adapter),
+            patch.object(adapter, stage, side_effect=interruption),
+            pytest.raises(KeyboardInterrupt) as caught,
+        ):
+            provider.start_container(image)
+        assert caught.value is interruption
+        assert provider.state.deleted
+        assert provider.state.sandbox_name is None
+        with SandboxClient.from_active_cluster(cluster=gateway, timeout=30) as client:
+            assert not client.list(
+                workspace=workspace, label_selector=f"openenv-aee={name}"
+            ).all()
+    finally:
+        provider.stop_container()
+        adapter.close()
