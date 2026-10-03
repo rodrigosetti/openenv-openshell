@@ -23,6 +23,7 @@ from openenv_openshell._adapter import (
     SDK_VERSION,
     CreateCollisionError,
     CreateRequest,
+    DeleteNotSentError,
     Deletion,
     Sandbox,
 )
@@ -270,17 +271,17 @@ class SDKAdapter:
         """
         if not expected_sandbox_id:
             msg = "Sandbox ownership is unconfirmed; inspect gateway diagnostics."
-            raise SandboxDeletionError(msg)
+            raise DeleteNotSentError(msg)
         try:
             current = self._client.get(sandbox_name, workspace=workspace)
         except grpc.RpcError as failure:
             if failure.code() == grpc.StatusCode.NOT_FOUND:
                 return Deletion(expected_sandbox_id, "already_absent")
             msg = "Cannot verify sandbox ownership; retry cleanup."
-            raise SandboxDeletionError(msg) from None
+            raise DeleteNotSentError(msg) from None
         except (SandboxError, OSError, ValueError):
             msg = "Cannot verify sandbox ownership; retry cleanup."
-            raise SandboxDeletionError(msg) from None
+            raise DeleteNotSentError(msg) from None
         if current.id != expected_sandbox_id:
             return Deletion(expected_sandbox_id, "already_absent")
         result = _call(

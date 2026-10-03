@@ -501,6 +501,12 @@ DELETED
 ```
 
 Failure from any intermediate state MUST trigger best-effort cleanup.
+Catchable interruptions during `start_container()` (including `KeyboardInterrupt`
+and `SystemExit`) MUST attempt rollback of confirmed ownership using the configured
+deletion timeout and then re-raise the original interruption. Cleanup failure MUST
+retain retryable state and add only secret-safe diagnostics; `keep_sandbox` still
+applies. An interrupted create without a returned identity MUST NOT trigger
+name-based deletion and MUST retain operator inspection information.
 
 ---
 
@@ -866,7 +872,9 @@ contract before creating a sandbox.
 The expected identity above applies to deletion **waiting**, not to the
 name-based delete RPC. OpenShell 0.1.2 has no public atomic conditional-delete
 input. SEC8a requires ownership verification before any deletion, no deletion
-after an ambiguous create, and confirmation-only retries after a delete attempt.
+after an ambiguous create, and confirmation-only retries after a delete RPC may
+have been dispatched. A proven ownership-lookup failure before dispatch MUST
+permit a fresh ownership check and first delete on retry.
 The client-side identity preflight remains vulnerable to concurrent name reuse
 between lookup and delete. Full fail-closed deletion remains blocked on a public
 immutable-ID or expected-ID deletion contract, tracked separately as SEC8c.

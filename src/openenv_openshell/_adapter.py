@@ -7,7 +7,11 @@ from importlib import import_module
 from importlib.metadata import PackageNotFoundError, version
 from typing import TYPE_CHECKING, Literal, Protocol
 
-from openenv_openshell.errors import OpenShellConnectionError, SandboxCreationError
+from openenv_openshell.errors import (
+    OpenShellConnectionError,
+    SandboxCreationError,
+    SandboxDeletionError,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -24,6 +28,10 @@ _INSTALL_HINT = (
 
 class CreateCollisionError(SandboxCreationError):
     """The gateway rejected create because the name was already occupied."""
+
+
+class DeleteNotSentError(SandboxDeletionError):
+    """The adapter proves no delete RPC was sent; ownership preflight may retry."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,6 +93,8 @@ class SandboxAdapter(Protocol):
         """Check identity before requesting deletion, tolerating absence.
 
         The pinned API cannot make this check atomic with deletion.
+        Raise DeleteNotSentError only when no delete RPC was dispatched. All
+        other failures must be treated as potentially applied deletion.
         """
         ...
 
