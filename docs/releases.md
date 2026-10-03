@@ -71,7 +71,10 @@ The validator requires exactly one wheel and one sdist, matching name/version,
 index-compatible dependencies, package typing, README and license. The workflow
 installs each artifact into a fresh environment outside the checkout, first
 without the SDK and then with the exact prerequisite. Sdist installation rebuilds
-the wheel independently. The upload job downloads those validated artifacts;
+the wheel independently. Public startup with omitted, mapping, and YAML policies
+must return sanitized installation guidance when the SDK is absent. With the
+pinned SDK installed, mapping and YAML normalization must succeed. These smoke
+checks never contact a gateway. The upload job downloads those validated artifacts;
 it does not rebuild them or execute repository source with OIDC privileges.
 
 The wheel intentionally contains only the typed runtime package and distribution
@@ -87,8 +90,10 @@ path, from an empty directory outside the checkout:
 uv venv venv --python 3.11
 uv pip install --python venv/bin/python /absolute/path/to/distribution
 venv/bin/python -c 'from importlib.metadata import version; from openenv_openshell import OpenShellProvider; assert version("openenv-openshell") == "0.1.0"; OpenShellProvider().stop_container()'
+venv/bin/python /absolute/path/to/scripts/check_sdk_prerequisite.py --expected missing
 uv pip install --python venv/bin/python -r /absolute/path/to/requirements-openshell.txt
 venv/bin/python -c 'from importlib.metadata import version; from openenv_openshell._sdk import SDKAdapter; assert version("openshell") == "0.1.2"'
+venv/bin/python /absolute/path/to/scripts/check_sdk_prerequisite.py --expected installed
 uv pip check --python venv/bin/python
 ```
 
