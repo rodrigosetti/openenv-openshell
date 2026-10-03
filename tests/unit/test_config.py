@@ -4,6 +4,7 @@
 
 from pathlib import Path
 from typing import Any, cast
+from unittest.mock import patch
 
 import pytest
 
@@ -12,6 +13,7 @@ from openenv_openshell import (
     OpenShellProviderConfig,
     OpenShellResources,
 )
+from tests.fakes import CreateCall, FakeSandboxAdapter
 
 
 def test_provider_constructor_collects_keyword_configuration() -> None:
@@ -95,6 +97,7 @@ def test_gpu_count_must_be_a_positive_integer(gpu_count: object) -> None:
         ("sandbox_name", ""),
         ("sandbox_name", "Upper_case"),
         ("sandbox_name", "-leading"),
+        ("sandbox_name", "trailing-"),
         ("sandbox_name", "a" * 64),
         ("service_name", "has spaces"),
         ("gateway", " "),
@@ -222,3 +225,32 @@ def test_explicit_sandbox_name_wins_over_generated_name() -> None:
     provider = OpenShellProvider(sandbox_name="chosen-name")
 
     assert provider._sandbox_name_for_image("ignored:latest") == "chosen-name"  # noqa: SLF001
+
+
+@pytest.mark.parametrize("length", [20, 63, 64])
+def test_oversized_explicit_sandbox_names_never_connect(length: int) -> None:
+    """Reject gateway-invalid lengths before obtaining a client or creating."""
+    with (
+        patch("openenv_openshell.provider.connect") as connect,
+        pytest.raises(ValueError, match="sandbox_name must be at most 19"),
+    ):
+        OpenShellProvider(command=["server"], sandbox_name="a" * length)
+    connect.assert_not_called()
+
+
+def test_explicit_sandbox_name_at_gateway_limit_is_preserved() -> None:
+    """The valid 19-character boundary reaches create unchanged."""
+    name = "a" * 19
+    adapter = FakeSandboxAdapter()
+    provider = OpenShellProvider(command=["server"], sandbox_name=name)
+    with patch.object(provider, "_connect_adapter", return_value=adapter):
+        provider.start_container("image")
+    call = adapter.calls[0]
+    assert isinstance(call, CreateCall)
+    assert call.request.name == name
+
+
+@pytest.mark.parametrize("name", ["", "openenv", "a" * 63])
+def test_service_name_validation_remains_independent(name: str) -> None:
+    """The sandbox fix preserves existing local service-name acceptance."""
+    assert OpenShellProvider(service_name=name).config.service_name == name

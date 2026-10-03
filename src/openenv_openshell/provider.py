@@ -24,6 +24,7 @@ from openenv_openshell._adapter import (
     connect,
 )
 from openenv_openshell._compat import ContainerProvider
+from openenv_openshell._naming import MAX_SANDBOX_NAME_LENGTH
 from openenv_openshell.config import (
     OpenShellProviderConfig,
     OpenShellResources,
@@ -49,9 +50,8 @@ if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
 
 _MAX_PORT = 65535
-# OpenShell 0.1.2 gateway limit; reserve "openenv-" and a six-hex suffix.
-_MAX_GENERATED_NAME_LENGTH = 19
-_GENERATED_IMAGE_PREFIX_LENGTH = _MAX_GENERATED_NAME_LENGTH - len("openenv--") - 6
+# Reserve "openenv-" and a six-hex suffix within the configured name limit.
+_GENERATED_IMAGE_PREFIX_LENGTH = MAX_SANDBOX_NAME_LENGTH - len("openenv--") - 6
 _LOGGER = logging.getLogger("openenv_openshell")
 # TLS alerts for a route that demands a client certificate (TLS 1.3 and 1.2).
 _CLIENT_CERT_ALERTS = frozenset(

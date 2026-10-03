@@ -26,7 +26,7 @@ provider = OpenShellProvider(
 | `policy` | `None` | Explicit OpenShell policy: YAML path (`str`/`Path`) or mapping. `None` lets OpenShell choose the image or gateway default policy. See [policy](#policy). |
 | `service_port` | `8000` | Guest port the server listens on; OpenShell exposes it as a managed service route. |
 | `service_name` | `""` | Optional service name (lowercase letters, digits, hyphens). Empty uses the sandbox's unnamed service. |
-| `sandbox_name` | generated | Generated names fit the 19-character gateway limit. Explicit names accept at most 63 lowercase letters, digits, or hyphens locally; set **19 characters or fewer** for the 0.1.2 gateway; see [troubleshooting](troubleshooting.md#sandboxcreationerror-on-every-start). |
+| `sandbox_name` | generated | Generated and explicit names fit the 19-character OpenShell 0.1.2 gateway limit. Explicit names must use lowercase letters, digits, or hyphens and start/end with a letter or digit; longer names fail during construction before gateway access. |
 | `workspace` | `"default"` | OpenShell workspace that owns the sandbox. Not read from `OPENSHELL_WORKSPACE`; pass it explicitly. |
 | `gateway` | `None` | Registered gateway name. `None` uses `$OPENSHELL_GATEWAY`, then the CLI's active gateway. |
 | `startup_timeout_s` | `120.0` | Budget for OpenShell to report the sandbox ready. |

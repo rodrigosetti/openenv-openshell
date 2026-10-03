@@ -28,7 +28,7 @@ def test_provider_startup(cleanup: str) -> None:
     if image is None:
         pytest.skip("Set OPENENV_OPENSHELL_ECHO_IMAGE_ID to the validated image ID")
     workspace = os.environ.get("OPENSHELL_WORKSPACE", "default")
-    name = f"oe-p4-{uuid4().hex[:8]}"
+    name = f"oe-p4-{uuid4().hex[:13]}"  # Exercise the 19-character explicit limit.
     provider = OpenShellProvider(
         workspace=workspace,
         sandbox_name=name,
