@@ -16,15 +16,12 @@ Requires a prepared local OpenShell 0.1.2 gateway (``make openshell-smoke``).
 # pyright: reportUnknownArgumentType=false, reportMissingTypeStubs=false
 
 import os
-from secrets import token_hex
 
 from openenv.core.generic_client import GenericEnvClient
 
 from openenv_openshell import OpenShellProvider
 
 provider = OpenShellProvider(
-    # The 0.1.2 gateway limits names to 19 characters.
-    sandbox_name=f"oe-quick-{token_hex(4)}",
     # Exact server argv; OpenShell 0.1.2 does not run the image CMD for you.
     command=[
         "sh",

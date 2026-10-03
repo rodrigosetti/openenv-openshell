@@ -155,7 +155,7 @@ def test_default_startup_and_health(monkeypatch: pytest.MonkeyPatch) -> None:
         create = adapter.calls[0]
         assert isinstance(create, CreateCall)
         request = create.request
-        assert re.fullmatch(r"openenv-echo-env-[0-9a-f]{6}", request.name)
+        assert re.fullmatch(r"openenv-echo-[0-9a-f]{6}", request.name)
         assert request.workspace == "default"
         assert request.target_port == 8000  # noqa: PLR2004 - Specified default port.
         assert request.service_name == ""

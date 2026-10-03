@@ -81,7 +81,7 @@ this decision does not establish PID enforcement or close M2.
 ## Reproduce the runtime review
 
 Use the synthetic filesystem fixture built by
-[SEC5's instructions](../tests/integration/README.md#sec5-filesystem-enforcement).
+[SEC5's instructions](https://github.com/rodrigosetti/openenv-openshell/blob/main/tests/integration/README.md#sec5-filesystem-enforcement).
 The SEC8 policy retains strict Landlock, the non-root identity, empty egress,
 and `include_workdir: false`; it adds read-only `/sys/fs/cgroup` solely for
 diagnostics. It checks both initial workload and exec, continued routed

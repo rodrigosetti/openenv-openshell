@@ -4,7 +4,7 @@
 operations for one active sandbox. OpenEnv owns the environment protocol and
 client session; OpenShell owns workload isolation and service routing. The
 package translates between those public contracts without modifying the
-environment server. [SPEC.md](../SPEC.md) defines requirements; this guide
+environment server. [SPEC.md](https://github.com/rodrigosetti/openenv-openshell/blob/main/SPEC.md) defines requirements; this guide
 describes the current implementation and its evidence boundaries.
 
 ## Boundaries and traffic
@@ -157,7 +157,7 @@ See [security and redaction evidence](security.md).
 
 Local runtime evidence covers routed health, short WebSocket sessions, and the
 unmodified OpenEnv client's async/sync lifecycle. The integration fixtures,
-versions, and run instructions are in the [integration guide](../tests/integration/README.md).
+versions, and run instructions are in the [integration guide](https://github.com/rodrigosetti/openenv-openshell/blob/main/tests/integration/README.md).
 Long idle sessions, reconnects, remote routes, service authentication, and remote
 image compatibility remain unverified (S5a). A remote URL must work directly
 with the unmodified client's HTTP and WebSocket traffic, with valid TLS trust.

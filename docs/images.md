@@ -40,7 +40,7 @@ found a published `latest` image whose architecture, port, and action model did
 not match its documentation.
 
 Use digest-pinned base images and lockfiles in your own Dockerfiles, as
-[the EchoEnv recipe](../tests/integration/images/echo/Dockerfile) does, so a
+[the EchoEnv recipe](https://github.com/rodrigosetti/openenv-openshell/blob/main/tests/integration/images/echo/Dockerfile) does, so a
 rebuild produces the same software.
 
 ## Make the image runnable under OpenShell
@@ -61,12 +61,12 @@ Check each item against the gateway's compute driver:
 - **Non-root identity for the Docker driver.** It rejects UID 0 and requires the
   identity to enter and write the workdir. Add a user (for example UID 1000
   `sandbox`) and set `USER`, as
-  [`Dockerfile.docker-driver`](../tests/integration/images/echo/Dockerfile.docker-driver)
+  [`Dockerfile.docker-driver`](https://github.com/rodrigosetti/openenv-openshell/blob/main/tests/integration/images/echo/Dockerfile.docker-driver)
   does.
 - **Policy access.** The policy must grant read access to the server's code and
   virtual environment (for example `/app`) and write access to what it writes.
   The strict example policies also expect a `sandbox` user and writable
-  `/workspace`. See the [policy examples](../examples/policies/README.md).
+  `/workspace`. See the [policy examples](https://github.com/rodrigosetti/openenv-openshell/blob/main/examples/policies/README.md).
 - **Port and health.** The server must listen on `0.0.0.0` at `service_port` and
   answer `GET /health` with 200; OpenEnv clients also need `/ws`.
 
@@ -74,10 +74,10 @@ Check each item against the gateway's compute driver:
 
 | Image | Lane | Notes |
 | --- | --- | --- |
-| [EchoEnv](../tests/integration/images/echo/Dockerfile), local ID in [`local-image-id.txt`](../tests/integration/images/echo/local-image-id.txt) | Local 0.1.2 VM, arm64 | Quickstart and E2E tests |
-| EchoEnv Docker-driver variant, digest in [`remote-image-ref.txt`](../tests/integration/images/echo/remote-image-ref.txt) | Remote 0.1.2 Docker driver, amd64 | Clients need a TLS client certificate on mTLS gateways |
-| [coding_env](../examples/coding-agent/Dockerfile) | Local 0.1.2 VM, arm64 | [Coding-agent demo](coding-agent-demo.md) |
+| [EchoEnv](https://github.com/rodrigosetti/openenv-openshell/blob/main/tests/integration/images/echo/Dockerfile), local ID in [`local-image-id.txt`](https://github.com/rodrigosetti/openenv-openshell/blob/main/tests/integration/images/echo/local-image-id.txt) | Local 0.1.2 VM, arm64 | Quickstart and E2E tests |
+| EchoEnv Docker-driver variant, digest in [`remote-image-ref.txt`](https://github.com/rodrigosetti/openenv-openshell/blob/main/tests/integration/images/echo/remote-image-ref.txt) | Remote 0.1.2 Docker driver, amd64 | Clients need a TLS client certificate on mTLS gateways |
+| [coding_env](https://github.com/rodrigosetti/openenv-openshell/blob/main/examples/coding-agent/Dockerfile) | Local 0.1.2 VM, arm64 | [Coding-agent demo](coding-agent-demo.md) |
 
 Other images and drivers are unverified. Validate a new image by running the
-[quickstart](../README.md#quickstart) with its command, port, and policy, and
+[quickstart](https://github.com/rodrigosetti/openenv-openshell/blob/main/README.md#quickstart) with its command, port, and policy, and
 check `openshell sandbox list` afterwards to confirm cleanup.

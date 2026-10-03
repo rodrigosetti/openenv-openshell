@@ -28,7 +28,7 @@ def test_quickstart_script() -> None:
     assert result.returncode == 0, result.stderr
     lines = result.stdout.splitlines()
     assert lines[:2] == ["echo: hello from OpenShell", "steps: 1"]
-    match = re.fullmatch(r"sandbox: (oe-quick-[0-9a-f]{8})", lines[2])
+    match = re.fullmatch(r"sandbox: (openenv-[a-z0-9-]{1,4}-[0-9a-f]{6})", lines[2])
     assert match is not None
     assert lines[3:] == ["deleted: True"]
     workspace = os.environ.get("OPENSHELL_WORKSPACE", "default")

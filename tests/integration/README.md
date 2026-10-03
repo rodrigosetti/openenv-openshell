@@ -3,6 +3,14 @@
 I9's `test_quickstart.py` runs the README quickstart script unchanged with
 `OPENENV_OPENSHELL_ECHO_IMAGE_ID` and confirms its sandbox is gone afterwards.
 
+The zf3 regression removes the explicit-name workaround from the quickstart.
+Verified on 2026-10-01 with the pinned native arm64 EchoEnv image ID and local
+SDK/gateway 0.1.2: the default-generated name fit the 19-character limit, the
+unmodified client completed reset/step/state, and an independent SDK listing
+confirmed deletion. The quickstart and all eight provider startup/cleanup cases
+passed (nine integration tests). `make check` passed 463 unit tests, Ruff, strict
+Pyright, and 99.52% branch-inclusive coverage.
+
 P10's [public client compatibility check](../../docs/openenv-compatibility.md)
 uses the installed, unmodified OpenEnv 0.6.0 `GenericEnvClient` with the public
 provider. Run `test_openenv_client.py` with the same image opt-in shown below.

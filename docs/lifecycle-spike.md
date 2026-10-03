@@ -1,6 +1,6 @@
 # One-file lifecycle spike (S4)
 
-The standalone [Python experiment](../tests/integration/_lifecycle_spike.py)
+The standalone [Python experiment](https://github.com/rodrigosetti/openenv-openshell/blob/main/tests/integration/_lifecycle_spike.py)
 uses the pinned OpenShell 0.1.2 SDK to create the selected EchoEnv image with
 an atomic, unnamed service on target port 8000, wait for OpenShell readiness,
 and obtain the create-time routed URL. It then deletes the sandbox and waits
@@ -41,7 +41,7 @@ models are confined to this experimental compatibility file. Runtime operations
 use public `SandboxClient` calls and `ServiceExposure`, consistent with the
 [S1a model decision](openshell-sdk-contract.md#s1a-decision-official-wheel-and-confined-generated-models).
 Signature-aware offline tests in
-[`test_lifecycle_spike.py`](../tests/unit/test_lifecycle_spike.py) exercise its
+[`test_lifecycle_spike.py`](https://github.com/rodrigosetti/openenv-openshell/blob/main/tests/unit/test_lifecycle_spike.py) exercise its
 actual SDK inputs, route persistence, failures, interruption, and deletion ID.
 
 The embedded fixed policy matches the S3a image fixture: read-only `/app` plus

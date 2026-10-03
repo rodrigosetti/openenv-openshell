@@ -4,14 +4,14 @@ build-backend = "hatchling.build"
 
 [project]
 name = "openenv-openshell"
-version = "0.0.0"
+version = "0.1.0"
 description = "Run OpenEnv environment servers in NVIDIA OpenShell sandboxes"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"
 authors = [{ name = "OpenEnv OpenShell contributors" }]
 classifiers = [
-  "Development Status :: 2 - Pre-Alpha",
+  "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",
   "License :: OSI Approved :: Apache Software License",
   "Programming Language :: Python :: 3 :: Only",
@@ -30,7 +30,9 @@ dependencies = [
 [project.urls]
 Repository = "https://github.com/rodrigosetti/openenv-openshell"
 Issues = "https://github.com/rodrigosetti/openenv-openshell/issues"
-Documentation = "https://github.com/rodrigosetti/openenv-openshell#readme"
+Documentation = "https://rodrigosetti.github.io/openenv-openshell/"
+"Source documentation" = "https://github.com/rodrigosetti/openenv-openshell/tree/main/docs"
+Changelog = "https://github.com/rodrigosetti/openenv-openshell/blob/main/docs/release-notes/0.1.0.md"
 
 [dependency-groups]
 dev = [
@@ -44,18 +46,35 @@ dev = [
   "ruff>=0.13,<0.15",
   "types-pyyaml>=6,<7",
 ]
+docs = [
+  "mkdocs>=1.6.1,<1.7",
+]
 
 # The official SDK is a separately installed runtime prerequisite (I13).
 # Index metadata cannot contain direct references; dev retains the exact pin.
 
 [tool.hatch.build.targets.sdist]
-include = ["src/openenv_openshell", "README.md", "LICENSE", "pyproject.toml"]
+exclude = ["/.beads", "/.agents", "/.codex"]
+include = [
+  "src/openenv_openshell",
+  "README.md",
+  "LICENSE",
+  "pyproject.toml",
+  "requirements-openshell.txt",
+  "uv.lock",
+  "Makefile",
+  "SPEC.md",
+  "docs",
+  "examples",
+  "scripts",
+  "tests",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/openenv_openshell"]
 
 [tool.pyright]
-include = ["src", "tests", "scripts", "examples"]
+include = ["src", "tests", "scripts", "examples", "docs/_hooks"]
 pythonVersion = "3.11"
 typeCheckingMode = "strict"
 venvPath = "."

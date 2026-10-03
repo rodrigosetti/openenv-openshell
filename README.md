@@ -10,10 +10,12 @@ and training loops keep working: you swap the provider, not the client.
 env = GenericEnvClient.from_docker_image(image, provider=OpenShellProvider(...)).sync()
 ```
 
-**Pre-alpha.** The provider lifecycle, explicit policies, and cleanup are
+**Alpha; v0.1.0 prepared for release.** The provider lifecycle, explicit policies, and cleanup are
 implemented and validated on a local OpenShell 0.1.2 gateway with OpenEnv 0.6.0.
 It is not yet published to PyPI; install from source. See
 [known limitations](#known-limitations) before relying on it.
+The [v0.1.0 release notes](docs/release-notes/0.1.0.md) describe the prepared
+package; publication awaits the release acceptance gates.
 
 ## Requirements
 
@@ -28,7 +30,7 @@ It is not yet published to PyPI; install from source. See
 
 ## Install
 
-From a checkout (recommended while pre-alpha; includes the SDK and dev tools):
+From a checkout (includes the SDK and dev tools):
 
 ```bash
 git clone https://github.com/rodrigosetti/openenv-openshell.git
@@ -66,7 +68,7 @@ Expected output (the sandbox name is random):
 ```text
 echo: hello from OpenShell
 steps: 1
-sandbox: oe-quick-d91afc87
+sandbox: openenv-sha2-d91afc
 deleted: True
 ```
 
@@ -74,15 +76,12 @@ deleted: True
 
 ```python
 import os
-from secrets import token_hex
 
 from openenv.core.generic_client import GenericEnvClient
 
 from openenv_openshell import OpenShellProvider
 
 provider = OpenShellProvider(
-    # The 0.1.2 gateway limits names to 19 characters.
-    sandbox_name=f"oe-quick-{token_hex(4)}",
     # Exact server argv; OpenShell 0.1.2 does not run the image CMD for you.
     command=[
         "sh",
@@ -154,6 +153,12 @@ The gateway needs internet access to `pypi.org` and `example.com`. The
 
 ## Documentation
 
+Read the [searchable user manual](https://rodrigosetti.github.io/openenv-openshell/)
+or browse the [source guides](docs/index.md). Preview locally with `make docs-serve` at
+`http://127.0.0.1:8000/openenv-openshell/`. See
+[documentation contributions](docs/documentation.md) for the locked docs-only
+installation, strict build, and GitHub Pages deployment procedure.
+
 | Guide | Contents |
 | --- | --- |
 | [Configuration reference](docs/configuration.md) | Every provider option, start arguments, policy, credentials, resources, metadata, errors, logging |
@@ -174,8 +179,6 @@ The gateway needs internet access to `pypi.org` and `example.com`. The
   image IDs are not pullable registry digests. S5b also validated a digest-pinned
   amd64 EchoEnv image on a remote Docker driver with OIDC; arbitrary images and
   other compute drivers are unverified.
-- Generated default sandbox names exceed the 0.1.2 gateway's 19-character
-  limit; pass a short `sandbox_name` (tracked as `openenv-openshell-zf3`).
 - Remote gateways using the standard mTLS configuration are **not supported**
   for unmodified OpenEnv clients: service routes require a TLS client
   certificate the client cannot present. The provider fails with

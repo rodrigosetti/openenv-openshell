@@ -26,7 +26,7 @@ provider = OpenShellProvider(
 | `policy` | `None` | Explicit OpenShell policy: YAML path (`str`/`Path`) or mapping. `None` lets OpenShell choose the image or gateway default policy. See [policy](#policy). |
 | `service_port` | `8000` | Guest port the server listens on; OpenShell exposes it as a managed service route. |
 | `service_name` | `""` | Optional service name (lowercase letters, digits, hyphens). Empty uses the sandbox's unnamed service. |
-| `sandbox_name` | generated | Sandbox name, at most 63 lowercase letters, digits, or hyphens. Set a name of **19 characters or fewer** for the 0.1.2 gateway; see [troubleshooting](troubleshooting.md#sandboxcreationerror-on-every-start). |
+| `sandbox_name` | generated | Generated names fit the 19-character gateway limit. Explicit names accept at most 63 lowercase letters, digits, or hyphens locally; set **19 characters or fewer** for the 0.1.2 gateway; see [troubleshooting](troubleshooting.md#sandboxcreationerror-on-every-start). |
 | `workspace` | `"default"` | OpenShell workspace that owns the sandbox. Not read from `OPENSHELL_WORKSPACE`; pass it explicitly. |
 | `gateway` | `None` | Registered gateway name. `None` uses `$OPENSHELL_GATEWAY`, then the CLI's active gateway. |
 | `startup_timeout_s` | `120.0` | Budget for OpenShell to report the sandbox ready. |
@@ -104,7 +104,7 @@ load_policy("policy.yaml")  # offline validation, same as the provider uses
   change it. It records what was submitted, not that it was enforced. It is
   `None` when no explicit policy was given.
 
-Start from [the policy examples](../examples/policies/README.md): a strict
+Start from [the policy examples](https://github.com/rodrigosetti/openenv-openshell/blob/main/examples/policies/README.md): a strict
 deny-all, a minimal Hugging Face read rule, and the image-compatible policy the
 quickstart uses. The [security guide](security.md) explains precedence and what
 is enforced.

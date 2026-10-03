@@ -1,7 +1,7 @@
 # Coding-agent demo (I8)
 
 `examples/coding_env.py` is the reference demo from
-[SPEC section 35](../SPEC.md#35-reference-demo): an OpenEnv coding environment
+[SPEC section 35](https://github.com/rodrigosetti/openenv-openshell/blob/main/SPEC.md#35-reference-demo): an OpenEnv coding environment
 running under an OpenShell policy, with approved and forbidden access shown
 side by side and sandbox deletion at the end.
 
@@ -9,14 +9,14 @@ side by side and sandbox deletion at the end.
 
 - **Environment:** upstream OpenEnv `envs/coding_env` (`PythonCodeActEnv`, backed
   by smolagents' `LocalPythonExecutor`) from the same pinned source revision as the
-  EchoEnv fixture, built natively by [`examples/coding-agent/Dockerfile`](../examples/coding-agent/Dockerfile).
+  EchoEnv fixture, built natively by [`examples/coding-agent/Dockerfile`](https://github.com/rodrigosetti/openenv-openshell/blob/main/examples/coding-agent/Dockerfile).
 - **Client:** the unmodified OpenEnv 0.6.0 `GenericEnvClient`, connected to the
   OpenShell-managed service route over WebSocket. The task (FizzBuzz) is a
   `{"code": ...}` action whose stdout and exit code are checked.
 - **Agent tools:** OpenShell SDK `exec` calls in the same sandbox, standing in for
   an agent's shell tool. They write and run the solution in `/workspace`, then
   probe forbidden files and hosts.
-- **Policy:** [`examples/coding-agent/policy.yaml`](../examples/coding-agent/policy.yaml)
+- **Policy:** [`examples/coding-agent/policy.yaml`](https://github.com/rodrigosetti/openenv-openshell/blob/main/examples/coding-agent/policy.yaml)
   is `deny-all.yaml` (hard-required Landlock, `sandbox` identity, writes only to
   `/workspace`, `/tmp`, `/dev/null`) plus one enforced read-only REST rule for
   `/usr/local/bin/python3.12` to `pypi.org:443`, representing a package index.

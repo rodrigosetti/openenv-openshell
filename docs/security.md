@@ -24,7 +24,7 @@ It does not automatically select `examples/policies/deny-all.yaml`. Review and
 pin an image's baked policy before relying on that precedence. `policy_mode`
 is proposed in SPEC and is not an implemented constructor argument.
 
-The strict [policy examples](../examples/policies/README.md) request required
+The strict [policy examples](https://github.com/rodrigosetti/openenv-openshell/blob/main/examples/policies/README.md) request required
 Landlock, explicit non-root identity, reviewed read-only paths, bounded writable
 paths, and no undeclared egress. Paths/users must exist in the selected image
 with suitable Unix permissions. A grant does not create paths or override file
@@ -93,14 +93,14 @@ workloads sharing capacity, and consume host resources. Filesystem and network
 enforcement do not establish availability isolation. CPU/memory/GPU serialization
 also does not establish runtime enforcement. Operators requiring process capacity
 isolation must independently validate an enforcing runtime/compute driver.
-See [SPEC section 22.1](../SPEC.md#221-process-capacity-sec8b-scope-decision) and
+See [SPEC section 22.1](https://github.com/rodrigosetti/openenv-openshell/blob/main/SPEC.md#221-process-capacity-sec8b-scope-decision) and
 the [evidence and scope decision](process-capacity.md).
 
-Filesystem enforcement is exercised by [SEC5's runtime test](../tests/integration/test_filesystem_security.py).
+Filesystem enforcement is exercised by [SEC5's runtime test](https://github.com/rodrigosetti/openenv-openshell/blob/main/tests/integration/test_filesystem_security.py).
 It uses synthetic SSH/host-shadow canaries with an explicit readable control,
 requires permission-denied errors under strict rules, checks workspace/temp
 writes, and verifies continued use of the same OpenEnv WebSocket session.
-See the [fixture build and run instructions](../tests/integration/README.md#sec5-filesystem-enforcement).
+See the [fixture build and run instructions](https://github.com/rodrigosetti/openenv-openshell/blob/main/tests/integration/README.md#sec5-filesystem-enforcement).
 The canaries are guest image files; the test never reads real host credentials.
 
 Prefer OpenShell provider-backed credentials for secrets. Use `env_vars` for
@@ -173,7 +173,7 @@ cleanup; this package does not own or delete an operator's provider.
 
 ## SEC7 credential visibility check
 
-The opt-in [runtime test](../tests/integration/test_managed_credentials.py)
+The opt-in [runtime test](https://github.com/rodrigosetti/openenv-openshell/blob/main/tests/integration/test_managed_credentials.py)
 creates a uniquely named provider profile and provider with a random synthetic
 credential, then selects it through production request preparation and the
 production adapter. The test supplies the validated image command through the production
@@ -193,11 +193,11 @@ those environment reads on the tested local SDK/gateway/image. It does not
 prove resistance to every exfiltration technique, credential rewriting at an
 endpoint, remote compatibility, or filesystem/network denial acceptance.
 Run instructions and recorded evidence are in the
-[integration guide](../tests/integration/README.md#sec7-managed-credential-visibility).
+[integration guide](https://github.com/rodrigosetti/openenv-openshell/blob/main/tests/integration/README.md#sec7-managed-credential-visibility).
 
 ## Error and log redaction checks
 
-[T5's offline tests](../tests/unit/test_secret_safety.py) exercise the public
+[T5's offline tests](https://github.com/rodrigosetti/openenv-openshell/blob/main/tests/unit/test_secret_safety.py) exercise the public
 provider through the production SDK adapter with synthetic credential, bearer
 token, environment-value, and command-argument sentinels. They inspect public
 exception messages, formatted tracebacks, rollback notes, and captured DEBUG
@@ -214,10 +214,10 @@ above; raw environment values are readable inside the sandbox.
 
 ## Network enforcement checks
 
-[SEC6's runtime tests](../tests/integration/test_network_security.py) compare
+[SEC6's runtime tests](https://github.com/rodrigosetti/openenv-openshell/blob/main/tests/integration/test_network_security.py) compare
 deny-by-default egress with one explicit HTTPS destination for the tested
 image's Python interpreter. They require successful reads of each destination
 under its allow policy, permission/proxy denials under deny policies, continued
 reset/step/state over the same OpenEnv connection, and sandbox deletion.
 An externally reachable environment does not grant its workload outbound access.
-See the [run instructions and limits](../tests/integration/README.md#sec6-network-security).
+See the [run instructions and limits](https://github.com/rodrigosetti/openenv-openshell/blob/main/tests/integration/README.md#sec6-network-security).
