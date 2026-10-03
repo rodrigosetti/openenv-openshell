@@ -64,8 +64,10 @@ jobs:
             uv venv "$clean/venv" --python 3.11
             uv pip install --python "$clean/venv/bin/python" "$artifact"
             (cd "$clean" && "$clean/venv/bin/python" -c 'from openenv_openshell import OpenShellProvider; OpenShellProvider().stop_container()')
+            (cd "$clean" && "$clean/venv/bin/python" "$GITHUB_WORKSPACE/scripts/check_sdk_prerequisite.py" --expected missing)
             uv pip install --python "$clean/venv/bin/python" -r requirements-openshell.txt
             (cd "$clean" && "$clean/venv/bin/python" -c 'from importlib.metadata import version; from openenv_openshell._sdk import SDKAdapter; assert version("openshell") == "0.1.2"')
+            (cd "$clean" && "$clean/venv/bin/python" "$GITHUB_WORKSPACE/scripts/check_sdk_prerequisite.py" --expected installed)
           done
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
