@@ -501,6 +501,12 @@ DELETED
 ```
 
 Failure from any intermediate state MUST trigger best-effort cleanup.
+Catchable interruptions during `start_container()` (including `KeyboardInterrupt`
+and `SystemExit`) MUST attempt rollback of confirmed ownership using the configured
+deletion timeout and then re-raise the original interruption. Cleanup failure MUST
+retain retryable state and add only secret-safe diagnostics; `keep_sandbox` still
+applies. An interrupted create without a returned identity MUST NOT trigger
+name-based deletion and MUST retain operator inspection information.
 
 ---
 
@@ -872,7 +878,9 @@ contract before creating a sandbox.
 The expected identity above applies to deletion **waiting**, not to the
 name-based delete RPC. OpenShell 0.1.2 has no public atomic conditional-delete
 input. SEC8a requires ownership verification before any deletion, no deletion
-after an ambiguous create, and confirmation-only retries after a delete attempt.
+after an ambiguous create, and confirmation-only retries after a delete RPC may
+have been dispatched. A proven ownership-lookup failure before dispatch MUST
+permit a fresh ownership check and first delete on retry.
 The client-side identity preflight remains vulnerable to concurrent name reuse
 between lookup and delete. Full fail-closed deletion remains blocked on a public
 immutable-ID or expected-ID deletion contract, tracked separately as SEC8c.
@@ -952,6 +960,12 @@ connection and verifies the local routed workload. See the
 filesystem/network denial acceptance (SEC5/SEC6).
 
 The provider MUST NOT silently broaden permissions when a supplied policy fails.
+
+Mapping policies MUST be captured defensively at configuration construction.
+Public configuration inspection MUST NOT permit nested edits to change that
+snapshot or later submitted policy/digest. Accepted authored types and strict
+offline validation MUST remain unchanged. Path policies are loaded and validated
+at each start; their file contents are not frozen at construction.
 
 Invalid policy:
 
@@ -1161,7 +1175,10 @@ Example:
 openenv-codi-a7f213
 ```
 
-Generated names MUST fit the OpenShell 0.1.2 gateway limit of 19 characters.
+Generated and explicit sandbox names MUST fit the OpenShell 0.1.2 gateway limit
+of 19 characters. Explicit names MUST be nonempty lowercase letters, digits,
+or hyphens, starting and ending with a letter or digit. Invalid explicit names
+MUST fail during configuration validation before gateway connection or create.
 Reserve eight characters for `openenv-`, seven for the hyphen and six-hex
 random suffix, and at most four for the sanitized image basename. Strip trailing
 hyphens after truncation and use `env` if the basename has no usable characters.

@@ -20,6 +20,14 @@ confirmed deletion. The quickstart and all eight provider startup/cleanup cases
 passed (nine integration tests). `make check` passed 463 unit tests, Ruff, strict
 Pyright, and 99.52% branch-inclusive coverage.
 
+R2a extends the explicit-name startup control to the valid 19-character boundary.
+Verified on 2026-10-03 with the same native arm64 EchoEnv image and local
+SDK/gateway 0.1.2: all four provider stop/close/context controls completed routed
+health and reset/step/state, then confirmed sandbox absence through an independent
+SDK listing. All four startup-failure cleanup cases also passed (eight tests).
+Offline tests reject explicit lengths 20, 63, and 64 before connecting, preserve
+19 characters in the create request, and retain generated and named-service behavior.
+
 P10's [public client compatibility check](../../docs/openenv-compatibility.md)
 uses the installed, unmodified OpenEnv 0.6.0 `GenericEnvClient` with the public
 provider. Run `test_openenv_client.py` with the same image opt-in shown below.

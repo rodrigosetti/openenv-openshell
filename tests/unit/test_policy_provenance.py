@@ -1,14 +1,16 @@
 """Canonical explicit-policy provenance over offline provider runs."""
 
+from collections.abc import Mapping
 from hashlib import sha256
 from pathlib import Path
+from typing import cast
 from unittest.mock import patch
 
 import httpx
 import pytest
 
 from openenv_openshell import OpenShellProvider
-from openenv_openshell.errors import SandboxReadinessError
+from openenv_openshell.errors import PolicyConfigurationError, SandboxReadinessError
 from openenv_openshell.policy import load_policy, policy_digest
 from tests.fakes import CreateCall, FakeSandboxAdapter
 
@@ -117,3 +119,80 @@ def test_policy_digest_retained_after_failed_start() -> None:
     assert provider.metadata is not None
     assert provider.metadata.policy_digest == policy_digest(load_policy(policy))
     assert provider.metadata.deleted_at is not None
+
+
+def test_inspected_policy_cannot_change_repeated_startup(tmp_path: Path) -> None:
+    """Nested filesystem/network edits never change submitted policy or digest."""
+    source: dict[str, object] = {
+        "version": 1,
+        "filesystem": {"read_write": ["/workspace"]},
+        "network_policies": {
+            "api": {"endpoints": [{"host": "example.com", "port": 443}]}
+        },
+    }
+    path = tmp_path / "policy.yaml"
+    path.write_text(
+        "version: 1\nfilesystem_policy: {read_write: [/workspace]}\n"
+        "network_policies:\n  api:\n    endpoints: [{host: example.com, port: 443}]\n",
+        encoding="utf-8",
+    )
+    expected = load_policy(path)
+    provider = OpenShellProvider(command=["server"], policy=source)
+    source.clear()
+    for _ in range(2):
+        configured = provider.config.policy
+        assert isinstance(configured, Mapping)
+        inspected = dict(configured)
+        filesystem = cast("dict[str, list[str]]", inspected["filesystem"])
+        filesystem["read_write"].append("/")
+        network = cast("dict[str, dict[str, object]]", inspected["network_policies"])
+        endpoints = cast("list[dict[str, object]]", network["api"]["endpoints"])
+        endpoints[0]["host"] = "unapproved.example"
+        network["other"] = {"endpoints": []}
+        adapter = FakeSandboxAdapter()
+        with patch.object(provider, "_connect_adapter", return_value=adapter):
+            provider.start_container("image")
+        create = adapter.calls[0]
+        assert isinstance(create, CreateCall)
+        assert create.request.policy == expected
+        assert provider.metadata is not None
+        assert provider.metadata.policy_digest == policy_digest(expected)
+        provider.stop_container()
+
+
+def test_config_snapshot_preserves_invalid_tuple_input() -> None:
+    """Defensive inspection must not convert invalid public tuples into lists."""
+    provider = OpenShellProvider(
+        command=["server"],
+        policy={"version": 1, "filesystem": {"read_only": ("/usr",)}},
+    )
+    with (
+        patch.object(provider, "_connect_adapter") as connect,
+        pytest.raises(PolicyConfigurationError),
+    ):
+        provider.start_container("image")
+    connect.assert_not_called()
+
+
+def test_path_policy_is_loaded_again_on_each_start(tmp_path: Path) -> None:
+    """Path configuration retains load-at-start semantics rather than file bytes."""
+    path = tmp_path / "policy.yaml"
+    provider = OpenShellProvider(command=["server"], policy=path)
+    digests: list[str | None] = []
+    for directory in ["/workspace", "/app"]:
+        path.write_text(
+            f"version: 1\nfilesystem: {{read_only: [{directory}]}}\n",
+            encoding="utf-8",
+        )
+        expected = load_policy(path)
+        adapter = FakeSandboxAdapter()
+        with patch.object(provider, "_connect_adapter", return_value=adapter):
+            provider.start_container("image")
+        create = adapter.calls[0]
+        assert isinstance(create, CreateCall)
+        assert create.request.policy == expected
+        assert provider.metadata is not None
+        assert provider.metadata.policy_digest == policy_digest(expected)
+        digests.append(provider.metadata.policy_digest)
+        provider.stop_container()
+    assert digests[0] != digests[1]

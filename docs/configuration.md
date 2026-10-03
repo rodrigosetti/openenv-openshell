@@ -26,7 +26,7 @@ provider = OpenShellProvider(
 | `policy` | `None` | Explicit OpenShell policy: YAML path (`str`/`Path`) or mapping. `None` lets OpenShell choose the image or gateway default policy. See [policy](#policy). |
 | `service_port` | `8000` | Guest port the server listens on; OpenShell exposes it as a managed service route. |
 | `service_name` | `""` | Empty uses the sandbox's unnamed service. Named services accept at most 19 lowercase letters, digits, or hyphens, start and end with a letter or digit, and forbid consecutive hyphens (OpenShell 0.1.2 routing rules). Invalid names fail before gateway access. |
-| `sandbox_name` | generated | Generated names fit the 19-character gateway limit. Explicit names accept at most 63 lowercase letters, digits, or hyphens locally; set **19 characters or fewer** for the 0.1.2 gateway; see [troubleshooting](troubleshooting.md#sandboxcreationerror-on-every-start). |
+| `sandbox_name` | generated | Generated and explicit names fit the 19-character OpenShell 0.1.2 gateway limit. Explicit names must use lowercase letters, digits, or hyphens and start/end with a letter or digit; longer names fail during construction before gateway access. |
 | `workspace` | `"default"` | OpenShell workspace that owns the sandbox. Not read from `OPENSHELL_WORKSPACE`; pass it explicitly. |
 | `gateway` | `None` | Registered gateway name. `None` uses `$OPENSHELL_GATEWAY`, then the CLI's active gateway. |
 | `startup_timeout_s` | `120.0` | Budget for OpenShell to report the sandbox ready. |
@@ -89,6 +89,13 @@ Errors and `repr()` never include argv. See the
 `policy` accepts a YAML path or a mapping in OpenShell 0.1.2's policy format.
 It is loaded and validated before any gateway call and submitted atomically in
 the create request, so the workload never runs without it.
+
+Mapping inputs are captured at construction. Reads through `provider.config.policy`
+return detached nested dictionaries and lists: editing them cannot change the
+stored policy or a later run's submitted policy and digest. Top-level assignment
+is rejected. Authored list types and strict validation remain unchanged.
+YAML paths retain load-at-start semantics: file contents are read and validated
+for every start, so changing the file between runs changes the submitted policy.
 
 ```python
 from openenv_openshell.policy import load_policy

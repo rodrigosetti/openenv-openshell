@@ -22,6 +22,95 @@ from tests.fakes import (
 from tests.unit.test_readiness import Clock, install_client
 
 
+@pytest.mark.parametrize("operation", ["service_url", "wait_ready"])
+@pytest.mark.parametrize("interruption_type", [KeyboardInterrupt, SystemExit])
+def test_startup_interruption_rolls_back(
+    operation: FakeOperation, interruption_type: type[BaseException]
+) -> None:
+    """Direct startup preserves exit semantics and cleans up before returning."""
+    interruption = interruption_type("private interruption")
+    adapter = FakeSandboxAdapter(failures={operation: interruption})
+    provider = OpenShellProvider(
+        command=["server"], sandbox_name="interrupted", deletion_timeout_s=11
+    )
+    with (
+        patch.object(provider, "_connect_adapter", return_value=adapter),
+        pytest.raises(interruption_type) as caught,
+    ):
+        provider.start_container("echo:fixture")
+    assert caught.value is interruption
+    assert adapter.calls[-2:] == [
+        DeleteCall("interrupted", "default"),
+        WaitDeletedCall("interrupted", "default", "sandbox-123", 11),
+    ]
+    assert adapter.closed
+    assert provider.state == ProviderState(deleted=True)
+
+
+@pytest.mark.parametrize("cleanup_failure", [OSError, KeyboardInterrupt, SystemExit])
+def test_interrupted_startup_cleanup_failure_is_retryable(
+    cleanup_failure: type[BaseException], caplog: pytest.LogCaptureFixture
+) -> None:
+    """A second failure cannot mask the first interruption or erase ownership."""
+    interruption = KeyboardInterrupt()
+    adapter = FakeSandboxAdapter(
+        failures={
+            "wait_ready": interruption,
+            "wait_deleted": cleanup_failure("secret cleanup details"),
+        }
+    )
+    provider = OpenShellProvider(command=["server"], sandbox_name="interrupted")
+    with (
+        patch.object(provider, "_connect_adapter", return_value=adapter),
+        pytest.raises(KeyboardInterrupt) as caught,
+    ):
+        provider.start_container("echo:fixture")
+    assert caught.value is interruption
+    assert "retry" in " ".join(interruption.__notes__)
+    assert "secret" not in " ".join(interruption.__notes__) + caplog.text
+    assert provider.state.sandbox_id == "sandbox-123"
+    assert not adapter.closed
+    del adapter.failures["wait_deleted"]
+    provider.stop_container()
+    assert [call.operation for call in adapter.calls].count("delete") == 1
+    assert adapter.closed
+    assert provider.state.deleted
+
+
+@pytest.mark.parametrize("operation", ["create", "wait_ready"])
+def test_interrupted_startup_honors_keep_sandbox(operation: FakeOperation) -> None:
+    """Retention explicitly releases the client without deleting any sandbox."""
+    interruption = KeyboardInterrupt()
+    adapter = FakeSandboxAdapter(failures={operation: interruption})
+    provider = OpenShellProvider(command=["server"], keep_sandbox=True)
+    with (
+        patch.object(provider, "_connect_adapter", return_value=adapter),
+        pytest.raises(KeyboardInterrupt) as caught,
+    ):
+        provider.start_container("echo:fixture")
+    assert caught.value is interruption
+    assert not {"delete", "wait_deleted"} & {call.operation for call in adapter.calls}
+    assert adapter.closed
+    assert provider.state == ProviderState()
+
+
+def test_interrupted_create_never_guesses_ownership() -> None:
+    """A lost create identity retains inspection data without name deletion."""
+    interruption = KeyboardInterrupt()
+    adapter = FakeSandboxAdapter(failures={"create": interruption})
+    provider = OpenShellProvider(command=["server"], sandbox_name="unknown")
+    with (
+        patch.object(provider, "_connect_adapter", return_value=adapter),
+        pytest.raises(KeyboardInterrupt) as caught,
+    ):
+        provider.start_container("echo:fixture")
+    assert caught.value is interruption
+    assert [call.operation for call in adapter.calls] == ["create"]
+    assert provider.state.sandbox_name == "unknown"
+    assert provider.state.sandbox_id is None
+    assert "inspection" in " ".join(interruption.__notes__)
+
+
 @pytest.mark.parametrize("operation", ["wait_ready"])
 def test_sandbox_timeout_rolls_back(operation: FakeOperation) -> None:
     """A timed-out readiness wait deletes by the confirmed create identity."""
