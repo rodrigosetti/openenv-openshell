@@ -11,9 +11,12 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import TypeAlias
 
+from openenv_openshell._naming import MAX_SANDBOX_NAME_LENGTH
+
 Policy: TypeAlias = str | Path | Mapping[str, object] | None
 
-_MAX_NAME_LENGTH = 63
+# Existing local service cap; upstream endpoint alignment is tracked in m1w.
+_MAX_SERVICE_NAME_LENGTH = 63
 _MAX_LABEL_KEY_LENGTH = 128
 _MAX_LABEL_VALUE_LENGTH = 256
 _MAX_PORT = 65535
@@ -56,15 +59,17 @@ class _PolicySnapshot(Mapping[str, object]):
         return len(self._values)
 
 
-def _validate_name(value: str, *, field_name: str, allow_empty: bool = False) -> None:
+def _validate_name(
+    value: str, *, field_name: str, max_length: int, allow_empty: bool = False
+) -> None:
     if allow_empty and not value:
         return
     if not value:
         msg = f"{field_name} must not be empty"
         raise ValueError(msg)
-    if len(value) > _MAX_NAME_LENGTH or _NAME_PATTERN.fullmatch(value) is None:
+    if len(value) > max_length or _NAME_PATTERN.fullmatch(value) is None:
         msg = (
-            f"{field_name} must be at most {_MAX_NAME_LENGTH} lowercase letters, "
+            f"{field_name} must be at most {max_length} lowercase letters, "
             "digits, or hyphens, and must start and end with a letter or digit"
         )
         raise ValueError(msg)
@@ -174,8 +179,17 @@ class OpenShellProviderConfig:
             msg = "workspace must not be empty"
             raise ValueError(msg)
         if self.sandbox_name is not None:
-            _validate_name(self.sandbox_name, field_name="sandbox_name")
-        _validate_name(self.service_name, field_name="service_name", allow_empty=True)
+            _validate_name(
+                self.sandbox_name,
+                field_name="sandbox_name",
+                max_length=MAX_SANDBOX_NAME_LENGTH,
+            )
+        _validate_name(
+            self.service_name,
+            field_name="service_name",
+            max_length=_MAX_SERVICE_NAME_LENGTH,
+            allow_empty=True,
+        )
         if (
             isinstance(self.service_port, bool)
             or not isinstance(self.service_port, int)  # pyright: ignore[reportUnnecessaryIsInstance]

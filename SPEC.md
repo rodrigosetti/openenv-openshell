@@ -1169,7 +1169,10 @@ Example:
 openenv-codi-a7f213
 ```
 
-Generated names MUST fit the OpenShell 0.1.2 gateway limit of 19 characters.
+Generated and explicit sandbox names MUST fit the OpenShell 0.1.2 gateway limit
+of 19 characters. Explicit names MUST be nonempty lowercase letters, digits,
+or hyphens, starting and ending with a letter or digit. Invalid explicit names
+MUST fail during configuration validation before gateway connection or create.
 Reserve eight characters for `openenv-`, seven for the hyphen and six-hex
 random suffix, and at most four for the sanitized image basename. Strip trailing
 hyphens after truncation and use `env` if the basename has no usable characters.
