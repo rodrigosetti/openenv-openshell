@@ -21,6 +21,7 @@ from openenv_openshell import OpenShellResources
 from openenv_openshell._adapter import (
     CreateCollisionError,
     CreateRequest,
+    DeleteNotSentError,
     SandboxAdapter,
     connect,
 )
@@ -386,7 +387,7 @@ def test_identity_preflight_errors_fail_safely(
             == "already_absent"
         )
     else:
-        with pytest.raises(SandboxDeletionError) as caught:
+        with pytest.raises(DeleteNotSentError) as caught:
             adapter.delete(
                 "sandbox", workspace="default", expected_sandbox_id="identity"
             )
@@ -396,7 +397,7 @@ def test_identity_preflight_errors_fail_safely(
 
 def test_missing_expected_identity_never_queries_or_deletes(sdk: MagicMock) -> None:
     """The private adapter cannot be called with an unknown ownership identity."""
-    with pytest.raises(SandboxDeletionError, match="ownership"):
+    with pytest.raises(DeleteNotSentError, match="ownership"):
         connect().delete("sandbox", workspace="default", expected_sandbox_id="")
     sdk.get.assert_not_called()
     sdk.delete.assert_not_called()
