@@ -223,6 +223,69 @@ def test_unknown_create_never_deletes_by_name() -> None:
     assert not any(isinstance(call, DeleteCall) for call in adapter.calls)
 
 
+@pytest.mark.parametrize("keep_sandbox", [False, True])
+@pytest.mark.parametrize("close_fails", [False, True])
+def test_unknown_create_releases_client_with_retry(
+    *, keep_sandbox: bool, close_fails: bool
+) -> None:
+    """Local closure is bounded while unresolved ownership remains visible."""
+    adapter = FakeSandboxAdapter(failures={"create": TimeoutError("secret-create")})
+    if close_fails:
+        adapter.failures["close"] = RuntimeError("secret-close")
+    provider = OpenShellProvider(
+        command=["server"],
+        sandbox_name="partial",
+        workspace="training",
+        keep_sandbox=keep_sandbox,
+    )
+    with (
+        patch.object(provider, "_connect_adapter", return_value=adapter) as connect,
+        pytest.raises(SandboxCreationError) as caught,
+    ):
+        provider.start_container("image")
+    connect.assert_called_once()
+    assert "secret" not in str(caught.value)
+    assert "secret" not in " ".join(getattr(caught.value, "__notes__", []))
+    assert adapter.close_attempts == 1
+    assert adapter.closed == (not close_fails)
+    if close_fails or not keep_sandbox:
+        assert provider.state == ProviderState(sandbox_name="partial", image="image")
+        with pytest.raises(RuntimeError, match="already owns"):
+            provider.start_container("other")
+    adapter.failures.clear()
+    with patch.object(provider, "_connect_adapter") as reconnect:
+        for _ in range(3):
+            if keep_sandbox:
+                provider.close()
+            else:
+                with pytest.raises(SandboxDeletionError, match="operator"):
+                    provider.close()
+    reconnect.assert_not_called()
+    assert adapter.closed
+    assert adapter.close_attempts == (2 if close_fails else 1)
+    assert [call.operation for call in adapter.calls] == ["create"]
+    assert provider.metadata is None
+    assert provider.state == (
+        ProviderState()
+        if keep_sandbox
+        else ProviderState(sandbox_name="partial", image="image")
+    )
+
+
+def test_disconnected_unknown_state_never_reconnects() -> None:
+    """Refusing unowned deletion does not need a gateway or discard diagnostics."""
+    provider = OpenShellProvider(workspace="training")
+    state = ProviderState(sandbox_name="partial", image="image")
+    provider.state = state
+    with patch.object(provider, "_connect_adapter") as connect:
+        for _ in range(2):
+            with pytest.raises(SandboxDeletionError, match="operator"):
+                provider.stop_container()
+    connect.assert_not_called()
+    assert provider.state == state
+    assert not provider.state.deleted
+
+
 def test_cleanup_connection_failure_retains_partial_state() -> None:
     """Disconnected partial state can reconnect and clean up on a later call."""
     provider = OpenShellProvider()

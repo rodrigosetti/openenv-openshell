@@ -182,7 +182,7 @@ def test_create_failure_without_identity(
     ):
         provider.start_container("image")
     assert not provider.state.deleted
-    assert not adapter.closed
+    assert adapter.closed
     assert [call.operation for call in adapter.calls] == ["create"]
 
 

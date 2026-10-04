@@ -113,7 +113,7 @@ def test_interruption_during_startup_is_cleaned(stage: FakeOperation) -> None:
 
     with pytest.raises(KeyboardInterrupt):
         run()
-    assert adapter.closed == (stage == "wait_ready")
+    assert adapter.closed
     assert runtime.providers[0].state.deleted == (stage == "wait_ready")
     if stage == "create":
         assert [call.operation for call in adapter.calls] == ["create"]
