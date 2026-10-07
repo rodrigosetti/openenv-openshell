@@ -10,8 +10,8 @@ from websockets.asyncio.client import ClientConnection
 from websockets.protocol import State
 
 from openenv_openshell import OpenShellProvider
-from openenv_openshell.errors import OpenEnvReadinessTimeout
-from tests.fakes import CreateCall, FakeSandboxAdapter
+from openenv_openshell.errors import OpenEnvReadinessTimeout, SandboxDeletionError
+from tests.fakes import CreateCall, DeleteCall, FakeSandboxAdapter, WaitDeletedCall
 from tests.openenv_client import client_factory
 
 
@@ -138,3 +138,136 @@ def test_public_factory_failure_cleanup(stage: str, mode: str) -> None:
     assert adapter.closed
     assert [call.operation for call in adapter.calls][-2:] == ["delete", "wait_deleted"]
     health.close()
+
+
+@pytest.mark.parametrize("cleanup", ["none", "context", "finally"])
+def test_public_factory_task_cancellation(cleanup: str) -> None:
+    """Record the upstream gap and both caller-owned cleanup patterns."""
+    adapter = FakeSandboxAdapter()
+    provider = OpenShellProvider(command=["server"])
+
+    async def run_async() -> None:
+        connecting = asyncio.Event()
+
+        async def connect(*_args: object, **_kwargs: object) -> None:
+            connecting.set()
+            await asyncio.Future[None]()
+
+        async def bootstrap() -> None:
+            if cleanup == "context":
+                with provider:
+                    await client_factory.from_docker_image(
+                        "echo:fixture", provider=provider
+                    )
+            elif cleanup == "finally":
+                try:
+                    await client_factory.from_docker_image(
+                        "echo:fixture", provider=provider
+                    )
+                finally:
+                    provider.close()
+            else:
+                await client_factory.from_docker_image(
+                    "echo:fixture", provider=provider
+                )
+
+        with patch("openenv.core.env_client.ws_connect", side_effect=connect):
+            task = asyncio.create_task(bootstrap())
+            # Synchronize with the actual await; no timing-based cancellation.
+            await asyncio.wait_for(connecting.wait(), timeout=5)
+            assert provider.state.created
+            task.cancel("factory cancellation")
+            with pytest.raises(asyncio.CancelledError) as caught:
+                await task
+            assert caught.value.args == ("factory cancellation",)
+
+    with (
+        patch.object(provider, "_connect_adapter", return_value=adapter),
+        patch.object(provider, "wait_for_ready"),
+    ):
+        try:
+            asyncio.run(run_async())
+            if cleanup == "none":
+                # This is an unresolved 0.6.0 defect, not a cleanup guarantee.
+                assert provider.state.created
+                assert not adapter.closed
+                assert not any(isinstance(call, DeleteCall) for call in adapter.calls)
+            else:
+                assert provider.state.deleted
+                assert adapter.closed
+        finally:
+            provider.close()
+            provider.close()
+    deletes = [call for call in adapter.calls if isinstance(call, DeleteCall)]
+    waits = [call for call in adapter.calls if isinstance(call, WaitDeletedCall)]
+    assert len(deletes) == len(waits) == 1
+    assert deletes[0].expected_sandbox_id == adapter.create_result.sandbox_id
+    assert waits[0].expected_sandbox_id == adapter.create_result.sandbox_id
+
+
+def test_outer_provider_context_handles_cancellation_during_client_cleanup() -> None:
+    """Cancellation of a socket close still leaves the outer owner responsible."""
+    adapter = FakeSandboxAdapter()
+    provider = OpenShellProvider(command=["server"])
+    ws = AsyncMock(spec=ClientConnection)
+    ws.state = State.OPEN
+
+    async def run_async() -> None:
+        closing = asyncio.Event()
+
+        async def close() -> None:
+            closing.set()
+            await asyncio.Future[None]()
+
+        ws.close.side_effect = close
+
+        async def bootstrap() -> None:
+            with provider:
+                env = await client_factory.from_docker_image(
+                    "echo:fixture", provider=provider
+                )
+                await env.close()
+
+        task = asyncio.create_task(bootstrap())
+        await asyncio.wait_for(closing.wait(), timeout=5)
+        task.cancel("cleanup cancellation")
+        with pytest.raises(asyncio.CancelledError) as caught:
+            await task
+        assert caught.value.args == ("cleanup cancellation",)
+
+    with (
+        patch.object(provider, "_connect_adapter", return_value=adapter),
+        patch.object(provider, "wait_for_ready"),
+        patch(
+            "openenv.core.env_client.ws_connect",
+            new_callable=AsyncMock,
+            return_value=ws,
+        ),
+    ):
+        asyncio.run(run_async())
+    provider.close()
+    assert provider.state.deleted
+    assert adapter.closed
+    deletes = [call for call in adapter.calls if isinstance(call, DeleteCall)]
+    assert len(deletes) == 1
+    assert deletes[0].expected_sandbox_id == adapter.create_result.sandbox_id
+    ws.close.assert_awaited_once()
+
+
+def test_outer_provider_context_refuses_unknown_create_cleanup() -> None:
+    """An outer owner cannot turn an ambiguous create into name-based deletion."""
+    adapter = FakeSandboxAdapter(failures={"create": OSError("lost create reply")})
+    provider = OpenShellProvider(command=["server"])
+
+    async def run_async() -> None:
+        with provider:
+            await client_factory.from_docker_image("echo:fixture", provider=provider)
+
+    with patch.object(provider, "_connect_adapter", return_value=adapter):
+        with pytest.raises(SandboxDeletionError):
+            asyncio.run(run_async())
+        with pytest.raises(SandboxDeletionError):
+            provider.close()
+    assert provider.state.sandbox_name is not None
+    assert provider.state.sandbox_id is None
+    assert not any(isinstance(call, DeleteCall) for call in adapter.calls)
