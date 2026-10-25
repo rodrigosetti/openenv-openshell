@@ -5,7 +5,7 @@ with filesystem, network, and credential policies. `OpenShellProvider` implement
 OpenEnv's `ContainerProvider`: existing clients and training loops keep their
 normal reset, step, state, and close operations.
 
-**Pre-alpha, installed from source.** The tested pair is OpenEnv **0.6.0** with
+**Pre-alpha, installed from source.** The tested pair is OpenEnv **0.10.0** with
 OpenShell SDK/gateway **0.1.2**. Start with the
 [known limitations](getting-started.md#known-limitations), including cleanup
 ownership and process-capacity risks, before relying on sandbox isolation.

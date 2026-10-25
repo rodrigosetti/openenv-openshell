@@ -23,7 +23,7 @@ classifiers = [
 ]
 dependencies = [
   "httpx>=0.28,<0.29",
-  "openenv==0.6.0",
+  "openenv==0.10.0",
   "pyyaml>=6.0.3,<7",
 ]
 

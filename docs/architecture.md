@@ -35,7 +35,7 @@ generated workload/policy models and public lifecycle calls. Generated types
 are not part of the public provider API. Typed fakes and pinned-wheel offline
 contracts test this boundary without a gateway.
 
-OpenEnv is pinned to 0.6.0 and OpenShell SDK/gateway to 0.1.2. The adapter rejects
+OpenEnv is pinned to 0.10.0 and OpenShell SDK/gateway to 0.1.2. The adapter rejects
 an incompatible SDK or gateway rather than trying an older deletion contract.
 See [SDK contract](openshell-sdk-contract.md),
 [OpenEnv compatibility](openenv-compatibility.md), and
@@ -103,6 +103,7 @@ policy enforcement.
 | Service selection after successful create | Sanitized `SandboxCreationError`; startup attempts public cleanup |
 | Sandbox readiness or identity mismatch | Sanitized `SandboxReadinessError`; startup attempts public cleanup |
 | OpenEnv health deadline | `OpenEnvReadinessTimeout`; OpenEnv's startup path invokes cleanup, while direct provider callers must invoke it |
+| Async factory cancelled during initial WebSocket connection | OpenEnv 0.10.0 attempts cleanup before re-raising the original cancellation; failed cleanup retains provider state for explicit retry |
 | Delete, deletion wait, or client close | Sanitized `SandboxDeletionError`; retained state permits an explicit retry |
 
 Startup rollback preserves the primary startup error. Exception notes distinguish

@@ -9,7 +9,7 @@ cleanup for startup failure paths, and a passing `make check`.
 | Requirement | Evidence |
 | --- | --- |
 | Implements the OpenEnv provider contract | `tests/unit/test_package.py` checks the upstream `ContainerProvider` type; the public factory tests exercise `start_container`, `wait_for_ready`, and `stop_container`. |
-| Existing client works without source changes | `tests/integration/test_openenv_client.py` uses installed OpenEnv 0.6.0 `GenericEnvClient.from_docker_image` in async and synchronous modes. Both modes exercise routed HTTP health, WebSocket connection, two reset episodes, four echo steps, state, context close, deletion metadata, and independent SDK sandbox absence. |
+| Existing client works without source changes | `tests/integration/test_openenv_client.py` uses installed `GenericEnvClient.from_docker_image` in async and synchronous modes. The historical M1 run used OpenEnv 0.6.0; the current 0.10.0 run is recorded in the compatibility matrix. Both modes exercise routed HTTP health, WebSocket connection, repeated episodes and steps, state, context close, deletion metadata, and independent SDK sandbox absence. |
 | Lifecycle unit coverage exceeds 90% | `make check` enforces package branch-inclusive coverage of at least 95%; the acceptance run covered all 178 statements and 44 branches in `provider.py` (100%). |
 | Startup failures clean up | `test_provider_startup.py` injects a lost create response, missing route, readiness failure, and health timeout against the real adapter. Confirmed-create failures clean up automatically. Since SEC8a, a lost response requires operator inspection; that test uses its captured transport identity for explicit cleanup and verifies absence. Health timeout requires caller cleanup; the unmodified client invokes it automatically. |
 | Cleanup remains safe and retryable | Offline tests cover partial initialization, unknown-identity refusal, malformed routes, HTTP failures, WebSocket connection failure, deletion/wait/client-close failures, repeated stop/close, context errors, and explicit debug retention. See [cleanup regression coverage](cleanup-tests.md). |
@@ -46,7 +46,8 @@ not substitute for the client-close assertions.
 
 ## Scope
 
-This gate covers the pinned OpenEnv 0.6.0 and SDK/gateway 0.1.2 on the local native
+This gate's September 30 evidence covers the then-pinned OpenEnv 0.6.0 and
+SDK/gateway 0.1.2 on the local native
 Apple Silicon VM lane, using caller-supplied exact argv and explicit image policy.
 The checked-in image ID is a local Docker configuration identity. It does not
 establish a pullable registry digest, arbitrary image or driver compatibility,
@@ -56,3 +57,8 @@ M2 retains filesystem/network denial acceptance (SEC5/SEC6). I2 retains the wide
 EchoEnv suite using the reusable I1 fixture. S5a recorded remote results in
 [protocol evidence](protocol-spike.md#remote-gateway-validation-s5a-2026-09-30). M3
 public release acceptance is separate from this local provider milestone.
+
+The current client pin is OpenEnv 0.10.0. Its separate EchoEnv and factory
+cancellation validation is recorded in the [compatibility matrix](compatibility-matrix.md#live-pair-validation);
+the historical M1 run above is not evidence that every M1 control was rerun
+against the newer client.

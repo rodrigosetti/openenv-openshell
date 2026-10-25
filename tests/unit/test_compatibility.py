@@ -24,7 +24,9 @@ class Project(TypedDict):
     dependencies: list[str]
 
 
-@pytest.mark.parametrize(("openenv_version", "openshell_version"), [("0.6.0", "0.1.2")])
+@pytest.mark.parametrize(
+    ("openenv_version", "openshell_version"), [("0.10.0", "0.1.2")]
+)
 def test_supported_pair(openenv_version: str, openshell_version: str) -> None:
     """An unreviewed range, wheel substitution, or CI pair fails offline."""
     project = cast(

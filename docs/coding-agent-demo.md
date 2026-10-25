@@ -10,7 +10,7 @@ side by side and sandbox deletion at the end.
 - **Environment:** upstream OpenEnv `envs/coding_env` (`PythonCodeActEnv`, backed
   by smolagents' `LocalPythonExecutor`) from the same pinned source revision as the
   EchoEnv fixture, built natively by [`examples/coding-agent/Dockerfile`](https://github.com/rodrigosetti/openenv-openshell/blob/main/examples/coding-agent/Dockerfile).
-- **Client:** the unmodified OpenEnv 0.6.0 `GenericEnvClient`, connected to the
+- **Client:** the installed, unmodified `GenericEnvClient`, connected to the
   OpenShell-managed service route over WebSocket. The task (FizzBuzz) is a
   `{"code": ...}` action whose stdout and exit code are checked.
 - **Agent tools:** OpenShell SDK `exec` calls in the same sandbox, standing in for
@@ -25,6 +25,10 @@ The image bakes **synthetic**, world-readable canaries at `/root/.ssh/id_rsa` an
 `/host/etc/shadow` and a `sandbox` user (UID/GID 1000). Unix permissions allow
 reading the canaries, so a denial can only come from the policy. No host
 directory is mounted and no real key or credential is read.
+
+The demo evidence below used OpenEnv 0.6.0. The current client pin is 0.10.0;
+its [EchoEnv and cancellation validation](compatibility-matrix.md#live-pair-validation)
+does not establish a new execution of this coding demo.
 
 ## Run it
 
