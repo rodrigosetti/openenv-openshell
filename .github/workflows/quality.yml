@@ -47,7 +47,7 @@ jobs:
       matrix:
         # Both range endpoints coincide until another pair passes review/E2E.
         include:
-          - openenv: "0.6.0"
+          - openenv: "0.10.0"
             openshell: "0.1.2"
     env:
       UV_PYTHON: "3.11"

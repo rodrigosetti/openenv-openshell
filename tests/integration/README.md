@@ -31,7 +31,7 @@ Offline tests reject explicit lengths 20, 63, and 64 before connecting, preserve
 19 characters in the create request, and retain generated and named-service behavior.
 
 P10's [public client compatibility check](../../docs/openenv-compatibility.md)
-uses the installed, unmodified OpenEnv 0.6.0 `GenericEnvClient` with the public
+uses the installed, unmodified OpenEnv 0.10.0 `GenericEnvClient` with the public
 provider. Run `test_openenv_client.py` with the same image opt-in shown below.
 I2 extends both async and synchronous cases using `openshell_runtime`: explicit
 routed HTTP health, two WebSocket reset episodes with three echo steps each
@@ -40,6 +40,14 @@ client-owned cleanup, and independent sandbox absence before fixture teardown.
 The fixture honors `OPENSHELL_GATEWAY` and `OPENSHELL_WORKSPACE` and owns fallback
 cleanup for setup failures and interruptions. Offline public-client
 contracts live in `tests/unit/test_openenv_client.py`.
+
+The same file includes the factory cancellation control: a real ASGI workload
+leaves its WebSocket handshake pending and reports receipt on `/connecting`.
+Only then does the test cancel the unmodified OpenEnv factory. It checks original
+cancellation propagation, deleted state and metadata, and independent name/ID
+absence before fixture cleanup. On October 24, 2026, OpenEnv 0.10.0 with the
+unchanged native arm64 image and local SDK/gateway 0.1.2 passed all three client
+tests in 52.14 seconds. See the [current matrix](../../docs/compatibility-matrix.md).
 
 Tests in this directory exercise real transports or an OpenShell runtime.
 Mark each test with `@pytest.mark.integration`; they are excluded from the

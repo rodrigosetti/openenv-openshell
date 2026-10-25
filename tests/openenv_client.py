@@ -1,6 +1,6 @@
 """Typed test boundary for OpenEnv's untyped bootstrap and dispatch API.
 
-These protocols describe the exercised public 0.6.0 surface; the implementation
+These protocols describe the exercised public 0.10.0 surface; the implementation
 remains the installed GenericEnvClient, with no subclass or transport override.
 """
 

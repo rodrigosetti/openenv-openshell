@@ -11,7 +11,7 @@ env = GenericEnvClient.from_docker_image(image, provider=OpenShellProvider(...))
 ```
 
 **Alpha; v0.1.0 prepared for release.** The provider lifecycle, explicit policies, and cleanup are
-implemented and validated on a local OpenShell 0.1.2 gateway with OpenEnv 0.6.0.
+implemented and validated on a local OpenShell 0.1.2 gateway with OpenEnv 0.10.0.
 It is not yet published to PyPI; install from source. See
 [known limitations](#known-limitations) before relying on it.
 The [v0.1.0 release notes](docs/release-notes/0.1.0.md) describe the prepared
@@ -174,7 +174,10 @@ installation, strict build, and GitHub Pages deployment procedure.
 
 ## Known limitations
 
-- Only OpenEnv 0.6.0 and OpenShell SDK/gateway 0.1.2 are supported.
+- Only OpenEnv 0.10.0 and OpenShell SDK/gateway 0.1.2 are supported.
+  The OpenEnv pin includes automatic cleanup when the async factory is cancelled
+  during its initial WebSocket connection. Failed cleanup still needs an explicit
+  retry or operator inspection; see the [cancellation contract](docs/openenv-compatibility.md#async-factory-cancellation).
 - Validated on the local native arm64 VM driver with locally built images. Their
   image IDs are not pullable registry digests. S5b also validated a digest-pinned
   amd64 EchoEnv image on a remote Docker driver with OIDC; arbitrary images and

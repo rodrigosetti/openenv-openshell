@@ -37,7 +37,7 @@ def test_index_metadata_rejects_direct_reference() -> None:
     metadata["Project-URL"] = (
         "Repository, https://github.com/rodrigosetti/openenv-openshell"
     )
-    for value in ("httpx", "openenv==0.6.0", "pyyaml"):
+    for value in ("httpx", "openenv==0.10.0", "pyyaml"):
         metadata["Requires-Dist"] = value
     check_metadata(metadata.as_bytes(), "0.0.0")
     metadata["Requires-Dist"] = "openshell @ https://example.com/sdk.whl"

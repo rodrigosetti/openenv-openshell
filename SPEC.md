@@ -1485,6 +1485,12 @@ openenv = ">=X,<Y"
 
 Because OpenEnv explicitly describes itself as experimental and subject to API changes, provider compatibility needs continuous testing.
 
+The selected client target is exactly `openenv==0.10.0`. It includes the
+supported upstream async factory cancellation cleanup fix (OpenEnv PR #1309),
+replacing the 0.6.0 pin. Review the factory, protocol, and cleanup contracts and
+record offline and disposable runtime evidence before changing this target.
+OpenShell remains pinned separately to SDK/gateway 0.1.2.
+
 ## 31.3 OpenShell
 
 The selected compatibility target is exactly SDK/gateway `0.1.2`. The SDK

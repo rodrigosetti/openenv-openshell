@@ -122,7 +122,7 @@ jobs:
           if [ "$INDEX" = testpypi ]; then index_url=https://test.pypi.org/simple/; fi
           # Fetch only this project from the selected index; do not mix index trust.
           uv pip install --python "$clean/venv/bin/python" --no-deps --only-binary :all: --index-url "$index_url" "openenv-openshell==${TAG#v}"
-          uv pip install --python "$clean/venv/bin/python" 'httpx>=0.28,<0.29' 'openenv==0.6.0' 'pyyaml>=6.0.3,<7'
+          uv pip install --python "$clean/venv/bin/python" 'httpx>=0.28,<0.29' 'openenv==0.10.0' 'pyyaml>=6.0.3,<7'
           uv pip install --python "$clean/venv/bin/python" -r requirements-openshell.txt
           uv pip check --python "$clean/venv/bin/python"
           (cd "$clean" && "$clean/venv/bin/python" -c 'from importlib.metadata import version; from openenv_openshell import OpenShellProvider; from openenv_openshell._sdk import SDKAdapter; assert version("openshell") == "0.1.2"; OpenShellProvider().stop_container()')

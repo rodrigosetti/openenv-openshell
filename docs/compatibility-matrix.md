@@ -5,10 +5,12 @@ ranges are exact pins, so the oldest and newest supported pair are the same:
 
 | OpenEnv client | OpenShell SDK | OpenShell gateway | Runtime evidence |
 | --- | --- | --- | --- |
-| 0.6.0 | 0.1.2 official hash-pinned wheel | 0.1.2 | Local Apple Silicon VM / native arm64 EchoEnv |
+| 0.10.0 | 0.1.2 official hash-pinned wheel | 0.1.2 | Local Apple Silicon VM / native arm64 EchoEnv |
 
 OpenEnv's former `>=0.4,<0.7` range was narrowed in P10 to the release actually
-validated. OpenShell 0.0.116 lacks the required service and deletion contracts;
+validated. The current 0.10.0 client pin includes the upstream factory
+cancellation fix; 0.6.0 is retained below only as historical evidence.
+OpenShell 0.0.116 lacks the required service and deletion contracts;
 the adapter rejects it. No additional releases are supported by this matrix.
 An exact pin is a bounded range, not evidence for adjacent versions. See
 [OpenEnv compatibility](openenv-compatibility.md) and the
@@ -42,6 +44,28 @@ The full quality job separately exercises Python 3.11–3.14.
 Local execution does not establish that those hosted CI jobs have run.
 
 ## Live pair validation
+
+Verified October 24, 2026 on Python 3.11.8 with OpenEnv **0.10.0** and official
+SDK/gateway **0.1.2**, local Apple Silicon native VM driver, and the unchanged
+arm64 image `sha256:21f3855dde019fb73eccc853f0d14308fbca702b30357add0bbb0cbc898a18f6`:
+all three live client tests passed in 52.14 seconds. Both client modes completed
+health, two episodes, six steps, state, and client-owned cleanup. The cancellation
+case observed a real pending handshake, preserved the original cancellation
+message, and confirmed deletion by state, metadata, and independent name/ID
+absence before fixture teardown. Sandboxes `oe-e2e-109c81c02f` (async),
+`oe-e2e-c32aec61c7` (sync), and `oe-e2e-9bc5d22f90` (cancellation) were deleted.
+
+The initial runtime attempt failed before creation because the idle local
+gateway reported an internal missing-socket error. Independent listings were
+empty. Restarting that service restored provisioning without changing its
+version, authentication, driver configuration, image, or policy.
+
+The 0.10.0 review also passed `make check` (471 unit tests, Ruff, strict Pyright,
+99.54% branch-inclusive coverage), all 101 `make compatibility` checks, and a
+strict documentation build. Before the upgrade, both new factory cancellation
+controls failed on 0.6.0 because no delete was attempted. The lock changes only
+OpenEnv's version/artifact hashes and its new edge to the already locked
+`jsonschema` dependency; no OpenShell dependency is widened.
 
 After [local runtime setup](local-openshell-testing.md), run:
 

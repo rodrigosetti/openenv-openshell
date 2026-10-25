@@ -1911,7 +1911,7 @@ wheels = [
 
 [[package]]
 name = "openenv"
-version = "0.6.0"
+version = "0.10.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "fastapi" },
@@ -1919,6 +1919,7 @@ dependencies = [
     { name = "gradio" },
     { name = "httpx" },
     { name = "huggingface-hub" },
+    { name = "jsonschema" },
     { name = "openai" },
     { name = "packaging" },
     { name = "pydantic" },
@@ -1932,9 +1933,9 @@ dependencies = [
     { name = "uvicorn" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/4a/8d/675bf6024fbcb42d80e958db4acf96e6afc434008a8da3029d6ad1898a1d/openenv-0.6.0.tar.gz", hash = "sha256:7140e388fd693f84c3de3f80f155b9b24608d117aecde4c1bcc478d0cd355341", size = 500869, upload-time = "2026-09-24T08:10:55.852Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/0e/8c/1d704592f8316c53b0b3eba2e6bde43dfc2d7cc3b8093c7459ab3cc2eb47/openenv-0.10.0.tar.gz", hash = "sha256:cd8eb54ad0a5af748591fd3d9a2eb0b046013ffb2a1342b6697e33af45e6cce8", size = 624073, upload-time = "2026-10-22T06:11:18.398Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d3/5c/adf3f268ef2543553cb5ee33522dbaecc04cbb8e0269dda3307cb770b489/openenv-0.6.0-py3-none-any.whl", hash = "sha256:dd1033006d17c3c0147a02f73fc6deef881e15dc5501aea28930765708292641", size = 588771, upload-time = "2026-09-24T08:10:54.268Z" },
+    { url = "https://files.pythonhosted.org/packages/67/8e/46153b0f6f2127a42508cf6734650531d25e889a4cbd1916f35a9afb85e7/openenv-0.10.0-py3-none-any.whl", hash = "sha256:5e0a1019253802551de7890f7638c977c4a36540a4b19f01e5a6fcdb5f5fd135", size = 731246, upload-time = "2026-10-22T06:11:16.836Z" },
 ]
 
 [[package]]
@@ -1966,7 +1967,7 @@ docs = [
 [package.metadata]
 requires-dist = [
     { name = "httpx", specifier = ">=0.28,<0.29" },
-    { name = "openenv", specifier = "==0.6.0" },
+    { name = "openenv", specifier = "==0.10.0" },
     { name = "pyyaml", specifier = ">=6.0.3,<7" },
 ]
 

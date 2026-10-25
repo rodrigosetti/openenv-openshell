@@ -6,10 +6,12 @@ client package, subclass, source patch, or replacement transport is used.
 
 ## Supported version
 
-The tested OpenEnv range is **exactly 0.6.0**, pinned in `pyproject.toml` and
+The tested OpenEnv range is **exactly 0.10.0**, pinned in `pyproject.toml` and
 `uv.lock`. The former `>=0.4,<0.7` range was provisional, without version-matrix
 evidence. Widen it only after testing factory, protocol, and cleanup contracts
-against each added release. This check used Python 3.11.8.
+against each added release. The current check uses Python 3.11.8.
+OpenEnv 0.6.0 is no longer the supported client pin because cancellation during
+factory connection can leak the provider.
 
 I6 makes the singleton range explicit in the
 [client/SDK/gateway matrix](compatibility-matrix.md), with a focused offline
@@ -62,9 +64,55 @@ connecting `/ws`; client context exit calls provider cleanup. Factory keyword
 arguments such as `port` and `env_vars` are forwarded to `start_container`.
 The port chooses routing and must match the workload's actual listener.
 
+## Async factory cancellation
+
+OpenEnv 0.10.0 includes [upstream PR #1309](https://github.com/openenv/OpenEnv/pull/1309),
+merged at `4b0104b63f18129f04066e01fc974c010ee42d92` and listed in the
+[0.10.0 release](https://github.com/openenv/OpenEnv/releases/tag/v0.10.0).
+When a task is cancelled during the initial WebSocket connection after provider
+startup, the unresolved factory calls client cleanup before propagating the
+original `CancelledError`, including its message. No provider transport patch
+or client subclass is needed. The three `ContainerProvider` lifecycle methods
+retain their signatures; bootstrap remains lazy. The reviewed connection call
+now also passes `additional_headers=None` by default.
+
+`test_public_factory_task_cancellation` synchronizes real `Task.cancel()` with
+the connection await. It checks a single deletion and deletion wait bound to
+the confirmed ID, cleared ownership, adapter closure, and idempotent later
+cleanup. Its failure control verifies that a deletion error does not replace
+cancellation and that provider state permits an explicit confirmation retry.
+`test_cancellation_during_socket_cleanup` separately cancels a connected client's
+socket close and checks provider deletion plus a later socket drain. Existing
+health/connection failure and async/sync protocol controls remain in the suite.
+
+Cleanup is best effort if the gateway itself fails. Keep the provider reference
+so its state can be inspected and `provider.close()` retried; retries confirm
+the original identity rather than sending another name-based delete. When a
+create response is ambiguous, ownership remains unknown and cleanup requires
+operator inspection. The factory fix does not resolve the
+[SEC8c atomic deletion limitation](cleanup-tests.md#sec8a-mitigation-and-remaining-blocker),
+prove cancellation during every lifecycle phase, or add process-exhaustion
+protection. An outer `with provider:` or `try/finally: provider.close()` can
+remain useful for caller-owned cleanup, but is no longer required to work
+around the initial factory connection leak on the pinned client.
+
+The opt-in runtime cancellation control starts a real ASGI workload inside
+OpenShell. It serves health and reports receipt of `/ws` while deliberately
+leaving its handshake pending. The test cancels the unmodified factory only
+after observing that receipt through the gateway route, then checks deletion
+state, metadata, and independent SDK absence by name and ID before fixture
+fallback cleanup. No runtime transport or lifecycle method is replaced.
+
 ## Evidence and limits
 
-Verified September 30, 2026 with SDK/gateway 0.1.2 and the native Apple Silicon
+On October 24, 2026, OpenEnv 0.10.0 passed both EchoEnv client modes and the
+real-handshake cancellation control on SDK/gateway 0.1.2 and the native arm64 VM
+lane (three tests, 52.14 seconds). Every sandbox was independently absent before
+fixture cleanup. Offline checks passed 471 unit tests and 101 compatibility
+tests. Exact image, sandbox names, and upgrade evidence are recorded in the
+[compatibility matrix](compatibility-matrix.md#live-pair-validation).
+
+Historical baseline: verified September 30, 2026 with OpenEnv 0.6.0 and SDK/gateway 0.1.2 and the native Apple Silicon
 VM driver: **both runtime tests passed**. Each mode completed HTTP health, two
 reset episodes, four echo steps, state checks, and client context cleanup.
 Before fallback teardown, the test asserted deleted provider state and timestamps;
@@ -79,7 +127,7 @@ test-only structural types for OpenEnv's incompletely typed bootstrap/dispatch
 API; it casts the installed class without wrapping its behavior.
 
 This local check does not validate remote authentication, long idle sessions,
-reconnects, other OpenEnv releases, arbitrary images, or other compute drivers.
+reconnects, arbitrary images, or other compute drivers.
 The image ID is local Docker configuration identity, not a pullable registry
 digest. I2 extends this check with the I1 runtime fixture and broader EchoEnv
 assertions. S5a ran this test against a remote mTLS gateway. Both modes failed
