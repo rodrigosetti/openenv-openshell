@@ -55,7 +55,8 @@ nav:
       - Security review: security-review.md
       - Process capacity: process-capacity.md
       - Integration CI: integration-ci.md
-      - Release notes (prepared alpha): release-notes/0.1.0.md
+      - Release notes (restricted alpha): release-notes/0.1.1.md
+      - Release notes (unpublished candidate): release-notes/0.1.0.md
       - Release procedure: releases.md
       - Repository publication: repository-publication.md
       - Beads worktrees: beads-worktrees.md

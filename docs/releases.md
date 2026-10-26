@@ -4,7 +4,7 @@ I10 prepares the `0.1.0` package; I13 prepares publishing; I14 owns the first
 broadly supported production release. Setting the version is not publication or
 a PyPI name reservation. A separately governed restricted single-tenant alpha
 may be uploaded before M3/I14, but it does not satisfy or weaken either gate.
-See the [v0.1.0 release notes](release-notes/0.1.0.md) for its scope and
+See the [v0.1.1 release notes](release-notes/0.1.1.md) for its scope and
 limitations.
 
 ## SDK and gateway prerequisites

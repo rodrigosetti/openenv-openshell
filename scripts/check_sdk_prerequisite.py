@@ -19,7 +19,11 @@ def main() -> None:
         path = Path(directory) / "policy.yaml"
         path.write_text("version: 1\n", encoding="utf-8")
         for policy in (None, {"version": 1}, path):
-            provider = OpenShellProvider(command=["server"], policy=policy)
+            provider = OpenShellProvider(
+                command=["server"],
+                policy=policy,
+                restricted_alpha_cleanup_acknowledged=True,
+            )
             if args.expected == "installed":
                 if policy is not None and load_policy(policy) != {"version": 1}:
                     msg = "Pinned SDK policy normalization failed"

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "openenv-openshell"
-version = "0.1.0"
+version = "0.1.1"
 description = "Run OpenEnv environment servers in NVIDIA OpenShell sandboxes"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -32,7 +32,7 @@ Repository = "https://github.com/rodrigosetti/openenv-openshell"
 Issues = "https://github.com/rodrigosetti/openenv-openshell/issues"
 Documentation = "https://rodrigosetti.github.io/openenv-openshell/"
 "Source documentation" = "https://github.com/rodrigosetti/openenv-openshell/tree/main/docs"
-Changelog = "https://github.com/rodrigosetti/openenv-openshell/blob/main/docs/release-notes/0.1.0.md"
+Changelog = "https://github.com/rodrigosetti/openenv-openshell/blob/main/docs/release-notes/0.1.1.md"
 
 [dependency-groups]
 dev = [
