@@ -9,6 +9,7 @@ from openenv_openshell import OpenShellProvider, OpenShellResources
 
 provider = OpenShellProvider(
     sandbox_name="oe-train-0001",
+    restricted_alpha_cleanup_acknowledged=True,
     command=["sh", "-c", "cd /app/env && uvicorn server.app:app --host 0.0.0.0 --port 8000"],
     service_port=8000,
     policy="policy.yaml",
@@ -34,12 +35,33 @@ provider = OpenShellProvider(
 | `health_poll_interval_s` | `0.5` | Delay between `/health` probes. |
 | `health_request_timeout_s` | `2.0` | Per-probe HTTP timeout, capped by the remaining budget. |
 | `keep_sandbox` | `False` | Leave the sandbox running on stop/close (for debugging). You then delete it yourself. |
+| `restricted_alpha_cleanup_acknowledged` | `False` | Required as `True` before this restricted alpha starts automatic name-based cleanup. It is valid only for one trusted operator's exclusive gateway/workspace; it does not make deletion atomic. |
 | `labels` | `{}` | Non-secret operational labels. See [labels](#labels). |
 | `providers` | `()` | Names of existing OpenShell credential providers to attach. See [credentials](#credentials). |
 | `resources` | `None` | `OpenShellResources(cpu=, memory=, gpu_count=)` requests. See [resources](#resources). |
 
 Ports, timeouts, and resource values must be positive and finite. Invalid values
 raise `ValueError` or `TypeError` at construction.
+
+## Restricted-alpha cleanup acknowledgement
+
+This package's PyPI alpha deliberately does **not** claim shared or multi-tenant
+cleanup safety. The pinned OpenShell API's final deletion remains name-based:
+after an identity lookup, another actor could replace the sandbox before the
+delete is applied. Random names, labels, client locks, and identity-aware waits
+reduce exposure but do not make deletion conditional or atomic.
+
+Before calling `start_container()` with the default `keep_sandbox=False`, set
+`restricted_alpha_cleanup_acknowledged=True`. The provider otherwise fails
+locally before connecting to a gateway or creating a sandbox. Set it only when a
+single trusted operator has exclusive control of the selected gateway and
+workspace—no independent, hostile, or multi-tenant actor may create or reuse
+sandbox names there. The acknowledgement neither changes OpenShell policy nor
+waives normal cleanup inspection after an ambiguous create.
+
+`keep_sandbox=True` is the only no-acknowledgement option: it deliberately
+leaves the workload for the operator to remove manually. It is not a way to
+claim that automatic cleanup is safe on a shared gateway.
 
 Service-name validation follows the pinned gateway's
 [`grpc/service.rs`](https://github.com/NVIDIA/OpenShell/blob/v0.1.2/crates/openshell-server/src/grpc/service.rs)
@@ -163,7 +185,8 @@ lane has no validated process (PID) limit; see the
 
 - `start_container()` creates the sandbox with command, policy, and service in
   one request, waits for OpenShell readiness, and returns the service URL. It
-  refuses to start while it still owns a sandbox.
+  refuses to start while it still owns a sandbox. This restricted alpha also
+  refuses automatic-cleanup startup until its explicit acknowledgement is set.
 - On any startup failure it deletes what it created and raises the original,
   sanitized error. If that rollback fails, the exception carries a note telling
   you to call `stop_container()` again.

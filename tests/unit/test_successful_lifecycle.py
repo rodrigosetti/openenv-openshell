@@ -51,6 +51,7 @@ def test_configured_startup_mapping(service_name: str, port: int | None) -> None
         service_port=8080,
         startup_timeout_s=17,
         deletion_timeout_s=19,
+        restricted_alpha_cleanup_acknowledged=True,
         labels=labels,
         providers=providers,
         resources=resources,
@@ -127,7 +128,9 @@ def test_default_startup_and_health(monkeypatch: pytest.MonkeyPatch) -> None:
     """Default startup, health, and deletion retain only non-secret provenance."""
     adapter = FakeSandboxAdapter()
     secret = "lifecycle-private-sentinel"  # noqa: S105 - Redaction sentinel.
-    provider = OpenShellProvider(command=["server", secret])
+    provider = OpenShellProvider(
+        command=["server", secret], restricted_alpha_cleanup_acknowledged=True
+    )
     assert provider.state == ProviderState()
     assert provider.metadata is None
     assert adapter.calls == []
@@ -234,6 +237,7 @@ def test_public_startup_selects_exact_sdk_route(
         gateway="registered",
         sandbox_name="sandbox",
         service_name=service_name,
+        restricted_alpha_cleanup_acknowledged=True,
     )
     expected_url = "https://named.test" if service_name else "https://route.test"
     with patch(

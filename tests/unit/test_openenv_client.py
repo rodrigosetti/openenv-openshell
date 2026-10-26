@@ -19,7 +19,11 @@ from tests.openenv_client import client_factory
 def test_public_factory_lifecycle(mode: str) -> None:
     """Upstream bootstrap, protocol, and close retain provider ownership."""
     adapter = FakeSandboxAdapter(service_url="https://route.test/prefix/")
-    provider = OpenShellProvider(command=["server"], sandbox_name="chosen")
+    provider = OpenShellProvider(
+        command=["server"],
+        sandbox_name="chosen",
+        restricted_alpha_cleanup_acknowledged=True,
+    )
     health = httpx.Client(transport=httpx.MockTransport(lambda _: httpx.Response(200)))
     ws = AsyncMock(spec=ClientConnection)
     ws.state = State.OPEN
@@ -106,7 +110,9 @@ def test_public_factory_lifecycle(mode: str) -> None:
 def test_public_factory_failure_cleanup(stage: str, mode: str) -> None:
     """An unresolved factory releases its provider after readiness/connect errors."""
     adapter = FakeSandboxAdapter()
-    provider = OpenShellProvider(command=["server"])
+    provider = OpenShellProvider(
+        command=["server"], restricted_alpha_cleanup_acknowledged=True
+    )
     health = httpx.Client(transport=httpx.MockTransport(lambda _: httpx.Response(200)))
 
     async def run_async() -> None:
@@ -147,7 +153,9 @@ def test_public_factory_task_cancellation(*, delete_failure: bool) -> None:
     adapter = FakeSandboxAdapter(
         failures={"delete": OSError("cleanup failed")} if delete_failure else None
     )
-    provider = OpenShellProvider(command=["server"])
+    provider = OpenShellProvider(
+        command=["server"], restricted_alpha_cleanup_acknowledged=True
+    )
 
     async def run_async() -> None:
         connecting = asyncio.Event()
@@ -203,7 +211,9 @@ def test_public_factory_task_cancellation(*, delete_failure: bool) -> None:
 def test_cancellation_during_socket_cleanup() -> None:
     """A cancelled socket close still stops the provider; retry drains the socket."""
     adapter = FakeSandboxAdapter()
-    provider = OpenShellProvider(command=["server"])
+    provider = OpenShellProvider(
+        command=["server"], restricted_alpha_cleanup_acknowledged=True
+    )
     ws = AsyncMock(spec=ClientConnection)
     ws.state = State.OPEN
 

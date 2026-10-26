@@ -48,7 +48,7 @@ def check_version(version: str, tag: str | None, index: str) -> None:
     if tag is not None and tag != f"v{version}":
         msg = "Tag must equal v plus the source version"
         raise ValueError(msg)
-    if index == "pypi" and (
+    if index in {"pypi", "restricted-alpha"} and (
         parsed.release < (0, 1) or parsed.is_prerelease or parsed.is_devrelease
     ):
         msg = "Production requires a stable version of at least 0.1.0"
@@ -110,7 +110,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dist", type=Path, default=Path("dist"))
     parser.add_argument("--tag")
-    parser.add_argument("--index", choices=("testpypi", "pypi"), default="testpypi")
+    parser.add_argument(
+        "--index",
+        choices=("testpypi", "restricted-alpha", "pypi"),
+        default="testpypi",
+    )
     args = parser.parse_args()
     source = tomllib.loads(Path("pyproject.toml").read_text())
     version = source["project"]["version"]

@@ -44,7 +44,11 @@ def test_context_exit_cleans_up_and_preserves_body_exception(
 ) -> None:
     """Both exit paths release the client and honor explicit retention."""
     adapter = FakeSandboxAdapter()
-    provider = OpenShellProvider(command=["server"], keep_sandbox=keep_sandbox)
+    provider = OpenShellProvider(
+        command=["server"],
+        keep_sandbox=keep_sandbox,
+        restricted_alpha_cleanup_acknowledged=True,
+    )
     body_error = RuntimeError("body failed")
 
     def run_context() -> None:
@@ -109,7 +113,11 @@ def test_close_preserves_unknown_failed_start() -> None:
     adapter = FakeSandboxAdapter(
         failures={"create": RuntimeError(), "delete": RuntimeError()}
     )
-    provider = OpenShellProvider(command=["server"], sandbox_name="partial")
+    provider = OpenShellProvider(
+        command=["server"],
+        sandbox_name="partial",
+        restricted_alpha_cleanup_acknowledged=True,
+    )
     with (
         patch.object(provider, "_connect_adapter", return_value=adapter),
         pytest.raises(SandboxCreationError),

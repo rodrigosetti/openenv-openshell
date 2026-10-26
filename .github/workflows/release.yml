@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       index:
-        description: Destination (production requires M3 approval)
+        description: Destination (restricted alpha and supported production have separate approvals)
         required: true
         default: testpypi
         type: choice
-        options: [testpypi, pypi]
+        options: [testpypi, restricted-alpha, pypi]
 
 permissions:
   contents: read
@@ -31,21 +31,31 @@ jobs:
         with:
           version: '0.11.20'
           python-version: '3.11'
-      - name: Require a tag on main and explicit production approval
+      - name: Require a tag on main and explicit release approval
         env:
           INDEX: ${{ inputs.index }}
           TAG: ${{ github.ref_name }}
           APPROVED_TAG: ${{ vars.APPROVED_RELEASE_TAG }}
           APPROVED_COMMIT: ${{ vars.APPROVED_RELEASE_COMMIT }}
           M3_EVIDENCE: ${{ vars.M3_EVIDENCE_URL }}
+          RESTRICTED_ALPHA_TAG: ${{ vars.RESTRICTED_ALPHA_RELEASE_TAG }}
+          RESTRICTED_ALPHA_COMMIT: ${{ vars.RESTRICTED_ALPHA_RELEASE_COMMIT }}
+          RESTRICTED_ALPHA_EVIDENCE: ${{ vars.RESTRICTED_ALPHA_EVIDENCE_URL }}
         run: |
           set -eu
           git merge-base --is-ancestor HEAD origin/main
-          if [ "$INDEX" = pypi ]; then
-            test "$TAG" = "$APPROVED_TAG"
-            test "$(git rev-parse HEAD)" = "$APPROVED_COMMIT"
-            test -n "$M3_EVIDENCE"
-          fi
+          case "$INDEX" in
+            testpypi)
+              python scripts/release_gate.py --index "$INDEX" --tag "$TAG" --commit "$(git rev-parse HEAD)"
+              ;;
+            restricted-alpha)
+              python scripts/release_gate.py --index "$INDEX" --tag "$TAG" --commit "$(git rev-parse HEAD)" --approved-tag "$RESTRICTED_ALPHA_TAG" --approved-commit "$RESTRICTED_ALPHA_COMMIT" --evidence-url "$RESTRICTED_ALPHA_EVIDENCE"
+              ;;
+            pypi)
+              python scripts/release_gate.py --index "$INDEX" --tag "$TAG" --commit "$(git rev-parse HEAD)" --approved-tag "$APPROVED_TAG" --approved-commit "$APPROVED_COMMIT" --evidence-url "$M3_EVIDENCE"
+              ;;
+            *) exit 1 ;;
+          esac
       - run: uv sync --locked --all-groups
       - run: make check
       - run: uv build --no-build-isolation
@@ -81,7 +91,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment:
-      name: ${{ inputs.index }}
+      name: ${{ inputs.index == 'testpypi' && 'testpypi' || 'pypi' }}
     permissions:
       id-token: write
     steps:
@@ -94,8 +104,8 @@ jobs:
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           repository-url: https://test.pypi.org/legacy/
-      - name: Publish approved production release
-        if: inputs.index == 'pypi'
+      - name: Publish approved production or restricted-alpha release
+        if: inputs.index == 'pypi' || inputs.index == 'restricted-alpha'
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
 
   verify-index:

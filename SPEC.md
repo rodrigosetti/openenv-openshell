@@ -414,6 +414,7 @@ class OpenShellProvider(ContainerProvider):
         health_request_timeout_s: float = 2.0,
         gateway: str | None = None,
         keep_sandbox: bool = False,
+        restricted_alpha_cleanup_acknowledged: bool = False,
         labels: Mapping[str, str] | None = None,
         providers: Sequence[str] | None = None,
         resources: OpenShellResources | None = None,
@@ -1911,6 +1912,19 @@ as a reproducible Hugging Face dataset/artifact.
 ---
 
 # 39. MVP Acceptance Criteria
+
+## 39.1 Restricted single-tenant alpha exception
+
+A separately governed production-index alpha MAY be published before the public
+v0.1 acceptance gate only for a trusted operator with exclusive control of the
+OpenShell gateway and workspace. It MUST require an explicit runtime
+acknowledgement before automatic name-based cleanup, document that shared,
+multi-tenant, independently administered, and hostile-tenant deployments are
+unsupported, and use a distinct exact-tag/exact-commit/evidence approval path.
+It MUST NOT claim upstream endorsement or that random names, labels, locks,
+identity checks, or retries provide atomic deletion. This exception does not
+close, weaken, or supersede M2, M3, I14, I11, I11a, I11b, or SEC8c; the following
+public v0.1 criteria remain the required broadly supported release path.
 
 The project is ready for a public v0.1 release when all of the following hold:
 

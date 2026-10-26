@@ -48,7 +48,11 @@ def assert_safe(
 
 def configured_provider() -> OpenShellProvider:
     """Place sensitive argv in the real configuration boundary."""
-    return OpenShellProvider(command=["server", SECRETS[3]], sandbox_name="sandbox")
+    return OpenShellProvider(
+        command=["server", SECRETS[3]],
+        sandbox_name="sandbox",
+        restricted_alpha_cleanup_acknowledged=True,
+    )
 
 
 @pytest.mark.parametrize(

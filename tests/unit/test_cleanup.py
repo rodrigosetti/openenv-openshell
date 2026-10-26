@@ -36,6 +36,7 @@ def owned_provider(adapter: FakeSandboxAdapter) -> OpenShellProvider:
         sandbox_name="owned",
         workspace="training",
         deletion_timeout_s=19,
+        restricted_alpha_cleanup_acknowledged=True,
     )
     with patch.object(provider, "_connect_adapter", return_value=adapter):
         provider.start_container("image")
@@ -180,7 +181,7 @@ def test_partial_create_absence_without_identity(
 ) -> None:
     """No deletion outcome can prove ownership before a delete is authorized."""
     adapter = FakeSandboxAdapter(delete_result=FakeDeletion(None, outcome))
-    provider = OpenShellProvider()
+    provider = OpenShellProvider(restricted_alpha_cleanup_acknowledged=True)
     provider.state = ProviderState(sandbox_name="partial")
     with (
         patch.object(provider, "_connect_adapter", return_value=adapter),
@@ -197,7 +198,7 @@ def test_uncertain_deletion_without_identity_retains_ownership(
 ) -> None:
     """Unknown ownership cannot be recovered from a deletion acknowledgement."""
     adapter = FakeSandboxAdapter(delete_result=FakeDeletion(None, outcome))
-    provider = OpenShellProvider()
+    provider = OpenShellProvider(restricted_alpha_cleanup_acknowledged=True)
     provider.state = ProviderState(sandbox_name="partial")
     with patch.object(provider, "_connect_adapter", return_value=adapter):
         for _ in range(2):
@@ -210,7 +211,11 @@ def test_uncertain_deletion_without_identity_retains_ownership(
 def test_unknown_create_never_deletes_by_name() -> None:
     """A lost create response retains diagnosis without guessing ownership."""
     adapter = FakeSandboxAdapter(failures={"create": RuntimeError()})
-    provider = OpenShellProvider(command=["server"], sandbox_name="partial")
+    provider = OpenShellProvider(
+        command=["server"],
+        sandbox_name="partial",
+        restricted_alpha_cleanup_acknowledged=True,
+    )
     with (
         patch.object(provider, "_connect_adapter", return_value=adapter),
         pytest.raises(SandboxCreationError),
@@ -237,6 +242,7 @@ def test_unknown_create_releases_client_with_retry(
         sandbox_name="partial",
         workspace="training",
         keep_sandbox=keep_sandbox,
+        restricted_alpha_cleanup_acknowledged=True,
     )
     with (
         patch.object(provider, "_connect_adapter", return_value=adapter) as connect,
@@ -274,7 +280,9 @@ def test_unknown_create_releases_client_with_retry(
 
 def test_disconnected_unknown_state_never_reconnects() -> None:
     """Refusing unowned deletion does not need a gateway or discard diagnostics."""
-    provider = OpenShellProvider(workspace="training")
+    provider = OpenShellProvider(
+        workspace="training", restricted_alpha_cleanup_acknowledged=True
+    )
     state = ProviderState(sandbox_name="partial", image="image")
     provider.state = state
     with patch.object(provider, "_connect_adapter") as connect:
@@ -288,7 +296,7 @@ def test_disconnected_unknown_state_never_reconnects() -> None:
 
 def test_cleanup_connection_failure_retains_partial_state() -> None:
     """Disconnected partial state can reconnect and clean up on a later call."""
-    provider = OpenShellProvider()
+    provider = OpenShellProvider(restricted_alpha_cleanup_acknowledged=True)
     provider.state = ProviderState(sandbox_name="partial", sandbox_id="original")
     with (
         patch.object(provider, "_connect_adapter", side_effect=RuntimeError("secret")),
@@ -316,7 +324,9 @@ def test_cleanup_client_without_sandbox() -> None:
     adapter = FakeSandboxAdapter(
         failures={"create": RuntimeError(), "delete": RuntimeError()}
     )
-    provider = OpenShellProvider(command=["server"])
+    provider = OpenShellProvider(
+        command=["server"], restricted_alpha_cleanup_acknowledged=True
+    )
     with (
         patch.object(provider, "_connect_adapter", return_value=adapter),
         pytest.raises(SandboxCreationError),
@@ -343,7 +353,11 @@ def test_confirmed_deletion_without_client_needs_no_connection() -> None:
 def test_collision_closes_client_without_deleting_existing_sandbox() -> None:
     """Repeated rollback/cleanup after ALREADY_EXISTS stays entirely local."""
     adapter = FakeSandboxAdapter(failures={"create": CreateCollisionError("secret")})
-    provider = OpenShellProvider(command=["server"], sandbox_name="existing")
+    provider = OpenShellProvider(
+        command=["server"],
+        sandbox_name="existing",
+        restricted_alpha_cleanup_acknowledged=True,
+    )
     with (
         patch.object(provider, "_connect_adapter", return_value=adapter),
         pytest.raises(SandboxCreationError, match="already in use"),

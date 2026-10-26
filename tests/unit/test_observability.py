@@ -35,7 +35,10 @@ def test_run_snapshot_and_event_order(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.INFO, logger="openenv_openshell")
     adapter = FakeSandboxAdapter()
     provider = OpenShellProvider(
-        command=["server", SECRET], sandbox_name="chosen", workspace="training"
+        command=["server", SECRET],
+        sandbox_name="chosen",
+        workspace="training",
+        restricted_alpha_cleanup_acknowledged=True,
     )
     assert provider.metadata is None
     before = datetime.now(UTC)
@@ -92,7 +95,11 @@ def test_run_snapshot_and_event_order(caplog: pytest.LogCaptureFixture) -> None:
 @pytest.mark.parametrize("keep_sandbox", [False, True])
 def test_retention_restart_and_rejected_start(*, keep_sandbox: bool) -> None:
     """Retained runs have no deletion time; invalid starts preserve prior evidence."""
-    provider = OpenShellProvider(command=["server"], keep_sandbox=keep_sandbox)
+    provider = OpenShellProvider(
+        command=["server"],
+        keep_sandbox=keep_sandbox,
+        restricted_alpha_cleanup_acknowledged=True,
+    )
     with patch.object(provider, "_connect_adapter", return_value=FakeSandboxAdapter()):
         provider.start_container("first")
     provider.stop_container()
@@ -118,7 +125,9 @@ def test_cleanup_failure_events_and_retry(
     """Errors contain no SDK detail; completion is logged only on confirmed absence."""
     caplog.set_level(logging.INFO, logger="openenv_openshell")
     adapter = FakeSandboxAdapter()
-    provider = OpenShellProvider(command=["server"])
+    provider = OpenShellProvider(
+        command=["server"], restricted_alpha_cleanup_acknowledged=True
+    )
     with patch.object(provider, "_connect_adapter", return_value=adapter):
         provider.start_container("image")
     caplog.clear()
@@ -153,7 +162,9 @@ def test_rollback_reporting(
     adapter = FakeSandboxAdapter(failures={"wait_ready": RuntimeError(SECRET)})
     if operation is not None:
         adapter.failures[operation] = RuntimeError(SECRET)
-    provider = OpenShellProvider(command=["server"])
+    provider = OpenShellProvider(
+        command=["server"], restricted_alpha_cleanup_acknowledged=True
+    )
     with (
         patch.object(provider, "_connect_adapter", return_value=adapter),
         pytest.raises(SandboxReadinessError),
@@ -176,7 +187,9 @@ def test_uncertain_rollback_logs_warning(caplog: pytest.LogCaptureFixture) -> No
         failures={"create": RuntimeError(SECRET)},
         delete_result=FakeDeletion(None, "unknown"),
     )
-    provider = OpenShellProvider(command=["server"])
+    provider = OpenShellProvider(
+        command=["server"], restricted_alpha_cleanup_acknowledged=True
+    )
     with (
         patch.object(provider, "_connect_adapter", return_value=adapter),
         pytest.raises(SandboxCreationError),

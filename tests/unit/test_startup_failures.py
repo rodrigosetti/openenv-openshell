@@ -31,7 +31,10 @@ def test_startup_interruption_rolls_back(
     interruption = interruption_type("private interruption")
     adapter = FakeSandboxAdapter(failures={operation: interruption})
     provider = OpenShellProvider(
-        command=["server"], sandbox_name="interrupted", deletion_timeout_s=11
+        command=["server"],
+        sandbox_name="interrupted",
+        deletion_timeout_s=11,
+        restricted_alpha_cleanup_acknowledged=True,
     )
     with (
         patch.object(provider, "_connect_adapter", return_value=adapter),
@@ -59,7 +62,11 @@ def test_interrupted_startup_cleanup_failure_is_retryable(
             "wait_deleted": cleanup_failure("secret cleanup details"),
         }
     )
-    provider = OpenShellProvider(command=["server"], sandbox_name="interrupted")
+    provider = OpenShellProvider(
+        command=["server"],
+        sandbox_name="interrupted",
+        restricted_alpha_cleanup_acknowledged=True,
+    )
     with (
         patch.object(provider, "_connect_adapter", return_value=adapter),
         pytest.raises(KeyboardInterrupt) as caught,
@@ -98,7 +105,11 @@ def test_interrupted_create_never_guesses_ownership() -> None:
     """A lost create identity retains inspection data without name deletion."""
     interruption = KeyboardInterrupt()
     adapter = FakeSandboxAdapter(failures={"create": interruption})
-    provider = OpenShellProvider(command=["server"], sandbox_name="unknown")
+    provider = OpenShellProvider(
+        command=["server"],
+        sandbox_name="unknown",
+        restricted_alpha_cleanup_acknowledged=True,
+    )
     with (
         patch.object(provider, "_connect_adapter", return_value=adapter),
         pytest.raises(KeyboardInterrupt) as caught,
@@ -121,6 +132,7 @@ def test_sandbox_timeout_rolls_back(operation: FakeOperation) -> None:
         workspace="training",
         startup_timeout_s=7,
         deletion_timeout_s=11,
+        restricted_alpha_cleanup_acknowledged=True,
     )
     error = SandboxCreationError if operation == "create" else SandboxReadinessError
     with (
@@ -172,7 +184,11 @@ def test_persistent_health_failure_and_caller_cleanup(
     monkeypatch.setattr("openenv_openshell.provider.monotonic", clock.monotonic)
     monkeypatch.setattr("openenv_openshell.provider.sleep", clock.sleep)
     adapter = FakeSandboxAdapter()
-    provider = OpenShellProvider(command=["server"], sandbox_name="unhealthy")
+    provider = OpenShellProvider(
+        command=["server"],
+        sandbox_name="unhealthy",
+        restricted_alpha_cleanup_acknowledged=True,
+    )
     monkeypatch.setattr(provider, "_connect_adapter", lambda: adapter)
     url = provider.start_container("echo:fixture")
     calls: list[httpx.Request] = []

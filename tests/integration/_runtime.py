@@ -50,6 +50,7 @@ class Runtime:
             workspace=self.workspace,
             gateway=self.gateway,
             sandbox_name=f"oe-e2e-{uuid4().hex[:10]}",
+            restricted_alpha_cleanup_acknowledged=True,
             command=command,
             policy=policy,
         )

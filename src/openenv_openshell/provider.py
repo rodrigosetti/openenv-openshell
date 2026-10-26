@@ -58,6 +58,11 @@ _LOGGER = logging.getLogger("openenv_openshell")
 _CLIENT_CERT_ALERTS = frozenset(
     {"TLSV13_ALERT_CERTIFICATE_REQUIRED", "SSLV3_ALERT_HANDSHAKE_FAILURE"}
 )
+_RESTRICTED_ALPHA_CLEANUP_MESSAGE = (
+    "Restricted-alpha automatic cleanup requires "
+    "restricted_alpha_cleanup_acknowledged=True and an exclusive, "
+    "single-tenant OpenShell gateway/workspace"
+)
 
 
 def _service_access_failure(error: BaseException) -> str | None:
@@ -92,6 +97,7 @@ class OpenShellProvider(ContainerProvider):
         health_request_timeout_s: float = 2.0,
         gateway: str | None = None,
         keep_sandbox: bool = False,
+        restricted_alpha_cleanup_acknowledged: bool = False,
         labels: Mapping[str, str] | None = None,
         providers: Sequence[str] | None = None,
         resources: OpenShellResources | None = None,
@@ -110,6 +116,9 @@ class OpenShellProvider(ContainerProvider):
             health_request_timeout_s=health_request_timeout_s,
             gateway=gateway,
             keep_sandbox=keep_sandbox,
+            restricted_alpha_cleanup_acknowledged=(
+                restricted_alpha_cleanup_acknowledged
+            ),
             labels={} if labels is None else labels,
             providers=() if providers is None else providers,
             resources=resources,
@@ -138,6 +147,16 @@ class OpenShellProvider(ContainerProvider):
     def _connect_adapter(self) -> SandboxAdapter:
         """Select the registered gateway only when lifecycle work needs a client."""
         return connect(gateway=self.config.gateway)
+
+    def _require_restricted_alpha_cleanup_acknowledgement(
+        self, error: type[OpenShellProviderError]
+    ) -> None:
+        """Fail locally unless automatic deletion has the alpha's risk acceptance."""
+        if (
+            not self.config.keep_sandbox
+            and not self.config.restricted_alpha_cleanup_acknowledged
+        ):
+            raise error(_RESTRICTED_ALPHA_CLEANUP_MESSAGE)
 
     def _create_request(
         self,
@@ -198,6 +217,22 @@ class OpenShellProvider(ContainerProvider):
             policy=None if policy is None else MappingProxyType(deepcopy(dict(policy))),
         )
 
+    def _prepare_create_request(
+        self,
+        image: str,
+        *,
+        port: int | None,
+        env_vars: Mapping[str, str] | None,
+        **kwargs: object,
+    ) -> tuple[CreateRequest, str | None]:
+        """Resolve policy and preserve only its digest alongside startup inputs."""
+        policy = None if self.config.policy is None else load_policy(self.config.policy)
+        request = self._create_request(
+            image, policy=policy, port=port, env_vars=env_vars, **kwargs
+        )
+        digest = None if request.policy is None else policy_digest(request.policy)
+        return request, digest
+
     def start_container(
         self,
         image: str,
@@ -211,13 +246,10 @@ class OpenShellProvider(ContainerProvider):
         ):
             msg = "Provider already owns a sandbox; clean it up before starting again"
             raise OpenShellProviderError(msg)
-        policy = None if self.config.policy is None else load_policy(self.config.policy)
-        request = self._create_request(
-            image, policy=policy, port=port, env_vars=env_vars, **kwargs
+        request, submitted_policy_digest = self._prepare_create_request(
+            image, port=port, env_vars=env_vars, **kwargs
         )
-        submitted_policy_digest = (
-            None if request.policy is None else policy_digest(request.policy)
-        )
+        self._require_restricted_alpha_cleanup_acknowledgement(OpenShellProviderError)
         # Prepare state before connecting so state construction cannot leak a client.
         state = ProviderState(sandbox_name=request.name, image=image)
         adapter = self._connect_adapter()
@@ -351,6 +383,9 @@ class OpenShellProvider(ContainerProvider):
                 and not self.state.deleted
                 and not self.config.keep_sandbox
             ):
+                self._require_restricted_alpha_cleanup_acknowledgement(
+                    SandboxDeletionError
+                )
                 identity = self.state.sandbox_id
                 if not identity:
                     # Local resources do not establish runtime ownership. Release

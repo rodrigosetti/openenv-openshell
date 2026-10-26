@@ -239,7 +239,11 @@ def test_owned_health_timeout_public_cleanup(
 ) -> None:
     """OpenEnv-style teardown deletes unhealthy workloads or retains debug sandboxes."""
     adapter = FakeSandboxAdapter()
-    provider = OpenShellProvider(command=["server"], keep_sandbox=keep)
+    provider = OpenShellProvider(
+        command=["server"],
+        keep_sandbox=keep,
+        restricted_alpha_cleanup_acknowledged=True,
+    )
     monkeypatch.setattr(provider, "_connect_adapter", lambda: adapter)
     url = provider.start_container("image")
 

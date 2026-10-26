@@ -30,6 +30,7 @@ def test_provider_constructor_collects_keyword_configuration() -> None:
         deletion_timeout_s=15,
         gateway="https://gateway.example",
         keep_sandbox=True,
+        restricted_alpha_cleanup_acknowledged=True,
         labels={"openenv.run_id": "run-42"},
         providers=["github"],
         resources=resources,
@@ -45,6 +46,7 @@ def test_provider_constructor_collects_keyword_configuration() -> None:
         deletion_timeout_s=15,
         gateway="https://gateway.example",
         keep_sandbox=True,
+        restricted_alpha_cleanup_acknowledged=True,
         labels={"openenv.run_id": "run-42"},
         providers=("github",),
         resources=resources,
@@ -211,6 +213,26 @@ def test_label_and_provider_types_are_checked_at_runtime() -> None:
         OpenShellProvider(providers=cast("list[str]", "github"))
     with pytest.raises(ValueError, match="providers"):
         OpenShellProvider(providers=[" "])
+    with pytest.raises(TypeError, match="restricted_alpha_cleanup_acknowledged"):
+        OpenShellProvider(restricted_alpha_cleanup_acknowledged=cast("bool", 1))
+
+
+def test_restricted_alpha_cleanup_acknowledgement_fails_closed() -> None:
+    """Automatic name-based cleanup never starts without an explicit acceptance."""
+    provider = OpenShellProvider(command=["server"])
+    with (
+        patch.object(provider, "_connect_adapter") as connect,
+        pytest.raises(RuntimeError, match="Restricted-alpha automatic cleanup"),
+    ):
+        provider.start_container("image")
+    connect.assert_not_called()
+
+    retained = OpenShellProvider(command=["server"], keep_sandbox=True)
+    adapter = FakeSandboxAdapter()
+    with patch.object(retained, "_connect_adapter", return_value=adapter):
+        retained.start_container("image")
+    retained.stop_container()
+    assert retained.state.sandbox_name is None
 
 
 def test_generated_sandbox_name_is_safe_and_human_readable(
@@ -299,7 +321,11 @@ def test_explicit_sandbox_name_at_gateway_limit_is_preserved() -> None:
     """The valid 19-character boundary reaches create unchanged."""
     name = "a" * 19
     adapter = FakeSandboxAdapter()
-    provider = OpenShellProvider(command=["server"], sandbox_name=name)
+    provider = OpenShellProvider(
+        command=["server"],
+        sandbox_name=name,
+        restricted_alpha_cleanup_acknowledged=True,
+    )
     with patch.object(provider, "_connect_adapter", return_value=adapter):
         provider.start_container("image")
     call = adapter.calls[0]

@@ -46,6 +46,7 @@ def test_start_preserves_request_and_create_route(service: str) -> None:
         service_name=service,
         startup_timeout_s=17,
         policy={"version": 1},
+        restricted_alpha_cleanup_acknowledged=True,
     )
     with patch.object(provider, "_connect_adapter", return_value=adapter):
         assert provider.start_container(
@@ -116,7 +117,11 @@ def test_invalid_inputs_never_connect(
 def test_unusable_route_rolls_back(url: str | None) -> None:
     """Missing/malformed selected routes fail without falling back or waiting."""
     adapter = FakeSandboxAdapter(service_url=url)
-    provider = OpenShellProvider(command=["server"], sandbox_name="chosen")
+    provider = OpenShellProvider(
+        command=["server"],
+        sandbox_name="chosen",
+        restricted_alpha_cleanup_acknowledged=True,
+    )
     with (
         patch.object(provider, "_connect_adapter", return_value=adapter),
         pytest.raises(SandboxCreationError, match="startup failed"),
@@ -137,7 +142,11 @@ def test_runtime_failure_cleans_up_and_redacts(operation: FakeOperation) -> None
     """Failures after a confirmed create request rollback."""
     adapter = FakeSandboxAdapter()
     adapter.failures[operation] = RuntimeError(SECRET)
-    provider = OpenShellProvider(command=["server"], sandbox_name="chosen")
+    provider = OpenShellProvider(
+        command=["server"],
+        sandbox_name="chosen",
+        restricted_alpha_cleanup_acknowledged=True,
+    )
     error = SandboxReadinessError if operation == "wait_ready" else SandboxCreationError
     with (
         patch.object(provider, "_connect_adapter", return_value=adapter),
@@ -156,7 +165,9 @@ def test_cleanup_failure_preserves_startup_error(operation: FakeOperation) -> No
     """Uncertain rollback retains state/client and prevents another create."""
     adapter = FakeSandboxAdapter(service_url=None)
     adapter.failures[operation] = RuntimeError(SECRET)
-    provider = OpenShellProvider(command=["server"])
+    provider = OpenShellProvider(
+        command=["server"], restricted_alpha_cleanup_acknowledged=True
+    )
     with patch.object(provider, "_connect_adapter", return_value=adapter):
         with pytest.raises(SandboxCreationError):
             provider.start_container("image")
@@ -175,7 +186,9 @@ def test_create_failure_without_identity(
     """An uncertain create must never use delete to discover an identity."""
     adapter = FakeSandboxAdapter(failures={"create": RuntimeError(SECRET)})
     adapter.delete_result = FakeDeletion(None, outcome)
-    provider = OpenShellProvider(command=["server"])
+    provider = OpenShellProvider(
+        command=["server"], restricted_alpha_cleanup_acknowledged=True
+    )
     with (
         patch.object(provider, "_connect_adapter", return_value=adapter),
         pytest.raises(SandboxCreationError),
@@ -204,7 +217,9 @@ def test_keep_sandbox_retains_failure_for_inspection() -> None:
 def test_readiness_identity_mismatch_fails() -> None:
     """A replacement cannot be treated as the originally created workload."""
     adapter = FakeSandboxAdapter(ready_result=Sandbox("chosen", "replacement"))
-    provider = OpenShellProvider(command=["server"])
+    provider = OpenShellProvider(
+        command=["server"], restricted_alpha_cleanup_acknowledged=True
+    )
     with (
         patch.object(provider, "_connect_adapter", return_value=adapter),
         pytest.raises(SandboxReadinessError),
@@ -219,7 +234,9 @@ def test_readiness_identity_mismatch_fails() -> None:
 def test_confirmed_rollback_allows_fresh_start() -> None:
     """A cleaned-up failure can restart with fresh state and default policy."""
     adapter = FakeSandboxAdapter(service_url=None)
-    provider = OpenShellProvider(command=["server"])
+    provider = OpenShellProvider(
+        command=["server"], restricted_alpha_cleanup_acknowledged=True
+    )
     fresh_adapter = FakeSandboxAdapter(service_url="https://route.test")
     with patch.object(
         provider, "_connect_adapter", side_effect=[adapter, fresh_adapter]
@@ -248,7 +265,11 @@ def test_rollback_failure_reports_safe_note_and_public_retry(
             cleanup: TimeoutError(SECRET),
         }
     )
-    provider = OpenShellProvider(command=["server", SECRET], sandbox_name="chosen")
+    provider = OpenShellProvider(
+        command=["server", SECRET],
+        sandbox_name="chosen",
+        restricted_alpha_cleanup_acknowledged=True,
+    )
     error = SandboxReadinessError if operation == "wait_ready" else SandboxCreationError
     with (
         patch.object(provider, "_connect_adapter", return_value=adapter),
@@ -276,7 +297,11 @@ def test_rollback_failure_reports_safe_note_and_public_retry(
 def test_lost_create_reply_requires_operator_inspection() -> None:
     """Create ambiguity survives retries without ever deleting an unowned name."""
     adapter = FakeSandboxAdapter(failures={"create": RuntimeError(SECRET)})
-    provider = OpenShellProvider(command=["server"], sandbox_name="chosen")
+    provider = OpenShellProvider(
+        command=["server"],
+        sandbox_name="chosen",
+        restricted_alpha_cleanup_acknowledged=True,
+    )
     with (
         patch.object(provider, "_connect_adapter", return_value=adapter),
         pytest.raises(SandboxCreationError),
@@ -302,7 +327,11 @@ def test_state_update_failure_rolls_back(field: str) -> None:
             super().__setattr__(name, value)
 
     adapter = FakeSandboxAdapter()
-    provider = OpenShellProvider(command=["server"], sandbox_name="chosen")
+    provider = OpenShellProvider(
+        command=["server"],
+        sandbox_name="chosen",
+        restricted_alpha_cleanup_acknowledged=True,
+    )
     with (
         patch("openenv_openshell.provider.ProviderState", FailingState),
         patch.object(provider, "_connect_adapter", return_value=adapter),
@@ -316,7 +345,9 @@ def test_state_update_failure_rolls_back(field: str) -> None:
 
 def test_initial_state_failure_never_connects() -> None:
     """Building ownership metadata before connecting avoids an orphaned client."""
-    provider = OpenShellProvider(command=["server"])
+    provider = OpenShellProvider(
+        command=["server"], restricted_alpha_cleanup_acknowledged=True
+    )
     with (
         patch("openenv_openshell.provider.ProviderState", side_effect=RuntimeError()),
         patch.object(provider, "_connect_adapter") as connect,

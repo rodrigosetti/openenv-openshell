@@ -3,6 +3,10 @@
 I6 tests the dependency range endpoints supported by this repository. Both
 ranges are exact pins, so the oldest and newest supported pair are the same:
 
+The production-index alpha is additionally restricted to a trusted operator's
+exclusive OpenShell gateway/workspace. This matrix is version compatibility,
+not evidence of shared or multi-tenant cleanup safety; SEC8c remains open.
+
 | OpenEnv client | OpenShell SDK | OpenShell gateway | Runtime evidence |
 | --- | --- | --- | --- |
 | 0.10.0 | 0.1.2 official hash-pinned wheel | 0.1.2 | Local Apple Silicon VM / native arm64 EchoEnv |

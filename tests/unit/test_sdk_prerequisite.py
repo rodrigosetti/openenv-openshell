@@ -25,7 +25,11 @@ from openenv_openshell.errors import OpenShellConnectionError
 source, failure, path = sys.argv[1:]
 secret = "private-import-diagnostic"
 policy = {"omitted": None, "mapping": {"version": 1}, "yaml": path}[source]
-provider = OpenShellProvider(command=["server"], policy=policy)
+provider = OpenShellProvider(
+    command=["server"],
+    policy=policy,
+    restricted_alpha_cleanup_acknowledged=True,
+)
 assert "openenv_openshell._sdk" not in sys.modules
 metadata = {"return_value": "0.1.2"}
 if failure == "missing":

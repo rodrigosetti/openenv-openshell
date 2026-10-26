@@ -14,17 +14,21 @@ def test_tag_must_match_source(tag: str) -> None:
         check_version("0.0.0", tag, "testpypi")
 
 
+@pytest.mark.parametrize("index", ["restricted-alpha", "pypi"])
 @pytest.mark.parametrize("version", ["0.0.0", "0.1.0rc1", "0.1.0.dev1", "0.1.0+local"])
-def test_production_rejects_placeholder_and_unstable_versions(version: str) -> None:
-    """A development build cannot become the first production release."""
+def test_production_rejects_placeholder_and_unstable_versions(
+    index: str, version: str
+) -> None:
+    """Neither PyPI path permits placeholders or unstable versions."""
     with pytest.raises(ValueError, match=r"Production|canonical"):
-        check_version(version, f"v{version}", "pypi")
+        check_version(version, f"v{version}", index)
 
 
 def test_stable_release_and_rehearsal_versions() -> None:
     """Rehearsals can exercise packaging before the usable release exists."""
     check_version("0.0.0", "v0.0.0", "testpypi")
     check_version("0.1.0", "v0.1.0", "pypi")
+    check_version("0.1.0", "v0.1.0", "restricted-alpha")
 
 
 def test_index_metadata_rejects_direct_reference() -> None:

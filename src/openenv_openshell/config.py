@@ -180,6 +180,7 @@ class OpenShellProviderConfig:
     health_request_timeout_s: float = 2.0
     gateway: str | None = None
     keep_sandbox: bool = False
+    restricted_alpha_cleanup_acknowledged: bool = False
     labels: Mapping[str, str] = field(default_factory=dict[str, str])
     providers: Sequence[str] = field(default_factory=tuple[str, ...])
     resources: OpenShellResources | None = None
@@ -221,6 +222,11 @@ class OpenShellProviderConfig:
         if self.gateway is not None and not self.gateway.strip():
             msg = "gateway must not be empty"
             raise ValueError(msg)
+        if not isinstance(  # pyright: ignore[reportUnnecessaryIsInstance] - Validate untyped callers.
+            self.restricted_alpha_cleanup_acknowledged, bool
+        ):
+            msg = "restricted_alpha_cleanup_acknowledged must be a boolean"
+            raise TypeError(msg)
 
         labels = dict(self.labels)
         _validate_labels(labels)

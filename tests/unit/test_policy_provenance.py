@@ -79,7 +79,9 @@ def test_metadata_attests_to_submitted_policy_only(*, explicit: bool) -> None:
         "filesystem_policy": {"read_only": [private_path]},
     }
     provider = OpenShellProvider(
-        command=["server"], policy=source if explicit else None
+        command=["server"],
+        policy=source if explicit else None,
+        restricted_alpha_cleanup_acknowledged=True,
     )
     adapter = FakeSandboxAdapter()
     source.clear()
@@ -109,7 +111,11 @@ def test_metadata_attests_to_submitted_policy_only(*, explicit: bool) -> None:
 def test_policy_digest_retained_after_failed_start() -> None:
     """Rollback retains submitted policy evidence even when readiness fails."""
     policy = {"version": 1}
-    provider = OpenShellProvider(command=["server"], policy=policy)
+    provider = OpenShellProvider(
+        command=["server"],
+        policy=policy,
+        restricted_alpha_cleanup_acknowledged=True,
+    )
     adapter = FakeSandboxAdapter(failures={"wait_ready": RuntimeError("failed")})
     with (
         patch.object(provider, "_connect_adapter", return_value=adapter),
@@ -137,7 +143,11 @@ def test_inspected_policy_cannot_change_repeated_startup(tmp_path: Path) -> None
         encoding="utf-8",
     )
     expected = load_policy(path)
-    provider = OpenShellProvider(command=["server"], policy=source)
+    provider = OpenShellProvider(
+        command=["server"],
+        policy=source,
+        restricted_alpha_cleanup_acknowledged=True,
+    )
     source.clear()
     for _ in range(2):
         configured = provider.config.policy
@@ -177,7 +187,11 @@ def test_config_snapshot_preserves_invalid_tuple_input() -> None:
 def test_path_policy_is_loaded_again_on_each_start(tmp_path: Path) -> None:
     """Path configuration retains load-at-start semantics rather than file bytes."""
     path = tmp_path / "policy.yaml"
-    provider = OpenShellProvider(command=["server"], policy=path)
+    provider = OpenShellProvider(
+        command=["server"],
+        policy=path,
+        restricted_alpha_cleanup_acknowledged=True,
+    )
     digests: list[str | None] = []
     for directory in ["/workspace", "/app"]:
         path.write_text(

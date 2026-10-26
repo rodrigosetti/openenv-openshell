@@ -1,9 +1,11 @@
 # Release preparation and publishing
 
 I10 prepares the `0.1.0` package; I13 prepares publishing; I14 owns the first
-usable production release. Setting the version is not publication or a PyPI name reservation.
-Production remains blocked until Beads M3 and I13 are closed with evidence.
-See the [prepared v0.1.0 release notes](release-notes/0.1.0.md) for scope and limitations.
+broadly supported production release. Setting the version is not publication or
+a PyPI name reservation. A separately governed restricted single-tenant alpha
+may be uploaded before M3/I14, but it does not satisfy or weaken either gate.
+See the [v0.1.0 release notes](release-notes/0.1.0.md) for its scope and
+limitations.
 
 ## SDK and gateway prerequisites
 
@@ -124,7 +126,45 @@ result and publisher/environment configuration evidence in I13. If index
 propagation is delayed, rerun only verification after the files are visible.
 Do not mark TestPyPI acceptance from local Twine checks alone.
 
-## Production eligibility and I14
+## Restricted-alpha PyPI eligibility
+
+The `restricted-alpha` workflow destination uploads to production PyPI only for
+the RA0 deployment boundary: one trusted operator exclusively controls the
+OpenShell gateway and workspace. It is not an upstream endorsement and must not
+be represented as shared, multi-tenant, or hostile-tenant safe. Its name-based
+final delete retains the SEC8c race; random names, labels, locks, identity
+checks, and retries are mitigations rather than an atomic guarantee.
+
+Before dispatching, record reviewable RA5 evidence for the exact source tag and
+commit, including package checks, a supported single-tenant quickstart and
+cleanup reproduction, and this residual-risk wording. Set these repository
+variables to the exact values after review:
+
+| Variable | Required value |
+| --- | --- |
+| `RESTRICTED_ALPHA_RELEASE_TAG` | Exact `v<version>` tag to publish. |
+| `RESTRICTED_ALPHA_RELEASE_COMMIT` | Full SHA for that tag. |
+| `RESTRICTED_ALPHA_EVIDENCE_URL` | HTTPS link to the reviewable RA5 evidence. |
+
+The workflow requires a protected version tag on `main`, those exact variables,
+and approval of the existing protected `pypi` environment before it can use the
+configured PyPI Trusted Publisher. The alpha and supported-release approvals are
+intentionally separate: `APPROVED_RELEASE_*` and `M3_EVIDENCE_URL` cannot
+authorize this route, and the restricted-alpha variables cannot authorize the
+later M3/I14 route. Do not use a branch, pull request, placeholder, development,
+or prerelease version. After review and tag protection are in place:
+
+```bash
+gh workflow run release.yml --ref v0.1.0 --field index=restricted-alpha
+```
+
+Verify the `verify-index` job installed the indexed wheel, then record the PyPI
+project URL, immutable tag/commit, artifact SHA-256 values, workflow URL, and
+supported deployment result in RA6. Revoke the alpha approval variables after
+publication. The pending PyPI Trusted Publisher must retain the documented
+owner/repository/workflow/environment identity; do not substitute an API token.
+
+## Broad production eligibility and I14
 
 Before production, verify every M3 checklist item against SPEC.md section 39,
 with green CI/E2E and an independently reproduced quickstart. Close M3 only

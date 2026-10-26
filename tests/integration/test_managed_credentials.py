@@ -135,6 +135,7 @@ binaries: [/usr/local/bin/python3.12]
         command=("sh", "-c", command),
         workspace=workspace,
         sandbox_name=name,
+        restricted_alpha_cleanup_acknowledged=True,
         providers=[provider_name],
         labels={"openenv-sec7": name},
     )

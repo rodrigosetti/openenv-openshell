@@ -26,6 +26,7 @@ def test_collision_preserves_disposable_owner(openshell_runtime: Runtime) -> Non
         sandbox_name=owner.config.sandbox_name,
         workspace=openshell_runtime.workspace,
         gateway=openshell_runtime.gateway,
+        restricted_alpha_cleanup_acknowledged=True,
     )
     openshell_runtime.providers.append(contender)
     with pytest.raises(SandboxCreationError, match="already in use"):
@@ -53,6 +54,7 @@ def test_observed_replacement_preserves_disposable_owner(
         sandbox_name=name,
         workspace=openshell_runtime.workspace,
         gateway=openshell_runtime.gateway,
+        restricted_alpha_cleanup_acknowledged=True,
     )
     openshell_runtime.providers.append(replacement)
     url = replacement.start_container(openshell_runtime.image)

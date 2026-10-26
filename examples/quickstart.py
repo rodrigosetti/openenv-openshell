@@ -22,6 +22,9 @@ from openenv.core.generic_client import GenericEnvClient
 from openenv_openshell import OpenShellProvider
 
 provider = OpenShellProvider(
+    # Required for this restricted alpha's automatic, name-based cleanup.
+    # Use only for an exclusive gateway/workspace controlled by one trusted operator.
+    restricted_alpha_cleanup_acknowledged=True,
     # Exact server argv; OpenShell 0.1.2 does not run the image CMD for you.
     command=[
         "sh",

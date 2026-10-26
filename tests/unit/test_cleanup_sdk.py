@@ -84,6 +84,7 @@ def cleanup_provider(sdk: MagicMock, runtime: CleanupRuntime) -> OpenShellProvid
         sandbox_name="owned",
         workspace="training",
         deletion_timeout_s=DELETION_TIMEOUT,
+        restricted_alpha_cleanup_acknowledged=True,
     )
     sdk.create.return_value = runtime.current
     sdk.wait_ready.return_value = runtime.current

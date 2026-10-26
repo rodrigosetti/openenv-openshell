@@ -127,6 +127,7 @@ class Demo:
             workspace=workspace,
             gateway=gateway,
             sandbox_name=f"oe-demo-{token_hex(4)}",
+            restricted_alpha_cleanup_acknowledged=True,
             command=COMMAND,
             policy=POLICY,
         )

@@ -10,12 +10,15 @@ and training loops keep working: you swap the provider, not the client.
 env = GenericEnvClient.from_docker_image(image, provider=OpenShellProvider(...)).sync()
 ```
 
-**Alpha; v0.1.0 prepared for release.** The provider lifecycle, explicit policies, and cleanup are
-implemented and validated on a local OpenShell 0.1.2 gateway with OpenEnv 0.10.0.
-It is not yet published to PyPI; install from source. See
-[known limitations](#known-limitations) before relying on it.
-The [v0.1.0 release notes](docs/release-notes/0.1.0.md) describe the prepared
-package; publication awaits the release acceptance gates.
+**Restricted single-tenant alpha; v0.1.0 prepared for PyPI.** The provider
+lifecycle, explicit policies, and cleanup are implemented and validated on a
+local OpenShell 0.1.2 gateway with OpenEnv 0.10.0. This alpha is supported only
+when one trusted operator exclusively controls the OpenShell gateway and
+workspace. It is not upstream-endorsed, and it is not safe for shared,
+multi-tenant, independently administered, or hostile-tenant deployments. See
+[known limitations](#known-limitations) before relying on it. The
+[v0.1.0 release notes](docs/release-notes/0.1.0.md) describe the restricted
+release boundary; M2/M3/I14 remain the path to a broadly supported release.
 
 ## Requirements
 
@@ -82,6 +85,9 @@ from openenv.core.generic_client import GenericEnvClient
 from openenv_openshell import OpenShellProvider
 
 provider = OpenShellProvider(
+    # Required for this restricted alpha's automatic, name-based cleanup.
+    # Use only for an exclusive gateway/workspace controlled by one trusted operator.
+    restricted_alpha_cleanup_acknowledged=True,
     # Exact server argv; OpenShell 0.1.2 does not run the image CMD for you.
     command=[
         "sh",
@@ -108,6 +114,13 @@ with env:
     print("sandbox:", provider.metadata and provider.metadata.sandbox_name)
 print("deleted:", provider.state.deleted)
 ```
+
+This quickstart is only for the restricted-alpha boundary: before running it,
+ensure no independent or hostile actor can create or reuse sandbox names in
+this gateway/workspace. The acknowledgement does not make deletion atomic;
+it records that you accept the remaining risk. For a shared gateway, do not
+run this alpha—use `keep_sandbox=True` only for manual operator cleanup, or
+wait for the later atomic-deletion release.
 
 What happens: the provider validates the command and policy offline, creates
 the sandbox with the policy and service route in one request, waits for
@@ -197,7 +210,13 @@ installation, strict build, and GitHub Pages deployment procedure.
 - Security milestones are incomplete: name-based cleanup can affect a sandbox
   that replaces it between identity lookup and deletion (SEC8c), and the local VM
   lane offers no process-capacity
-  isolation against hostile workloads. See the [security guide](docs/security.md).
+  isolation against hostile workloads. This restricted alpha therefore requires
+  `restricted_alpha_cleanup_acknowledged=True` before it starts an automatically
+  cleaned workload, and supports only a trusted operator's exclusive
+  gateway/workspace. Random names, labels, locks, lookup checks, and
+  identity-aware waits are mitigations, not atomic deletion. Do not use it on a
+  shared or multi-tenant gateway. It neither resolves SEC8c nor represents
+  OpenEnv or NVIDIA endorsement. See the [security guide](docs/security.md).
 
 ## Development
 

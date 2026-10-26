@@ -9,6 +9,30 @@ exclusion below; SEC8c retains the atomic-deletion requirement. Completion
 of the review is not security milestone approval. Resource request mapping
 does not prove runtime resource enforcement.
 
+## Restricted-alpha deployment boundary
+
+The production-index alpha is supported only for a trusted operator with
+exclusive control of one OpenShell gateway and workspace. It is unsupported if
+an independent, hostile, or multi-tenant actor can create or reuse sandbox names
+there. It is not upstream endorsement from OpenEnv or NVIDIA, and it does not
+close M2, M3, I14, I11/I11a/I11b, or SEC8c.
+
+The provider fails locally before startup unless automatic cleanup is explicitly
+acknowledged:
+
+```python
+provider = OpenShellProvider(
+    command=["your-server", "--port", "8000"],
+    restricted_alpha_cleanup_acknowledged=True,
+)
+```
+
+Set this only after verifying the exclusive-operator boundary. It records an
+informed deployment decision; it cannot turn the API's name-based final delete
+into atomic, ownership-conditional deletion. For a shared gateway, do not use
+the alpha's automatic cleanup. Retain the workload with `keep_sandbox=True`
+only when an operator will inspect and remove it manually.
+
 ## Policy selection and enforcement ownership
 
 The [architecture guide](architecture.md) explains lifecycle and routing.

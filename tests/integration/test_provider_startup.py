@@ -35,6 +35,7 @@ def test_provider_startup(cleanup: str, service_name: str) -> None:
         workspace=workspace,
         sandbox_name=name,
         service_name=service_name,
+        restricted_alpha_cleanup_acknowledged=True,
         command=COMMAND,
         policy=Path(__file__).parent / "images/echo/policy.yaml",
         labels={"openenv-p4": name},
@@ -105,6 +106,7 @@ def test_failed_start_cleanup(stage: str) -> None:
     provider = OpenShellProvider(
         workspace=workspace,
         sandbox_name=name,
+        restricted_alpha_cleanup_acknowledged=True,
         command=COMMAND
         if stage != "health"
         else [
@@ -195,6 +197,7 @@ def test_interrupted_start_cleanup(stage: str) -> None:
         workspace=workspace,
         gateway=gateway,
         sandbox_name=name,
+        restricted_alpha_cleanup_acknowledged=True,
         command=COMMAND,
         policy=Path(__file__).parent / "images/echo/policy.yaml",
         labels={"openenv-aee": name},

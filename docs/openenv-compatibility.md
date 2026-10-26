@@ -39,6 +39,7 @@ from openenv_openshell import OpenShellProvider
 image = Path("tests/integration/images/echo/local-image-id.txt").read_text().strip()
 provider = OpenShellProvider(
     sandbox_name="oe-client-example",
+    restricted_alpha_cleanup_acknowledged=True,
     command=[
         "sh", "-c",
         "cd /app/env && uvicorn server.app:app --host 0.0.0.0 --port 8000",
